@@ -52,7 +52,8 @@ Optional reference oracles. This builds scikit-sparse without root; see `docs/EN
 ```bash
 scripts/setup_oracle_env.sh
 uv run --no-sync python scripts/oracle_sanity.py
-uv run --no-sync pytest                             # incl. oracle tests (~4 min)
+uv run --no-sync pytest                             # incl. oracle tests (~8 min)
+PTAGWB_REQUIRE_ORACLES=1 uv run --no-sync pytest    # validation mode: any skip fails
 uv run --no-sync python scripts/m1_validate.py --enterprise
 ```
 

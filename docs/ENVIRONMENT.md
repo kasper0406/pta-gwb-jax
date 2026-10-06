@@ -17,6 +17,7 @@ Machine: single NVIDIA GeForce RTX 5090 (32 GB, sm_120 / Blackwell), driver 580.
 | pint-pulsar (PINT) | 1.1.7 |
 | astropy | 8.0.1 |
 | numpy / scipy | 2.5.3 / 1.18.1 |
+| ephem (pyephem) | 4.2.1. Used only for the optional enterprise-convention sky positions (`data.enterprise_position`) |
 
 `jax[cuda13]` worked on the first try, so the `jax[cuda12]` fallback was not needed.
 

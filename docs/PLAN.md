@@ -47,10 +47,10 @@ Appendix tables/figures are cited by appendix and LaTeX label, because AASTeX's
 |---|---|
 | IRN log10 A_red | U[-20, -11] |
 | IRN gamma_red | U[0, 7] |
-| Common power law, gamma = 13/3: log10 A | U[-18, -14] |
+| Common power law, gamma = 13/3: log10 A | U[-18, -14] **[UNCERTAIN: the released fixed-gamma spline-ORF core used U[-18, -11]; settle in M2]** |
 | Common power law, varied gamma: log10 A | U[-18, -11] |
 | Common gamma (varied) | U[0, 7] |
-| Free spectrum rho_i [s^2] | "log-Uniform in rho_i [-18, -8]" **[UNCERTAIN: probably log10 of the variance rho_i in s^2, which equals enterprise's log10_rho in U[-9, -4] on the standard-deviation scale. Check against the core files]** |
+| Free spectrum rho_i [s^2] | The paper says "log-Uniform in rho_i [-18, -8]", i.e. log10_rho in U[-9, -4]. **Resolved (M1 review): the released HD free-spectrum chains sampled enterprise `log10_rho` (log10 RMS in s) ~ U[-15.5, -1.0].** Evidence: constant ln-prior giving width 14.5 per rho, samples bottoming out at -15.5, and Ceffyl HD grids spanning [-15.5, -1]. [-9, -4] is only the Fig. 1(a) histogram range. CURN^free is unverified. See `docs/M1_VALIDATION.md` Sec. 7 and `ptagwb.config.PRIORS` |
 | Broken power law | log10 A U[-18,-11], gamma U[0,7], delta = 0, log10 f_bend U[-8.7,-7], ell = 0.1 |
 | t-process | log10 A U[-18,-11], gamma U[0,7], x_i ~ InvGamma(1,1) |
 | Turnover | log10 A U[-18,-11], gamma U[0,7], kappa U[0,7], log10 f0 U[-9,-7] |

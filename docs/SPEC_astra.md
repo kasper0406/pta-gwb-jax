@@ -336,3 +336,43 @@ Implementation requirements:
 | 12 | Only then run phase-shift/sky-scramble backgrounds and published BF comparisons. |
 
 The most damaging mistakes are wrong EQUAD scaling; already-scaled TOA errors; incorrect ECORR groups; local or rounded Fourier spans; independent common-process phase origins; missing \(\Delta f\); an extra factor of two; confusing coefficient RMS with variance; HD diagonal normalization errors; fixing intrinsic RN accidentally; adding a DM GP to DMX baseline; and comparing different priors, frequency cutoffs or likelihood constants.
+---
+
+## Errata (added 2026-10-06 after M1 validation and review; the text above is unchanged)
+
+These corrections come from our own verification against the released NG15 products and the
+installed enterprise and discovery sources. Details and evidence are in
+`docs/M1_VALIDATION.md`.
+
+1. **Sec. 5, free-spectrum prior: incorrect for the released chains.** The text derives
+   `log10_rho ~ U[-9, -4]` from the paper's Table 1 ("log-Uniform in rho_i [-18, -8]"). The
+   released HD free-spectrum production chains (Fig. 1(a) core
+   `30fCP_30fiRN_3A_freespec_chain.core`, tutorial `hd_30f_fs.core`) actually sampled
+   **`log10_rho ~ U[-15.5, -1.0]`**. Evidence: `lnpost - lnlike = -357.814487` is constant,
+   which after the 67 IRN `U[-20,-11] x U[0,7]` priors implies a width of 14.5000000 per
+   rho; samples reach -15.50 and go no lower; the Ceffyl HD KDE grids span exactly
+   [-15.5, -1]. [-9, -4] is the range the Fig. 1(a) notebook uses to histogram, truncate and
+   renormalise the marginals before plotting. Raw-chain reproduction needs [-15.5, -1];
+   reproducing the figure additionally needs that truncation. The CURN^free prior is
+   unverified. The variance-to-RMS conversion in Sec. 5 is correct.
+2. **Sec. 7, RN absorption.** Implemented literally (normal equations, then
+   `E = G^T P G` and `d = G^T P r` by subtracting the RN-projected part), the prescription
+   cancels catastrophically when the intrinsic RN or the common process dominates, as at
+   the prior corners log10_A -> -11, gamma -> 7. Gradient errors reach O(0.1) relative in
+   float64. Use a square-root formulation, e.g. QR of `[R_F Phi^1/2; I]` with
+   `F^T P F = R_F^T R_F`, subtraction-free `E` and `d`, and a diagonal split of Gamma (see
+   `ptagwb/likelihood.py`).
+3. **Sec. 2, "Historical production SVD setting: UNVERIFIED".** Verified: SVD. Only the SVD
+   timing basis reproduces the absolute `logl` of the production chains; the unit-norm basis
+   is off by 1665.
+4. **Sec. 2, "exact production dictionary bytes: UNVERIFIED".** Verified: `v1p1_wn_dict.json`
+   equals the 645 fixed WN constants in the production chains' enterprise runtime info.
+5. **Sec. 1, sky vector.** enterprise (and therefore the released feathers and chains) uses
+   B1950-equinox coordinates for pulsars whose name contains "B", about 0.5 deg from ICRS
+   (pyephem `Equatorial(..., epoch="1950")`). Our default is ICRS;
+   `position="enterprise"` reproduces the released vectors.
+6. **Sec. 7, likelihood constants.** The `n_TOA log 2 pi` term is present in enterprise 3.5
+   but not in enterprise 3.3.1 or discovery. The production chains used 3.3.1.
+7. **Sec. 4, monopole/dipole regulariser.** discovery uses 1 + 1e-6, enterprise 1 + 1e-5.
+8. **Sec. 5, fixed-gamma common amplitude.** Table 1 says `U[-18, -14]`, but the released
+   fixed-gamma spline-ORF core used `U[-18, -11]`. Unresolved for HD^13/3 and CURN^13/3.
