@@ -1,0 +1,2835 @@
+{
+ "description": "PTA data sets for the NG15 GWB reproduction. Raw files live in data/raw/ (git-ignored); regenerate with `uv run python scripts/fetch_data.py`.",
+ "generated_by": "scripts/fetch_data.py",
+ "key_files": {
+  "ng15_narrowband_par_tim": "ng15_v2.1.0/extracted/NANOGrav15yr_PulsarTiming_v2.1.0/narrowband/{par,tim}/",
+  "ng15_single_pulsar_noise_chains": "ng15_v2.1.0/extracted/NANOGrav15yr_PulsarTiming_v2.1.0/narrowband/noise/",
+  "white_noise_dict_gwb": "ng15_gwb_fig1_data/extracted/figure1_data/v1p1_wn_dict.json (identical values to ng15_tutorial_repo/.../tutorials/data/15yr_wn_dict.json)",
+  "wn_plus_rn_dict": "ng15_cw_analysis/extracted/15yr_cw_analysis-main/data/v1p1_all_dict.json",
+  "gwb_chain_hd_varied_gamma": "ng15_gwb_fig1_data/extracted/figure1_data/nano15_hd_chain_long_050523.npy (columns: gamma, log10_A)",
+  "gwb_chain_hd_gamma_13_3": "ng15_gwb_fig1_data/extracted/figure1_data/nano15_hd_chain_fg_long_050523.npy (log10_A)",
+  "gwb_chain_hd_free_spectrum_30f": "ng15_gwb_fig1_data/extracted/figure1_data/30fCP_30fiRN_3A_freespec_chain.core",
+  "gwb_chain_spline_orf": "ng15_gwb_fig1_data/extracted/figure1_data/SplineORF_{Varied,Fixed}Gamma_NL.core",
+  "gwb_chain_hd_14f_pl": "ng15_gwb_fig1_data/extracted/figure1_data/14f_PL_hd_crn.core",
+  "curn_chain_varied_gamma_with_logl": "discovery_repo/extracted/discovery-*/data/NG15yr-m2a-chain.feather",
+  "hd_chain_varied_gamma_with_logl": "discovery_repo/extracted/discovery-*/data/NG15yr-m3a-chain.feather",
+  "ng15_feathers_67psr": "discovery_repo/extracted/discovery-*/data/v1p1_de440_pint_bipm2019-*.feather",
+  "os_pair_correlations": "ng15_gwb_fig7_os/extracted/figure7_data/correlations_*_nfreq{5,14}.npz",
+  "tutorial_presampled_cores": "ng15_tutorial_repo/extracted/*/tutorials/presampled_cores/*.core",
+  "curn_varied_gamma_psd_posteriors": "ng15_gwb_fig5_psd_pl/extracted/curn_variedgamma.h5"
+ },
+ "not_available": {
+  "ng15_gwb_official_chain_release": "No dedicated Zenodo/NANOGrav-webpage release of the full GWB-paper chains exists (checked nanograv.org/science/data and Zenodo search, 2026-10-06). The GWB chains used for the paper figures are distributed via Google Drive links in nanograv/15yr_stochastic_analysis/data_release (fetched above as ng15_gwb_fig*).",
+  "ppta_dr3_profiles": "PPTA DR3 profile / UWL data products (~1.4 TB per collection) deliberately not fetched; only toas_and_parameters/.",
+  "ppta_dr3_part2": "CSIRO collection 59381 (part 2 of 2) lists the same toas_and_parameters/ files as part 1; not fetched separately."
+ },
+ "updated_at": "2026-10-06T19:33:10+00:00",
+ "datasets": {
+  "ng15_v2.1.0": {
+   "group": "ng15",
+   "kind": "zenodo",
+   "description": "NANOGrav 15-yr data set, latest version (v2.1.0) of concept record 7967584: narrowband+wideband par/tim, clock files, noise-modelling MCMC chains (added in v2), NoRedNoise/predictive par files, correlation matrices, post-fit residuals.",
+   "status": "fetched",
+   "fetched_at": "2026-10-06T19:32:25+00:00",
+   "dest": "data/raw/ng15_v2.1.0",
+   "source_url": "https://zenodo.org/records/16051178",
+   "api_url": "https://zenodo.org/api/records/16051178",
+   "doi": "10.5281/zenodo.16051178",
+   "concept_doi": "10.5281/zenodo.7967584",
+   "title": "The NANOGrav 15-Year Data Set",
+   "version": "2.1.0",
+   "publication_date": "2025-07-17",
+   "files": [
+    {
+     "name": "NANOGrav15yr_PulsarTiming_v2.1.0.tar.gz",
+     "path": "data/raw/ng15_v2.1.0/NANOGrav15yr_PulsarTiming_v2.1.0.tar.gz",
+     "url": "https://zenodo.org/api/records/16051178/files/NANOGrav15yr_PulsarTiming_v2.1.0.tar.gz/content",
+     "size": 638719668,
+     "sha256": "91476bf20d4c8baa9f5ad39c6e114b581478a5a7e269876489cafc8f62c5708f",
+     "md5": "557d42dd8486a5f8272d90dec9b228a8",
+     "md5_expected": "557d42dd8486a5f8272d90dec9b228a8",
+     "checksum_verified": true,
+     "extracted_to": "data/raw/ng15_v2.1.0/extracted"
+    }
+   ],
+   "total_size": 638719668
+  },
+  "ng15_v1.0.1": {
+   "group": "ng15",
+   "kind": "zenodo",
+   "description": "NANOGrav 15-yr data set v1.0.1 (the June-2023 release contemporaneous with the GWB paper; v1.0.1 only fixes the tarball directory structure of v1.0.0). Kept to verify that the narrowband par/tim used for the GWB analysis are unchanged in later versions.",
+   "status": "fetched",
+   "fetched_at": "2026-10-06T19:32:27+00:00",
+   "dest": "data/raw/ng15_v1.0.1",
+   "source_url": "https://zenodo.org/records/8104459",
+   "api_url": "https://zenodo.org/api/records/8104459",
+   "doi": "10.5281/zenodo.8104459",
+   "concept_doi": "10.5281/zenodo.7967584",
+   "title": "The NANOGrav 15-Year Data Set",
+   "version": "1.0.1",
+   "publication_date": "2023-06-28",
+   "files": [
+    {
+     "name": "NANOGrav15yr_PulsarTiming_v1.0.1.tar.gz",
+     "path": "data/raw/ng15_v1.0.1/NANOGrav15yr_PulsarTiming_v1.0.1.tar.gz",
+     "url": "https://zenodo.org/api/records/8104459/files/NANOGrav15yr_PulsarTiming_v1.0.1.tar.gz/content",
+     "size": 551135371,
+     "sha256": "15c029824cea837ae1da19fb5b553274cf9e745e90a9af166b2f44c22cd5f77a",
+     "md5": "da5defcd4f01e12ba3892bb189b2da4d",
+     "md5_expected": "da5defcd4f01e12ba3892bb189b2da4d",
+     "checksum_verified": true,
+     "extracted_to": "data/raw/ng15_v1.0.1/extracted"
+    }
+   ],
+   "total_size": 551135371
+  },
+  "ng15_tutorial_repo": {
+   "group": "ng15",
+   "kind": "github",
+   "description": "nanograv/15yr_stochastic_analysis (official companion repo of arXiv:2306.16213): 15yr_wn_dict.json (fixed white-noise dictionary EFAC/EQUAD/ECORR), 15yr_emp_distr.json (intrinsic-RN empirical distributions), 67 Enterprise-derived pulsar feather files (v1p1_de440_pint_bipm2019-*.feather), presampled la_forge cores (CURN/HD 14f varied-gamma, HD 30f free spectrum, spline ORF, TI), optimal-statistic results. The README warns the tutorial data are 'reduced' and may not reproduce the paper exactly.",
+   "status": "fetched",
+   "fetched_at": "2026-10-06T19:32:27+00:00",
+   "dest": "data/raw/ng15_tutorial_repo",
+   "source_url": "https://github.com/nanograv/15yr_stochastic_analysis/tree/a3e8b8776a646208ca2d307f83c20bc70e029933",
+   "doi": null,
+   "commit": "a3e8b8776a646208ca2d307f83c20bc70e029933",
+   "files": [
+    {
+     "name": "15yr_stochastic_analysis-a3e8b8776a64.tar.gz",
+     "path": "data/raw/ng15_tutorial_repo/15yr_stochastic_analysis-a3e8b8776a64.tar.gz",
+     "url": "https://codeload.github.com/nanograv/15yr_stochastic_analysis/tar.gz/a3e8b8776a646208ca2d307f83c20bc70e029933",
+     "size": 314837600,
+     "sha256": "de13dd566358a4f8b05ffa382edf924cc74fc5faf33044fd4cadeb266ab75b5d",
+     "md5": "8b39cc4d05cb319a9902d593b9a15fc8",
+     "checksum_verified": null,
+     "extracted_to": "data/raw/ng15_tutorial_repo/extracted"
+    }
+   ],
+   "note": "GitHub archive tarballs are not guaranteed byte-stable; the commit sha is the authoritative identifier.",
+   "total_size": 314837600
+  },
+  "discovery_repo": {
+   "group": "ng15",
+   "kind": "github",
+   "description": "nanograv/discovery source + data/: 67 NG15 feather files (v1p1_de440_pint_bipm2019-*), NG15yr-m2a-chain.feather (CURN) and NG15yr-m3a-chain.feather (HD) reference chains, EPTA DR2 feathers. Oracle/reference only.",
+   "status": "fetched",
+   "fetched_at": "2026-10-06T19:32:27+00:00",
+   "dest": "data/raw/discovery_repo",
+   "source_url": "https://github.com/nanograv/discovery/tree/b26d2554df5540a7610eedf926659701daad01ad",
+   "doi": null,
+   "commit": "b26d2554df5540a7610eedf926659701daad01ad",
+   "files": [
+    {
+     "name": "discovery-b26d2554df55.tar.gz",
+     "path": "data/raw/discovery_repo/discovery-b26d2554df55.tar.gz",
+     "url": "https://codeload.github.com/nanograv/discovery/tar.gz/b26d2554df5540a7610eedf926659701daad01ad",
+     "size": 232137749,
+     "sha256": "f807120afa79cef936125cec69a34c4adad79b08e1446aee49a36653b2c7e72c",
+     "md5": "83e91cb650913e47a7a5b150a4e94ed8",
+     "checksum_verified": null,
+     "extracted_to": "data/raw/discovery_repo/extracted"
+    }
+   ],
+   "note": "GitHub archive tarballs are not guaranteed byte-stable; the commit sha is the authoritative identifier.",
+   "total_size": 232137749
+  },
+  "ng15_cw_analysis": {
+   "group": "ng15",
+   "kind": "zenodo",
+   "description": "NG15 continuous-wave analysis release (arXiv:2306.16222): contains v1p1_all_dict.json (white-noise + intrinsic red-noise values for every pulsar), enterprise Pulsar pickles (jar/), pulsar distances. We need it for the noise dictionary.",
+   "status": "fetched",
+   "fetched_at": "2026-10-06T19:32:28+00:00",
+   "dest": "data/raw/ng15_cw_analysis",
+   "source_url": "https://zenodo.org/records/8067506",
+   "api_url": "https://zenodo.org/api/records/8067506",
+   "doi": "10.5281/zenodo.8067506",
+   "concept_doi": "10.5281/zenodo.8067505",
+   "title": "Continuous Wave Analysis of the NANOGrav 15-Year Dataset",
+   "version": "1.0.0",
+   "publication_date": "2023-06-29",
+   "files": [
+    {
+     "name": "NANOGrav15yr_CW-Analysis_v1.0.0.zip",
+     "path": "data/raw/ng15_cw_analysis/NANOGrav15yr_CW-Analysis_v1.0.0.zip",
+     "url": "https://zenodo.org/api/records/8067506/files/NANOGrav15yr_CW-Analysis_v1.0.0.zip/content",
+     "size": 365043948,
+     "sha256": "1aad5b781f085dfd1614c345972475e2b44750e11fe79d5dc1b7e1b92bf1c512",
+     "md5": "b128fa01b8bc551ef89e7a042664659b",
+     "md5_expected": "b128fa01b8bc551ef89e7a042664659b",
+     "checksum_verified": true,
+     "extracted_to": "data/raw/ng15_cw_analysis/extracted"
+    }
+   ],
+   "total_size": 365043948
+  },
+  "ng15_sensitivity_curves": {
+   "group": "ng15_reference",
+   "kind": "zenodo",
+   "description": "Noise spectra + GWB sensitivity curves for NG15 (detector-characterization paper, arXiv:2306.16218).",
+   "status": "fetched",
+   "fetched_at": "2026-10-06T19:32:29+00:00",
+   "dest": "data/raw/ng15_sensitivity_curves",
+   "source_url": "https://zenodo.org/records/8092346",
+   "api_url": "https://zenodo.org/api/records/8092346",
+   "doi": "10.5281/zenodo.8092346",
+   "concept_doi": "10.5281/zenodo.8092345",
+   "title": "Noise Spectra and Stochastic Background Sensitivity Curve for the NG15-year Dataset",
+   "version": "1.0.0",
+   "publication_date": "2023-06-29",
+   "files": [
+    {
+     "name": "NANOGrav15yr_Sensitivity-Curves_v1.0.0.tar.gz",
+     "path": "data/raw/ng15_sensitivity_curves/NANOGrav15yr_Sensitivity-Curves_v1.0.0.tar.gz",
+     "url": "https://zenodo.org/api/records/8092346/files/NANOGrav15yr_Sensitivity-Curves_v1.0.0.tar.gz/content",
+     "size": 466151,
+     "sha256": "78264e02e24970afe2b9df72ee65e66742ea6ccd6039e47ea73eeecff169be24",
+     "md5": "5b7b0f424be2885f73fb058b28571b40",
+     "md5_expected": "5b7b0f424be2885f73fb058b28571b40",
+     "checksum_verified": true,
+     "extracted_to": "data/raw/ng15_sensitivity_curves/extracted"
+    }
+   ],
+   "total_size": 466151
+  },
+  "ng15_kde_freespec_v1": {
+   "group": "ng15_reference",
+   "kind": "zenodo",
+   "description": "Ceffyl KDE representations of the NG15 GWB free spectra, v1.0.0.",
+   "status": "fetched",
+   "fetched_at": "2026-10-06T19:32:29+00:00",
+   "dest": "data/raw/ng15_kde_freespec_v1",
+   "source_url": "https://zenodo.org/records/8060824",
+   "api_url": "https://zenodo.org/api/records/8060824",
+   "doi": "10.5281/zenodo.8060824",
+   "concept_doi": "10.5281/zenodo.8060823",
+   "title": "KDE Representations of the Gravitational Wave Background Free Spectra Present in the NANOGrav 15-Year Dataset",
+   "version": "1.0.0",
+   "publication_date": "2023-06-29",
+   "files": [
+    {
+     "name": "NANOGrav15yr_KDE-FreeSpectra_v1.0.0.zip",
+     "path": "data/raw/ng15_kde_freespec_v1/NANOGrav15yr_KDE-FreeSpectra_v1.0.0.zip",
+     "url": "https://zenodo.org/api/records/8060824/files/NANOGrav15yr_KDE-FreeSpectra_v1.0.0.zip/content",
+     "size": 6571028,
+     "sha256": "b461125ff9d384761ec4647756587c42067723c6980ef3c633b178012a4d91d8",
+     "md5": "8f9810ee90431886d54bf895dcbfb8a1",
+     "md5_expected": "8f9810ee90431886d54bf895dcbfb8a1",
+     "checksum_verified": true,
+     "extracted_to": "data/raw/ng15_kde_freespec_v1/extracted"
+    }
+   ],
+   "total_size": 6571028
+  },
+  "ng15_kde_freespec_v2": {
+   "group": "ng15_reference",
+   "kind": "zenodo",
+   "description": "Ceffyl KDE representations of the NG15 GWB free spectra, v2.0.0 (30f CURN / 30f HD free spectra).",
+   "status": "fetched",
+   "fetched_at": "2026-10-06T19:32:29+00:00",
+   "dest": "data/raw/ng15_kde_freespec_v2",
+   "source_url": "https://zenodo.org/records/21844115",
+   "api_url": "https://zenodo.org/api/records/21844115",
+   "doi": "10.5281/zenodo.21844115",
+   "concept_doi": "10.5281/zenodo.8060823",
+   "title": "KDE Representations of the Gravitational Wave Background Free Spectra Present in the NANOGrav 15-Year Dataset",
+   "version": "2.0.0",
+   "publication_date": "2026-08-07",
+   "files": [
+    {
+     "name": "ceffyl_data.zip",
+     "path": "data/raw/ng15_kde_freespec_v2/ceffyl_data.zip",
+     "url": "https://zenodo.org/api/records/21844115/files/ceffyl_data.zip/content",
+     "size": 2975291,
+     "sha256": "9784c9d047f437a138bb8ede41b6a93aa87d530e9557f7225617df4cb82068a5",
+     "md5": "b18bfd6fcfa310b7b9f9f0b4293eaefe",
+     "md5_expected": "b18bfd6fcfa310b7b9f9f0b4293eaefe",
+     "checksum_verified": true,
+     "extracted_to": "data/raw/ng15_kde_freespec_v2/extracted"
+    }
+   ],
+   "total_size": 2975291
+  },
+  "ng15_gwb_fig1_data": {
+   "group": "ng15_reference",
+   "kind": "gdrive",
+   "description": "Data behind Fig. 1 of arXiv:2306.16213 (linked from 15yr_stochastic_analysis/data_release/figure_1). Google Drive, no checksum published.",
+   "status": "fetched",
+   "fetched_at": "2026-10-06T19:32:30+00:00",
+   "dest": "data/raw/ng15_gwb_fig1_data",
+   "source_url": "https://drive.google.com/file/d/1zywc5zUpMSlYDrrdogPEaRd_RTr9U5J6/view",
+   "doi": null,
+   "files": [
+    {
+     "name": "figure1_data.tar.gz",
+     "path": "data/raw/ng15_gwb_fig1_data/figure1_data.tar.gz",
+     "url": "https://drive.usercontent.google.com/download?id=1zywc5zUpMSlYDrrdogPEaRd_RTr9U5J6&export=download&confirm=t",
+     "size": 219182075,
+     "sha256": "5c7d2dd068289c7b172b0e028ba7725abb47ae8867077bc044e87b9b617466a8",
+     "md5": "437cad75aad78591acfec557d987568c",
+     "checksum_verified": null,
+     "extracted_to": "data/raw/ng15_gwb_fig1_data/extracted"
+    }
+   ],
+   "total_size": 219182075
+  },
+  "ng15_gwb_fig4_correlations": {
+   "group": "ng15_reference",
+   "kind": "gdrive",
+   "description": "Data behind Fig. 4 (correlations_gamma4p33_nfreq14.npz, correlations_variedgamma_nfreq14.npz; data_release/figure_4).",
+   "status": "fetched",
+   "fetched_at": "2026-10-06T19:32:33+00:00",
+   "dest": "data/raw/ng15_gwb_fig4_correlations",
+   "source_url": "https://drive.google.com/file/d/19I8qAnLCrCo7PBa5k5rXUG27U9S7LkWS/view",
+   "doi": null,
+   "files": [
+    {
+     "name": "correlations.tar.gz",
+     "path": "data/raw/ng15_gwb_fig4_correlations/correlations.tar.gz",
+     "url": "https://drive.usercontent.google.com/download?id=19I8qAnLCrCo7PBa5k5rXUG27U9S7LkWS&export=download&confirm=t",
+     "size": 1365459813,
+     "sha256": "512728b7c715d1d397bb11e523c249c9dacda707cdebca4a8ea5daf537345a47",
+     "md5": "1f0592cba93b314066e33ead36585912",
+     "checksum_verified": null,
+     "extracted_to": "data/raw/ng15_gwb_fig4_correlations/extracted"
+    }
+   ],
+   "total_size": 1365459813
+  },
+  "ng15_gwb_fig5_psd_pl": {
+   "group": "ng15_reference",
+   "kind": "gdrive",
+   "description": "Data behind Fig. 5: psd_pl_posteriors (data_release/figure_5).",
+   "status": "fetched",
+   "fetched_at": "2026-10-06T19:32:34+00:00",
+   "dest": "data/raw/ng15_gwb_fig5_psd_pl",
+   "source_url": "https://drive.google.com/file/d/1vB6U0V9E5ETyPbWvwJUe_aqNEgxfC6XU/view",
+   "doi": null,
+   "files": [
+    {
+     "name": "psd_pl_posteriors.tar.gz",
+     "path": "data/raw/ng15_gwb_fig5_psd_pl/psd_pl_posteriors.tar.gz",
+     "url": "https://drive.usercontent.google.com/download?id=1vB6U0V9E5ETyPbWvwJUe_aqNEgxfC6XU&export=download&confirm=t",
+     "size": 70289584,
+     "sha256": "e5e549b0c65e5166f2e4aca11eaf10cbad315fb4d3d95159bbc5c2cb41c09e23",
+     "md5": "d98c20a4b39ae20a97dbbb310de148a4",
+     "checksum_verified": null,
+     "extracted_to": "data/raw/ng15_gwb_fig5_psd_pl/extracted"
+    }
+   ],
+   "total_size": 70289584
+  },
+  "ng15_gwb_fig5_psd_pl_dmgp": {
+   "group": "ng15_reference",
+   "kind": "gdrive",
+   "description": "Data behind Fig. 5: psd_pl_posteriors_dmgp (data_release/figure_5).",
+   "status": "fetched",
+   "fetched_at": "2026-10-06T19:32:34+00:00",
+   "dest": "data/raw/ng15_gwb_fig5_psd_pl_dmgp",
+   "source_url": "https://drive.google.com/file/d/1VIiR4apoIWYU-sJMb9SPzsaImRruHyE-/view",
+   "doi": null,
+   "files": [
+    {
+     "name": "psd_pl_posteriors_dmgp.tar.gz",
+     "path": "data/raw/ng15_gwb_fig5_psd_pl_dmgp/psd_pl_posteriors_dmgp.tar.gz",
+     "url": "https://drive.usercontent.google.com/download?id=1VIiR4apoIWYU-sJMb9SPzsaImRruHyE-&export=download&confirm=t",
+     "size": 81964684,
+     "sha256": "4cf9a15cd911f9f8f0afb78af17b3f406e76ff1ce9ce69a79477ba45f2c1d552",
+     "md5": "a5fac169b5ddf24fb96a8cd8f5b7239b",
+     "checksum_verified": null,
+     "extracted_to": "data/raw/ng15_gwb_fig5_psd_pl_dmgp/extracted"
+    }
+   ],
+   "total_size": 81964684
+  },
+  "ng15_gwb_fig7_os": {
+   "group": "ng15_reference",
+   "kind": "gdrive",
+   "description": "Data behind Fig. 7 (optimal statistic / Legendre; data_release/figure_7). 2.7 GB.",
+   "status": "fetched",
+   "fetched_at": "2026-10-06T19:32:39+00:00",
+   "dest": "data/raw/ng15_gwb_fig7_os",
+   "source_url": "https://drive.google.com/file/d/1T6tbrVA_hS-oUX1wiHLa2MJ4ymg0Ho1i/view",
+   "doi": null,
+   "files": [
+    {
+     "name": "figure7_data.tar.gz",
+     "path": "data/raw/ng15_gwb_fig7_os/figure7_data.tar.gz",
+     "url": "https://drive.usercontent.google.com/download?id=1T6tbrVA_hS-oUX1wiHLa2MJ4ymg0Ho1i&export=download&confirm=t",
+     "size": 2729503767,
+     "sha256": "07bd70b5693cf583b5b94e2326858bcc8ae446c7d69e4470f387396103489c1b",
+     "md5": "8b9c4c806629e1e6b1f30e864efbb138",
+     "checksum_verified": null,
+     "extracted_to": "data/raw/ng15_gwb_fig7_os/extracted"
+    }
+   ],
+   "total_size": 2729503767
+  },
+  "ng15_gwb_fig10_telescopes": {
+   "group": "ng15_reference",
+   "kind": "gdrive",
+   "description": "Data behind Fig. 10: compare_telescopes (data_release/figure_10).",
+   "status": "fetched",
+   "fetched_at": "2026-10-06T19:32:41+00:00",
+   "dest": "data/raw/ng15_gwb_fig10_telescopes",
+   "source_url": "https://drive.google.com/file/d/1keklHY52MV38BXF3dIqzumjKo2mdB9I_/view",
+   "doi": null,
+   "files": [
+    {
+     "name": "compare_telescopes.tar.gz",
+     "path": "data/raw/ng15_gwb_fig10_telescopes/compare_telescopes.tar.gz",
+     "url": "https://drive.usercontent.google.com/download?id=1keklHY52MV38BXF3dIqzumjKo2mdB9I_&export=download&confirm=t",
+     "size": 53189447,
+     "sha256": "b2953d691b96220f5497b6c2cb3c9e87b0c44154174a848892e92ec8978ed220",
+     "md5": "e6b95e270227d961bd6a3cff4fba0dce",
+     "checksum_verified": null,
+     "extracted_to": "data/raw/ng15_gwb_fig10_telescopes/extracted"
+    }
+   ],
+   "total_size": 53189447
+  },
+  "ng15_gwb_fig9_variable_gamma": {
+   "group": "ng15_reference",
+   "kind": "gdrive",
+   "description": "variable_gamma.tar.gz linked from data_release/figure_9 notebook.",
+   "status": "fetched",
+   "fetched_at": "2026-10-06T19:32:43+00:00",
+   "dest": "data/raw/ng15_gwb_fig9_variable_gamma",
+   "source_url": "https://drive.google.com/file/d/1FfvQBh8Pl7FhvvMQPYQYpXEe9fuT6jDM/view",
+   "doi": null,
+   "files": [
+    {
+     "name": "variable_gamma.tar.gz",
+     "path": "data/raw/ng15_gwb_fig9_variable_gamma/variable_gamma.tar.gz",
+     "url": "https://drive.usercontent.google.com/download?id=1FfvQBh8Pl7FhvvMQPYQYpXEe9fuT6jDM&export=download&confirm=t",
+     "size": 793429577,
+     "sha256": "5a05fb380b1537bc8c3d097eeed18ea8924297532ab12d81934b7059cc12cfc7",
+     "md5": "298f983466f1bc504c2e1d7441e7f154",
+     "checksum_verified": null,
+     "extracted_to": "data/raw/ng15_gwb_fig9_variable_gamma/extracted"
+    }
+   ],
+   "total_size": 793429577
+  },
+  "ng15_newphysics_chains": {
+   "group": "ng15_reference",
+   "kind": "zenodo",
+   "description": "MCMC chains of the NG15 new-physics paper (arXiv:2306.16219), 22.4 GB single file. Not the baseline GWB analysis; optional.",
+   "status": "not_fetched",
+   "reason": "large optional source; run with --include-large",
+   "params": {
+    "record": "8083620"
+   }
+  },
+  "epta_dr2_zenodo": {
+   "group": "secondary",
+   "kind": "zenodo",
+   "description": "EPTA DR2 paper I data set (DR2full/DR2new, 25 MSPs, par/tim), Zenodo concept 8164424.",
+   "status": "fetched",
+   "fetched_at": "2026-10-06T19:32:43+00:00",
+   "dest": "data/raw/epta_dr2_zenodo",
+   "source_url": "https://zenodo.org/records/8300645",
+   "api_url": "https://zenodo.org/api/records/8300645",
+   "doi": "10.5281/zenodo.8300645",
+   "concept_doi": "10.5281/zenodo.8164424",
+   "title": "The second data release from the European Pulsar Timing Array I. The dataset and timing analysis",
+   "version": "2.1",
+   "publication_date": "2023-06-29",
+   "files": [
+    {
+     "name": "EPTA-DR2.zip",
+     "path": "data/raw/epta_dr2_zenodo/EPTA-DR2.zip",
+     "url": "https://zenodo.org/api/records/8300645/files/EPTA-DR2.zip/content",
+     "size": 39275794,
+     "sha256": "2ae546940419ce12a508d0f24b54db91163b0a0d204b85f8bca626eed847b43c",
+     "md5": "307b2b99cd352876b07409899448af8b",
+     "md5_expected": "307b2b99cd352876b07409899448af8b",
+     "checksum_verified": true,
+     "extracted_to": "data/raw/epta_dr2_zenodo/extracted"
+    }
+   ],
+   "total_size": 39275794
+  },
+  "epta_dr2_noise_models": {
+   "group": "secondary",
+   "kind": "zenodo",
+   "description": "EPTA DR2 paper II: customised noise models (posterior distributions, whitened residuals).",
+   "status": "fetched",
+   "fetched_at": "2026-10-06T19:32:43+00:00",
+   "dest": "data/raw/epta_dr2_noise_models",
+   "source_url": "https://zenodo.org/records/8025019",
+   "api_url": "https://zenodo.org/api/records/8025019",
+   "doi": "10.5281/zenodo.8025019",
+   "concept_doi": "10.5281/zenodo.8025018",
+   "title": "The second data release from the European Pulsar Timing Array II. Customised pulsar noise models for spatially correlated gravitational waves",
+   "version": null,
+   "publication_date": "2023-06-29",
+   "files": [
+    {
+     "name": "WhitennedResiduals_EPTADR2New.zip",
+     "path": "data/raw/epta_dr2_noise_models/WhitennedResiduals_EPTADR2New.zip",
+     "url": "https://zenodo.org/api/records/8025019/files/WhitennedResiduals_EPTADR2New.zip/content",
+     "size": 1477740,
+     "sha256": "ea2ff1bddedce8756960a2e49f2900fccb0debc0c116b532615cd51136006271",
+     "md5": "0fbe09112890278db796c6655ad8fb9e",
+     "md5_expected": "0fbe09112890278db796c6655ad8fb9e",
+     "checksum_verified": true,
+     "extracted_to": "data/raw/epta_dr2_noise_models/extracted"
+    },
+    {
+     "name": "PosteriorDistributions_EPTADR2.zip",
+     "path": "data/raw/epta_dr2_noise_models/PosteriorDistributions_EPTADR2.zip",
+     "url": "https://zenodo.org/api/records/8025019/files/PosteriorDistributions_EPTADR2.zip/content",
+     "size": 7558083,
+     "sha256": "96f9a976a95f894049b8ec76754f156448f07b82fbfe427c32dacedb76bbf170",
+     "md5": "dd0b227e4a6ed9a2575a38212d9880b6",
+     "md5_expected": "dd0b227e4a6ed9a2575a38212d9880b6",
+     "checksum_verified": true,
+     "extracted_to": "data/raw/epta_dr2_noise_models/extracted"
+    },
+    {
+     "name": "TimeDomainRealisations_EPTADR2Full+.pdf",
+     "path": "data/raw/epta_dr2_noise_models/TimeDomainRealisations_EPTADR2Full+.pdf",
+     "url": "https://zenodo.org/api/records/8025019/files/TimeDomainRealisations_EPTADR2Full+.pdf/content",
+     "size": 8687130,
+     "sha256": "2e7dacb29f6689e13ef409e8a19bbd5ab2b8b3af5834591a87f2e60aa0b7c839",
+     "md5": "58b136116f1ff7783c5bf57f87035c9d",
+     "md5_expected": "58b136116f1ff7783c5bf57f87035c9d",
+     "checksum_verified": true,
+     "extracted_to": "data/raw/epta_dr2_noise_models/extracted"
+    }
+   ],
+   "total_size": 17722953
+  },
+  "epta_dr2_gwb_chains": {
+   "group": "secondary",
+   "kind": "zenodo",
+   "description": "EPTA DR2 paper III: GWB search chains (arXiv:2306.16214).",
+   "status": "fetched",
+   "fetched_at": "2026-10-06T19:32:45+00:00",
+   "dest": "data/raw/epta_dr2_gwb_chains",
+   "source_url": "https://zenodo.org/records/8091568",
+   "api_url": "https://zenodo.org/api/records/8091568",
+   "doi": "10.5281/zenodo.8091568",
+   "concept_doi": "10.5281/zenodo.8091567",
+   "title": "The second data release from the European Pulsar Timing Array III. Search for gravitational wave signals",
+   "version": "2.0",
+   "publication_date": "2023-06-29",
+   "files": [
+    {
+     "name": "chains.zip",
+     "path": "data/raw/epta_dr2_gwb_chains/chains.zip",
+     "url": "https://zenodo.org/api/records/8091568/files/chains.zip/content",
+     "size": 649471499,
+     "sha256": "501187ceb5f6aaaf294b03af347fba5089653228f0feb474e6cc124d3decf3f6",
+     "md5": "b3180fb1e8560a875fa3de5be001c4aa",
+     "md5_expected": "b3180fb1e8560a875fa3de5be001c4aa",
+     "checksum_verified": true,
+     "extracted_to": "data/raw/epta_dr2_gwb_chains/extracted"
+    }
+   ],
+   "total_size": 649471499
+  },
+  "epta_dr2_gitlab": {
+   "group": "secondary",
+   "kind": "gitlab",
+   "description": "EPTA DR2 GitLab repository (gitlab.in2p3.fr/epta/epta-dr2), public.",
+   "status": "fetched",
+   "fetched_at": "2026-10-06T19:32:45+00:00",
+   "dest": "data/raw/epta_dr2_gitlab",
+   "source_url": "https://gitlab.in2p3.fr/epta/epta-dr2/-/tree/2911d0e52e0c8a4e528c4e3aa46b868ced1910e8",
+   "doi": null,
+   "commit": "2911d0e52e0c8a4e528c4e3aa46b868ced1910e8",
+   "files": [
+    {
+     "name": "epta-dr2-2911d0e52e0c.tar.gz",
+     "path": "data/raw/epta_dr2_gitlab/epta-dr2-2911d0e52e0c.tar.gz",
+     "url": "https://gitlab.in2p3.fr/epta/epta-dr2/-/archive/2911d0e52e0c8a4e528c4e3aa46b868ced1910e8/epta-dr2-2911d0e52e0c8a4e528c4e3aa46b868ced1910e8.tar.gz",
+     "size": 40606153,
+     "sha256": "87ae92074e6a1710f61f50bff3103d3519e1c6f11ebfc9623504d130675f9e19",
+     "md5": "7572467a06ce1a49b26fbf80a0bc4c9f",
+     "checksum_verified": null,
+     "extracted_to": "data/raw/epta_dr2_gitlab/extracted"
+    }
+   ],
+   "total_size": 40606153
+  },
+  "ppta_dr3_timing": {
+   "group": "secondary",
+   "kind": "csiro_dap",
+   "description": "PPTA DR3 (doi:10.25919/j4xr-wp05, CSIRO DAP collection 59374 v2, part 1 of 2): only ppta_dr3/toas_and_parameters/ (par, tim, noise files, clock) and READMEs. The ~1.4 TB of profile/UWL data products are not fetched. DAP publishes no checksums.",
+   "status": "fetched",
+   "fetched_at": "2026-10-06T19:33:09+00:00",
+   "dest": "data/raw/ppta_dr3_timing",
+   "source_url": "https://data.csiro.au/collection/csiro%3A59374v2",
+   "doi": "10.25919/j4xr-wp05",
+   "api_url": "https://data.csiro.au/dap/ws/v2/collections/59423/data",
+   "files": [
+    {
+     "name": "README",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/README",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419742",
+     "size": 2589,
+     "sha256": "017bbadd574c9f2b76f88897b33bff0e4932e1bb71c008072ccb50c6d2974a87",
+     "md5": "4776a3572d64f9bb707de8ff2185f796",
+     "checksum_verified": null
+    },
+    {
+     "name": "README",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/README",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419687",
+     "size": 1136,
+     "sha256": "d19de17112c94431a8df0a2318d2d8e970728e2b75f3827dbb7b8fda2e651744",
+     "md5": "7c9d9f6647bd3e040d1074f5865446da",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0030+0451.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J0030+0451.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419561",
+     "size": 1542,
+     "sha256": "38825eb418df2ce86f7dba228d7aff01d77fba46f0e059317478aa2d882e8e04",
+     "md5": "1e8ae3776e847cca7dc92fadfd3ce278",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0030+0451.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J0030+0451.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419530",
+     "size": 201874,
+     "sha256": "aafebf98dd0821264c926f99ec2ba2814ef2cc501bdd5207112908433bb081f8",
+     "md5": "e1fefda774ac415a74e82bd4a88b0b36",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0030+0451_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J0030+0451_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419579",
+     "size": 2260,
+     "sha256": "698f6c54a1070d389442c5aa2c4baf24f59a5b32199616958467800f6ab96503",
+     "md5": "e4829b0d458be18836845eb9bf51a881",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0125-2327.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J0125-2327.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419589",
+     "size": 1865,
+     "sha256": "a6cfed69087a8ffe595a4765860ef511be931d3ac351895a107839a29adf0fc1",
+     "md5": "1831d1662ce25c0610720414a8b70d8a",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0125-2327.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J0125-2327.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419590",
+     "size": 950998,
+     "sha256": "5108c43a9de19c1c8eb4a83fa78670d8f63837f90c84c9c400aa51424fc3d9bb",
+     "md5": "50542ef369195e17dc621dffad74a350",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0125-2327_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J0125-2327_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419519",
+     "size": 2578,
+     "sha256": "149078ccd7941fc459a54904545a42acc26611f3e3f9ac72fc31cbc54f333005",
+     "md5": "fc718e63ea427e52dd1a6836932a3c1c",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0437-4715.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J0437-4715.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419506",
+     "size": 4402,
+     "sha256": "cfbd0db49a66d8a100e3d8dd5695f139136eef21ca01f65cafb586f0918aca75",
+     "md5": "5ec53ba1432489b1861d2eb0eb06d31c",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0437-4715.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J0437-4715.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419499",
+     "size": 4464619,
+     "sha256": "ee6a2dec40b4dc6fe73fc06c8ddc43052d2f0c24edc703bec8963b58c2541564",
+     "md5": "5c3f77775efd449192d4fe9447e58a09",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0437-4715_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J0437-4715_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419497",
+     "size": 6531,
+     "sha256": "9f570fbff5b81312aadabcff326b22f4ed3ed57f8d1c6523adeaa8dc6b5baca8",
+     "md5": "bc15036649c28ecd2c0d279c46193a03",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0613-0200.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J0613-0200.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419535",
+     "size": 3696,
+     "sha256": "56f280b62cc566c4ea89ea1294bb5fde03f56d0d1d38414ef9f8028009000b96",
+     "md5": "1b3176b447f4076daf1f6072e826d53d",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0613-0200.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J0613-0200.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419516",
+     "size": 1902300,
+     "sha256": "19f75d12a68a908ccbfa25c1d43ec26cb7a312f84d4d9840ee48ebdd42841f73",
+     "md5": "f845651723748318af2c15a11550feb2",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0613-0200_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J0613-0200_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419576",
+     "size": 5452,
+     "sha256": "36ccb3242dfde3d376deaef9985a86c9d4ed0b3680ac0745b820a2d499215e23",
+     "md5": "0fb1b97f515c811410b95daeea623944",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0614-3329.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J0614-3329.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419528",
+     "size": 1831,
+     "sha256": "baeb5122ef06cee20f08945a3c1fc4e96b1c39b2a3ba6ed52cb27218e44e88b4",
+     "md5": "cdd15c13f5d3a5501675036984b0f431",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0614-3329.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J0614-3329.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419507",
+     "size": 245040,
+     "sha256": "90d9bc114554fa56d4385efc9cbab1e6786bd15cda9635eedf5f41d4766540c9",
+     "md5": "d8fd19974552378a70e55b2794c06690",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0614-3329_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J0614-3329_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419539",
+     "size": 2591,
+     "sha256": "02a33c041dd611567ad71c7397566b767f16ec2bfda75945df7ae5adf6d3209e",
+     "md5": "ac9e1f748051c9cec17690ada7ed6ee5",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0711-6830.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J0711-6830.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419552",
+     "size": 3267,
+     "sha256": "251de1d49beb9daf310415f27283a66ec8cd11c902579ec9cce89fc68c466af8",
+     "md5": "dad085d6d686260a1dfe7c9a438cf6f0",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0711-6830.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J0711-6830.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419554",
+     "size": 2111823,
+     "sha256": "e011de1f8fee4802239ff10026f4557dfc75ff339c8554ee17f4ced83da6bcd2",
+     "md5": "ab774f1b7ca3b4823733a5404e6a1f1e",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0711-6830_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J0711-6830_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419571",
+     "size": 4849,
+     "sha256": "f9db51f74a5e6f90155984905c41fd66a8cb0b8f29cba4febe53123c1f346561",
+     "md5": "6bc5939f7cf595beabee17cde620c90f",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0900-3144.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J0900-3144.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419522",
+     "size": 1774,
+     "sha256": "57db31f01b9a045390f567a5786ae3121377c8896823d92cd6d16d7a4c0c44c0",
+     "md5": "35a00f82c281559f579af1760c895072",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0900-3144.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J0900-3144.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419582",
+     "size": 646855,
+     "sha256": "ed9526cf6f22feca05e870ae3cec41136c73b7ee5dbe17509f30956bfffc476f",
+     "md5": "17b743e1810adae867ae05e2a42a6015",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0900-3144_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J0900-3144_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419511",
+     "size": 2501,
+     "sha256": "7e53574d52bde086dd69ebbeacfbddc7cfba68a1b7a01d8ee2f1c2c13ea537d1",
+     "md5": "77cee32dbb58c966f655ac62f11c7f79",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1017-7156.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1017-7156.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419570",
+     "size": 2698,
+     "sha256": "9d8448774abf78ab3facb5a748ba66e91e831ceda55fda1595101c50fe249b0e",
+     "md5": "9bd6ce770a006f5553c93b25a6d410df",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1017-7156.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1017-7156.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419544",
+     "size": 2186038,
+     "sha256": "05eb23da1e7163067afd37dcf6503b6f174b74ea280d7d7d6fb7f8d529fb90af",
+     "md5": "ee44cd1bd05478cc1764a67879943997",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1017-7156_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1017-7156_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419524",
+     "size": 4265,
+     "sha256": "9c7a0b4f06702422d2bcb31d667b156c84a204cf3e6dc12d1023fa865d4ffe7b",
+     "md5": "d7eb6be0e53d6c651ffc0a38880686ec",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1022+1001.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1022+1001.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419541",
+     "size": 3743,
+     "sha256": "9cd125437b80eae4a30cc5ed59fa44417c41e5a8e045c7970a555835126ded77",
+     "md5": "1c67cbf45a198c9781945469ced18b51",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1022+1001.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1022+1001.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419556",
+     "size": 2057344,
+     "sha256": "c6bfd9fb0ce653241175faa2c70da6affeeec53bb6292a22da7bdfa03d63368f",
+     "md5": "fbde9ce382b77ccc00eea12bfbe5c8c5",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1022+1001_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1022+1001_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419580",
+     "size": 5638,
+     "sha256": "a12c05e12c8547c2f75ce57995ab7f5895a92bc70cf8f17df0d2f2e0da37c0a3",
+     "md5": "197ffed46049665b38bc9e1051e4864c",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1024-0719.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1024-0719.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419531",
+     "size": 3241,
+     "sha256": "1743797fa1d82c1f7e3bc0349f91086b8c62d3504a13274f325cf65d1f9b3a28",
+     "md5": "06227916f824737db7e91697b361c274",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1024-0719.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1024-0719.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419553",
+     "size": 725091,
+     "sha256": "eb97f9635a7d98a37bcdc2a0ee59eff7cd97777a633435e024ca75122e6b0fc1",
+     "md5": "1def501e17876cf6ba29e47bd446dad9",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1024-0719_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1024-0719_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419510",
+     "size": 4551,
+     "sha256": "d2ca44b78937281c12dfb08dcdbd5c7423acbd4d202d6f44531fe34d3b1b078e",
+     "md5": "fec8f8e3aba11263f31c267c1fe534f1",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1045-4509.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1045-4509.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419563",
+     "size": 3599,
+     "sha256": "91a0bc8bdee4c0014614fe88623a6518fdbae4822583f2966c5add2311257a8b",
+     "md5": "c185db10f8a5f7abeddb362ea3c320bb",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1045-4509.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1045-4509.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419532",
+     "size": 1675969,
+     "sha256": "035410fd0c80e804e93407510c06e7120bf3c08c4992f7cff9c3dc5d85b35b60",
+     "md5": "1111b1c8684945672f20fa21a475b6c9",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1045-4509_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1045-4509_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419572",
+     "size": 5165,
+     "sha256": "bf63245373e489a2710525a8e529c5593dc4d06fcefcde735764bdd5be26ae29",
+     "md5": "f7a27971e9b999a79d99be374b6fca50",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1125-6014.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1125-6014.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419567",
+     "size": 2876,
+     "sha256": "53029a2d0d92ac8418c101876aa5c88216993c76c3c18936ea56e885665b685c",
+     "md5": "effa9b11e2f5e51a795c5f049c0909af",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1125-6014.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1125-6014.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419525",
+     "size": 1029677,
+     "sha256": "b02202c17c51a55f3d714d1fd3a9ec84d0342a48a43a1a6c20a830190a6f4af8",
+     "md5": "c37e3e8021776d57d8b715b02bac2dc1",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1125-6014_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1125-6014_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419560",
+     "size": 4053,
+     "sha256": "6fc603c912ab52bee3eae11d0b81f6d584d264bce4b822711db3113e5607711c",
+     "md5": "14243ef1f0ffaae094a5951e905b45cc",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1446-4701.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1446-4701.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419591",
+     "size": 2416,
+     "sha256": "470e89998fa165f8bd0be37539aef66510e8967e93f4152014565aafad6b7280",
+     "md5": "9595bbbbe018609484ade2b3d37ac824",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1446-4701.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1446-4701.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419505",
+     "size": 274123,
+     "sha256": "b7452b1092d1399eb2eed2fa97b3f18020ec7a4b4a10c5efa76070959ecbf0e1",
+     "md5": "47c31b21a63af333de6a4f601d9be562",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1446-4701_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1446-4701_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419545",
+     "size": 3481,
+     "sha256": "ada978dc6559a5981833197020e12bb39247e59fcefa41769566aba681594cd3",
+     "md5": "f229e15a88fe0c27f930517874cea772",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1545-4550.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1545-4550.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419575",
+     "size": 2497,
+     "sha256": "cc6a129442d70442d64d1ec42e2b8b50f8f4b632d4be00604340daa51b38a9b4",
+     "md5": "e84aeadc819e682b63e252280189d99d",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1545-4550.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1545-4550.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419549",
+     "size": 917815,
+     "sha256": "b1e8b83e974296508a2dfcef7bf9fc09e771c035db3c6f55d91925c7480e100b",
+     "md5": "c4b50f18ba6b8e3b7355e3962556be61",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1545-4550_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1545-4550_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419557",
+     "size": 3484,
+     "sha256": "efcdeb8681898f80359e6e45b2f4d5e247106d9db31808423286947a8fd8aa65",
+     "md5": "fbf045fe846d39bd2f8e2ad1687fbc26",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1600-3053.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1600-3053.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419508",
+     "size": 3842,
+     "sha256": "dc8fd58df1f2ac0d388db6f55a1a78308a3a061f8a77e887f770173395b5a098",
+     "md5": "cff0c476bd3e05113b1b35f39d326f58",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1600-3053.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1600-3053.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419551",
+     "size": 2003325,
+     "sha256": "8651b2bd539cb91a5064ff3b019bc9ff1ea4c091f8dc69e01d5b1b2a42fa36f2",
+     "md5": "549674a47cc54d88d9ebbb2a2ae9cb7c",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1600-3053_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1600-3053_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419514",
+     "size": 5700,
+     "sha256": "676e2e2dfd4c1f0c61aec394aa4e21bff0bb4e40de24adc9636631abfe070325",
+     "md5": "f5bab0e305a1aeab4c46880abe8fb691",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1603-7202.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1603-7202.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419504",
+     "size": 3577,
+     "sha256": "ef018efde0ec598730dd717e267455eaa60377b03766db8413f2e987993ec754",
+     "md5": "d67950be773c2ea62bea6d47bb6dd1a2",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1603-7202.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1603-7202.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419537",
+     "size": 1937129,
+     "sha256": "d9d470300e697a67b0741122396e4befa2bb0c2f9b82dc7ca64d7dfe132e9fd1",
+     "md5": "5dffb66a3a9bace723ffd757066d02ed",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1603-7202_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1603-7202_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419517",
+     "size": 5272,
+     "sha256": "3c961f081976fece7c0557e29dd6b79e735335a9cdf943ef6dd66f4f2d9a0b6b",
+     "md5": "96e65fdc40a5aaa2d5ff3db788f6d3ec",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1643-1224.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1643-1224.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419566",
+     "size": 3567,
+     "sha256": "03680468ed9e09ecada3ad196763f46df3729dfe9a5ef8fa95c5d7d9c05a3d84",
+     "md5": "7c0b0951f11a2d463cadb213bec8dd7b",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1643-1224.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1643-1224.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419578",
+     "size": 1628819,
+     "sha256": "9c76b735e9809cbdfb470996c7c4eb6ffb49cede38ceacebfab695f5df92485e",
+     "md5": "5c15a989bd3f82d4861405559f0d1ee7",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1643-1224_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1643-1224_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419526",
+     "size": 5541,
+     "sha256": "dd362b2a980c4dfc7dd8d4c4022c6f344ec31ce2c701adb1f32ce7821400422e",
+     "md5": "b0bc4b7cb8b23aa25d53a9437467ced3",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1713+0747.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1713+0747.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419512",
+     "size": 3853,
+     "sha256": "3d69a7184f4d26a3a3e7200e58079d42272f87da8b5f8ec3c4149be50db17c8b",
+     "md5": "758b85e04da89d5deef29a68f04c0d79",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1713+0747.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1713+0747.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419562",
+     "size": 2008687,
+     "sha256": "e6a1bb16839730c021d46a005009e25d1c0783d8f02479e0bfbe44334fbbc4d1",
+     "md5": "628ee806e566735c9edd24ed1f8eb680",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1713+0747_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1713+0747_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419521",
+     "size": 6111,
+     "sha256": "82529fe7e6b276bd64a2671cf01abc57c9dff7d02b6447a9a346167be5d47b5a",
+     "md5": "0cbaf2b5ff5a11afd58e5f847747d836",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1730-2304.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1730-2304.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419555",
+     "size": 3634,
+     "sha256": "f769caab185bb8be10f5fab778f3688fefd39cc5fafe1415b4d29add8d2e2eae",
+     "md5": "fc9d784c615be0dd1be6720885f7b9b6",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1730-2304.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1730-2304.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419564",
+     "size": 1279928,
+     "sha256": "7b3553b79dd85d1b28b108699b2efb75fab22340a17f01760a2cc286779fa48b",
+     "md5": "8d2ae3a57f3a00c44978ec552865cc5b",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1730-2304_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1730-2304_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419520",
+     "size": 4886,
+     "sha256": "d3f9e61083e2515a16c76321092af50e982f903115d1fd77c98e87094f28fc03",
+     "md5": "7d739a0833e621dc8c3ed7e92ab6c252",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1741+1351.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1741+1351.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419587",
+     "size": 1859,
+     "sha256": "38849b3fa2ea12505e2cb2c42c01d659ead65e8d795a619ec35a88504ed8d87f",
+     "md5": "c10f0533c02541a3c489b0fe6e1af4eb",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1741+1351_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1741+1351_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419585",
+     "size": 2330,
+     "sha256": "16b0184cfe8457f1e3ef0b1687e73cf5bd9b53ee93a2ea07f50e506507f89ab8",
+     "md5": "12ebef7d9c98df521091b28cff55b0bd",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1744-1134.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1744-1134.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419533",
+     "size": 3347,
+     "sha256": "b257c5a6089325ecf903f9b41ce850ff2424eff2e8fd6abc37c6d0ba883978a8",
+     "md5": "76732e1e36bef38ae439edfad89627b5",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1744-1134.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1744-1134.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419540",
+     "size": 2074452,
+     "sha256": "cfa5b401d1f7e493e1da6e3d002cddbf2fe0de7c246412c891d0b7251b163094",
+     "md5": "7334661df3ff0d943722523b429cfc61",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1744-1134_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1744-1134_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419501",
+     "size": 5027,
+     "sha256": "1860ef9a601180bc1cf526a3230e1832f4961fb44fa48e94ec35e8b64f06902e",
+     "md5": "71e247bc62eed02c518f201fbf5a6bf2",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1824-2452A.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1824-2452A.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419583",
+     "size": 3190,
+     "sha256": "5c2f5565270442e3e4dabb47de80b289a364270780d54ccab26771ea6e6927f3",
+     "md5": "15002b84b4a417e632f35b9288c418e0",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1824-2452A.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1824-2452A.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419584",
+     "size": 507880,
+     "sha256": "93557f3fe05b36da8f9571c3bd84f28bd722d868e8cbb550431baa4352b58c98",
+     "md5": "e55c46a061e822d1d5609e35db48632f",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1824-2452A_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1824-2452A_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419527",
+     "size": 4275,
+     "sha256": "2f1acd107de543ae5aadc30029ccfd6c36a9aa04fb7e3d26b0099b50d903d797",
+     "md5": "f56fd17225d287816fde8dc0b984df67",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1832-0836.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1832-0836.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419581",
+     "size": 1981,
+     "sha256": "b6143ab41a517262a5021d7676789ebf43250a3f2f81619e738b81f916d0242e",
+     "md5": "f25b9d58f5415ae89a21235cec58a06b",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1832-0836.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1832-0836.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419534",
+     "size": 150074,
+     "sha256": "d72f378f57ebf25e00183acebb5719fc3f10fe8930a6cc0c0a345b5a67eb0c88",
+     "md5": "e57dc50674f7e92708e09d0e75d4968a",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1832-0836_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1832-0836_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419500",
+     "size": 2687,
+     "sha256": "c09ac7e33f68bc92455bf037b00cf09f1e99442d43dcee933e571af7e41dba87",
+     "md5": "3b84760ea6b8e8d8118d29f2549e435b",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1857+0943.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1857+0943.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419543",
+     "size": 3608,
+     "sha256": "ca90fae0af983181be83899681bd0001b1f8c3d5e6a9cf766a39722cc961763b",
+     "md5": "8013dc58c9695841245610a20511c841",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1857+0943.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1857+0943.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419502",
+     "size": 1020213,
+     "sha256": "5b7df7ffe80663e6bf72f9162fd83ef349b5c994ad0474520142355b9f26baa7",
+     "md5": "01c15335f3d2bd1af39ce3366e4527a0",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1857+0943_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1857+0943_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419548",
+     "size": 4961,
+     "sha256": "8d7c24280291f6f4acf6345d7df7d6832bd8147e5c4619a5711a9e60b239dffd",
+     "md5": "78a9eb5a7504eed3c42872c4912ac03a",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1902-5105.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1902-5105.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419559",
+     "size": 1774,
+     "sha256": "8702110b654a6ebdf8610897d723fe957624ea1a69e8bbf04c637df27f483053",
+     "md5": "6e58d3db7281e9e569e2b607c9ea46f4",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1902-5105.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1902-5105.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419518",
+     "size": 177822,
+     "sha256": "1a5d4594e4206c4630923190ad1d59b475f2388e5c93754f57c84fcda0bcd678",
+     "md5": "18bd690224e116fc0967f21548f726d5",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1902-5105_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1902-5105_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419569",
+     "size": 2346,
+     "sha256": "4134d5c02dcba3765324140383ae698f689e31f4cea971c58f7ea92e3b78fd27",
+     "md5": "7f6816c9827ac97a43b393ce888fe2f5",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1909-3744.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1909-3744.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419574",
+     "size": 3891,
+     "sha256": "b0c97769d8d06895ff015d48b47bf480dc65a790306c7df8f8787fac0d282905",
+     "md5": "5292944c28e40f534148df24afe45cc5",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1909-3744.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1909-3744.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419588",
+     "size": 3687811,
+     "sha256": "20598a8944d8f9ea0dc67d3e384bae863467ecf9d7432e602a0fdb80922c3986",
+     "md5": "575458b63f9ee9f7fc148c8e923a03c5",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1909-3744_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1909-3744_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419573",
+     "size": 5908,
+     "sha256": "a180c2c1b1a76f02abc3528b142aace5b538bedade5002b13a9c61d916e9abbb",
+     "md5": "91916ef29f87756f49028bced33070a9",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1933-6211.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1933-6211.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419529",
+     "size": 1727,
+     "sha256": "e8cb62670fa8506df374d0050adc954063201bbaa8372fdb81a9637af86dae3b",
+     "md5": "cdeb2d789b6bdede69f408746028948f",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1933-6211.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1933-6211.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419558",
+     "size": 312000,
+     "sha256": "d4ca90cb01888d6bfaf7ebfc4a7fb0a1dce45044e1cd6a8361c213dfde092cb3",
+     "md5": "055a54594123e35868b3e33d4279de14",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1933-6211_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1933-6211_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419509",
+     "size": 2441,
+     "sha256": "144bda23aab9a78c54ee78b5be182dd1c19619ee76df0236c603d4c0a0d7e654",
+     "md5": "56ddba8913a6f9326b27aa8ade2ce398",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1939+2134.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1939+2134.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419547",
+     "size": 3216,
+     "sha256": "d4b41d069e9bb8330bd16ade9000de334e0079a4bad53b4e397ddd3b87af958a",
+     "md5": "8732bd6621e9d5719ae1fa6736c26c35",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1939+2134.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1939+2134.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419536",
+     "size": 963951,
+     "sha256": "ede92e1091e37dd6348a752c6e06c120ba340452903328185911d3a4d12921f7",
+     "md5": "f8bc276312ceb4b1f1524a1d6591ed74",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1939+2134_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J1939+2134_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419538",
+     "size": 4546,
+     "sha256": "682eb4a72e9ed585ae5dda4b84986cb6edf8de7d908ceef16af0ee3faf21beea",
+     "md5": "368f00dc396c8678aa1a814638521163",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2124-3358.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J2124-3358.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419542",
+     "size": 3276,
+     "sha256": "e653ffeb5ef039a7d88ae516a2ad330d1df4ed75f5bc5d35f66a6a63f38d9715",
+     "md5": "94e32eec6581af792d95ca43842e2aac",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2124-3358.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J2124-3358.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419498",
+     "size": 1312676,
+     "sha256": "bc00343c95ec0538702230d3c7c952d30fbaa677888fa744d50fe622db2654e5",
+     "md5": "a186646d209d12644216306101888964",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2124-3358_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J2124-3358_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419503",
+     "size": 4782,
+     "sha256": "cf4141894240a2aeba19e7776d471e824c81bbd4a19e1094f398d6ad7e93ab9d",
+     "md5": "155b71fa81fbce319c9bd94b8914e2a5",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2129-5721.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J2129-5721.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419546",
+     "size": 3627,
+     "sha256": "5ed23e5570e9acf1760392689d14f982257663927bc284766ef09a0be8fec8ca",
+     "md5": "ba338bd58d4df680a6acc60d9023f2bd",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2129-5721.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J2129-5721.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419515",
+     "size": 1103440,
+     "sha256": "2d64e763fe82000d78531f3bf1815a2b9340ba6f99b8412d01ca7b7dd17011dd",
+     "md5": "ca550cde541b15866fd55da0fc484c21",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2129-5721_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J2129-5721_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419513",
+     "size": 4930,
+     "sha256": "9f5d8584d171d39a715eb1aae8b43fef53414432b5f647ef262734e773f070cf",
+     "md5": "7cddbee00a6ae445fb268b9784392e8f",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2145-0750.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J2145-0750.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419565",
+     "size": 3777,
+     "sha256": "365cd64b08733ce0ef7ce764dbc4be8e9c59fa967cfe94ab61e932e016fcba6b",
+     "md5": "4011d425394d312954fc46d4d1fafe58",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2145-0750.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J2145-0750.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419568",
+     "size": 1930389,
+     "sha256": "ed93f24476772bcdbc2f8de3efcd32ac098126cbd38fac40da6997f1328f8233",
+     "md5": "dfd4fc622ec8523226cda05c31787a2c",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2145-0750_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J2145-0750_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419577",
+     "size": 5597,
+     "sha256": "4404b05ea99e5f6ece846927ec343a98e70d93fb490b97570ba833b8e0314088",
+     "md5": "286bb2f3720b2d66c1f05561fa3209c7",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2241-5236.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J2241-5236.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419550",
+     "size": 3359,
+     "sha256": "532105761bd26773c498fa955a08b552e0153193e5919b7df27e85b8f6caa07c",
+     "md5": "07cf1b1fad05654326548217aa7e60c2",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2241-5236.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J2241-5236.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419586",
+     "size": 2345434,
+     "sha256": "d67f16b0c1e6c3e54fa1fbcdc8a02800f9f61048e8e7f6e54a07eacf3d1bec4e",
+     "md5": "c6c711f0c35fd1ebaabfcf9f44ace1ea",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2241-5236_singlePsrNoise_fit.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/all/J2241-5236_singlePsrNoise_fit.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419523",
+     "size": 4592,
+     "sha256": "8b4893cfda76dd4588827ad00f650b62f9b36461b157a6c5c672f229fbe64c89",
+     "md5": "5200396648b30250db285a686a02e226",
+     "checksum_verified": null
+    },
+    {
+     "name": "pks2gps.clk",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/clock/pks2gps.clk",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419593",
+     "size": 1742710,
+     "sha256": "c8131f51e17eef409450459d7097f9eceec2efd3dccd1394cc7214460ef342fa",
+     "md5": "923679fdb13050b538047fe37e740435",
+     "checksum_verified": null
+    },
+    {
+     "name": "tai2tt_bipm2021.clk",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/clock/tai2tt_bipm2021.clk",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419592",
+     "size": 48871,
+     "sha256": "047c2a19b13f69231d9d3c5602a016f01af7a286133de318a2da9c1ef3a23386",
+     "md5": "4d19f1a4974686a127f593e34fc65fc5",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0437-4715.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J0437-4715.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419694",
+     "size": 4498,
+     "sha256": "cd1e65d13ed2b4dd610237953d4cc571fef878ae76fa97a24b5c58a570a8f957",
+     "md5": "10ea128df292eac26cc26b27b9506f62",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0437-4715.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J0437-4715.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419692",
+     "size": 2864229,
+     "sha256": "31ea5ae67b3f741c6108d77ae9c9070ffb6e68d3cc463ae16a56b93a7646c397",
+     "md5": "d4904cfc193ca027b91ea48b4bab904c",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0613-0200.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J0613-0200.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419707",
+     "size": 3747,
+     "sha256": "bdbb2810ee005da27ce6f6f553718ea2b5b683ceea13cdfa03476ad04bcf26b0",
+     "md5": "695405bcfb546ec4f841a5adb1c59fc0",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0613-0200.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J0613-0200.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419704",
+     "size": 1295186,
+     "sha256": "bbab812c0c7426d5ae4c676d37bb44bd4cf3f5e08ae5458835b7adaf89c38360",
+     "md5": "d58323b5674021696803112bbb8e335f",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0711-6830.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J0711-6830.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419721",
+     "size": 3286,
+     "sha256": "9aed8557e71cd4002dac7ef7d06bb66260a3e7ac5ea480b0223dec3a1937330c",
+     "md5": "cf7400399724360dffeccc3df6db4850",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0711-6830.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J0711-6830.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419727",
+     "size": 1173067,
+     "sha256": "a3a8b4e765c32ae437794220bcd0280bd45c7ff30c4dabf2f79c3d8d71d119aa",
+     "md5": "ff731faaf8056ab5788260eb4a45a86a",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0900-3144.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J0900-3144.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419705",
+     "size": 1817,
+     "sha256": "5bd4730a423be530af4cd7225e0fe3dabf13994d7c502480d193ae46e6c6e473",
+     "md5": "52d974bbf77f46a0d9e7e56188e06217",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1017-7156.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1017-7156.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419730",
+     "size": 2734,
+     "sha256": "861a81f68bd9d2ffa2893ce7e25b50ac8701a87277d36fa79d516b37d4685f4a",
+     "md5": "921e60d96946269ec6df77572f3e2f51",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1017-7156.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1017-7156.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419710",
+     "size": 909925,
+     "sha256": "47c18759fd7020dbe649128b42680de26f341661290027d19996eda6e7fea256",
+     "md5": "23bd0cc46c1110bb5e264bfb0ca44504",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1022+1001.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1022+1001.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419714",
+     "size": 3778,
+     "sha256": "ce83408b6c198e47dd035002223e1897bca8576d3ae147266a5037cb13e3fa15",
+     "md5": "fbc6bb7c363ae457c43b7e2a419ef7a4",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1022+1001.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1022+1001.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419728",
+     "size": 1586201,
+     "sha256": "fc4508f283bdd20bbc014ba4753aeb11694553cfdfbf8f273410b36ea8476a92",
+     "md5": "4733b43decab486641edea61edea6351",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1024-0719.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1024-0719.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419699",
+     "size": 3265,
+     "sha256": "b4ff92ddbc46ff59fc8da334ffb661b10a1ea8f17e049a62aa6c2153838d6189",
+     "md5": "def490b5d761ce0b06b681d46cb1ce10",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1024-0719.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1024-0719.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419722",
+     "size": 505789,
+     "sha256": "1fe7d6bef5b5847e0730732ee81286076e3950bed766cba7569973065968a4d9",
+     "md5": "6571bed4487da11092ae173d1c28e9ec",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1045-4509.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1045-4509.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419725",
+     "size": 3641,
+     "sha256": "1c7707a49c63317a7f90bb9b9b4b3e7c13b66215890cba62042e1474928c51a4",
+     "md5": "f6f7a76dbf8b68ae46ca9806246b5827",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1045-4509.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1045-4509.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419700",
+     "size": 1221290,
+     "sha256": "21e129e537bfe78daa9d1b1cb64901c056bc67a438b9944f6b38f5d14e6b268c",
+     "md5": "ea88d874f8e0a9d440130741f0ff3735",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1125-6014.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1125-6014.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419731",
+     "size": 2930,
+     "sha256": "55e6dcf8ee406eb681a36564b183dcd39df972c6b94e8f4f853d6709eb1866d4",
+     "md5": "d91397fc3d94ffba4b01a7e6c85bc194",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1125-6014.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1125-6014.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419702",
+     "size": 346554,
+     "sha256": "a2b48e437d34a2fb42aeffad44abff5c53e3d67e9ea871e5746884cfd74cf21e",
+     "md5": "8943aa2906bb911b27d7be12da56c8ec",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1446-4701.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1446-4701.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419738",
+     "size": 2456,
+     "sha256": "ad2481d5c96bba3307b500701f6c006f0a0abfb34dde79a353268e2f1c7ac192",
+     "md5": "9a45545bfd42b2ad19719c9b6f2c4e77",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1446-4701.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1446-4701.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419697",
+     "size": 120536,
+     "sha256": "24ce467e8019f497ddc0f82b53a06ce7044302bf88a975a3193b29ecf38b8045",
+     "md5": "04e8b582b42ce114c9a1fd70975fa455",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1545-4550.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1545-4550.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419736",
+     "size": 2545,
+     "sha256": "7d67d7e2609eadbedb0d61d557af2c9002658b4404a5dfd07af6ed5868230e10",
+     "md5": "5d96fdac56ec9ded9feb06e8f586aee5",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1545-4550.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1545-4550.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419716",
+     "size": 390537,
+     "sha256": "009093d2041685c44f031decb26fb665e11c064833c1808ae63ac973fbcf19d6",
+     "md5": "a818a45a4ff6bdfadd31573f83279ad0",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1600-3053.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1600-3053.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419695",
+     "size": 3886,
+     "sha256": "f4ce230481fcc3663322d6408ad56bdee195f7aa91fe323291f5b8e90e664a5d",
+     "md5": "738967cc007421c2d813b0587feaf683",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1600-3053.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1600-3053.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419720",
+     "size": 1549822,
+     "sha256": "7331105862e362381e03ba136c9741e37737bfef5e5b20fd42f5afe246737a18",
+     "md5": "e3934dbdddce77ac59e850010e227967",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1603-7202.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1603-7202.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419691",
+     "size": 3620,
+     "sha256": "e00bc5a8a4c39241455a25669491a7d2b0bd414cd500204fb3f46beb9045368c",
+     "md5": "4877ac885aa70526dbb690cf3231736d",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1603-7202.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1603-7202.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419708",
+     "size": 1116837,
+     "sha256": "974de2b1bda0965028a0ad99666910a26758fd8b58208b4e95b3febc2e59c3df",
+     "md5": "11e32c9a7d7362341d70bfaf99cceb88",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1643-1224.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1643-1224.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419732",
+     "size": 3608,
+     "sha256": "9bbabc8e01d560161857524e5cd6ddfc04c1404aff8774bf0030b8fc9d1bac61",
+     "md5": "a81340e2a8d04cafc07041429d89444b",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1643-1224.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1643-1224.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419734",
+     "size": 1229689,
+     "sha256": "c0b3bd36ce9da4d9af5b6ff9fb23d4d9e2dd608cc425b0e676e76bfd9d8eda3f",
+     "md5": "a0f3a1d2c46500b680db6f2e5c945c71",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1713+0747.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1713+0747.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419693",
+     "size": 3906,
+     "sha256": "82e15f7cf0595863ceeca56121ef66e9ddbb41000a85b9c9fba256195c8ad256",
+     "md5": "a20596afa2a21a826bb169b52586a30c",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1713+0747.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1713+0747.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419726",
+     "size": 1574632,
+     "sha256": "0a4552db31239db88484b1f190945aadc9f80022d156b01d8189967d7756ebdc",
+     "md5": "80588600f4db03ffb5306c0235da6b3e",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1730-2304.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1730-2304.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419719",
+     "size": 3332,
+     "sha256": "27011f3c60a988f741a6735bd24bfa47d8ae2aad2532a3bd19ba59039b6b9ab2",
+     "md5": "0fdf8197bb5a613db4eb685c4bbf05a7",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1730-2304.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1730-2304.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419723",
+     "size": 944152,
+     "sha256": "952a905a186f544bbd4a22b1f92bb454ed8a6a829f4117cb1306ebdae7a8f8cd",
+     "md5": "66826d2ccae63f1ddcffd342c0a2265d",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1744-1134.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1744-1134.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419709",
+     "size": 3371,
+     "sha256": "49c32f578213d94082e9aad5e615234135d887452de69fa2ed021064ea1f4dd8",
+     "md5": "f69176e62f305048456034d6455760f7",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1744-1134.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1744-1134.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419712",
+     "size": 1364582,
+     "sha256": "6c9e7bc0ae8db59443b3f7b52bc09aacc35e3a63439f86de07b1795709bd2cd6",
+     "md5": "092d5b1ebe80ebff3f093f718f8498ad",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1824-2452A.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1824-2452A.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419740",
+     "size": 3211,
+     "sha256": "2a14dadd6d1e5776d1f39b71d5e02fefcea6d649a3cc78d1f3099db8d16f22b7",
+     "md5": "803039188ad8ecb83b5da1f033b9b48b",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1824-2452A.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1824-2452A.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419741",
+     "size": 434007,
+     "sha256": "09e3f534cbe732355e3c00f43da360047b33a56923d70e3743026bb288304d87",
+     "md5": "24eca4e8fc8b5174a8275c96812bf0d3",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1832-0836.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1832-0836.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419735",
+     "size": 2009,
+     "sha256": "3b2db5b38fcd55ef99c67134c480f744747658f6f88b7b4cb7668147b4af5e3e",
+     "md5": "1019970c05a06087a826922c4d3ef685",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1832-0836.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1832-0836.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419701",
+     "size": 89904,
+     "sha256": "b018fae094f7900c3b8546a2acd89d464f089771c4159cb014869c99ebc79a4a",
+     "md5": "9d612838d9f5f52c5b4836b580a68ba5",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1857+0943.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1857+0943.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419718",
+     "size": 3651,
+     "sha256": "3285f4418254c64b2c9e05ae85441ac3c4b9e940c0b03d1ab8c902b19808ac63",
+     "md5": "1dc82239741dab4a38cbc31a4e06cb51",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1857+0943.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1857+0943.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419696",
+     "size": 805299,
+     "sha256": "65c8800ecc4e3e2f090c2dba67d8f7b9fa70234945a2de98cf0fb554c8120fbb",
+     "md5": "82621934f6a671c89775c21c142af783",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1909-3744.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1909-3744.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419729",
+     "size": 3935,
+     "sha256": "a911326f53fea3abe68927758356ba264baf433c5e625177064b501511aa8cf6",
+     "md5": "2261dff5a313e207e92760a5dc44f85e",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1909-3744.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1909-3744.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419739",
+     "size": 2312280,
+     "sha256": "66ec0d584034ba059018b35055466880eb9319e19e8ac1df97a2137222185d93",
+     "md5": "ad826809b86a7d2c029e541ad30b0393",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1939+2134.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1939+2134.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419715",
+     "size": 3229,
+     "sha256": "74abb083f5b06c72b3495dce102b388bf10357e93197d57d9a80c6730736a9a7",
+     "md5": "d972650ed2dae3122d4b7acf71079ad7",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1939+2134.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J1939+2134.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419713",
+     "size": 427230,
+     "sha256": "f1123ff83fb5d260c12cb8697d9d5c93e90e682935a7f55a9e81cb6bd82e55be",
+     "md5": "a3a9dac585456cd99f5e798c9b999bec",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2124-3358.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J2124-3358.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419706",
+     "size": 3295,
+     "sha256": "ad35072abaea6555410b6b1f7356e92cdb4d8adf2eafc18736631a4da6d985cc",
+     "md5": "637d868bd9caada2e71a59131e2dfec6",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2124-3358.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J2124-3358.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419698",
+     "size": 941442,
+     "sha256": "f8fc5d624ed49343bdf581af6c448254a3849f9441f50ac3d15eb1bfeb474c36",
+     "md5": "c665cd68f6998cbf63d44578d3ddf101",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2129-5721.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J2129-5721.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419711",
+     "size": 3663,
+     "sha256": "20bc710547a38e4354d9d9fb914432b78c35c93d5eea895334c4c3ebdfb02623",
+     "md5": "90daa648f02b0842301fcc0e14a8ddb4",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2129-5721.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J2129-5721.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419703",
+     "size": 663790,
+     "sha256": "189c5d9dc8f762c201cdada52b08ed4bb1cdba4a8562eb5f68085c0ee01abadf",
+     "md5": "e8ae31e77dbe8b4f3dfad5412a6b6468",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2145-0750.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J2145-0750.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419724",
+     "size": 3760,
+     "sha256": "efda02893e51be404e4b7b7e8d83097d340580ad6b982990e8706aaba396c983",
+     "md5": "0ae8111caf420aff9722c6051a2c4b95",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2145-0750.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J2145-0750.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419733",
+     "size": 1454433,
+     "sha256": "05b9bae0685332e1288238512c187e86edd4082ceef5573bb63ddf079b5d62c1",
+     "md5": "3c40b68fec2a37618795624cfaaedc25",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2241-5236.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J2241-5236.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419717",
+     "size": 3002,
+     "sha256": "ac5347b028f222b57a53fe32525846e88301fc43b1d589cf47b2bf7ffe408040",
+     "md5": "9837fe3dd7411953b8aff2f43132ce2d",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2241-5236.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/dr2/J2241-5236.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419737",
+     "size": 1225110,
+     "sha256": "586a1d15a7f943f213caa91ef90965555c5b2cc931e266be5eaf15242568119c",
+     "md5": "5caa295fa8dc493ec5c524c3219e64bc",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0030+0451_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J0030+0451_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419672",
+     "size": 1552,
+     "sha256": "1758c84176d8b94bd88a053697abd8a6e3402c8702647e24e29000740384c14e",
+     "md5": "77e30f26e095e8394a8b05c003ef6b98",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0125-2327_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J0125-2327_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419667",
+     "size": 1557,
+     "sha256": "434d7a928e3b7684c0f12e84a18a456695b75778091bf0ae14db8ae011654424",
+     "md5": "a0ac70f81d0d7a01ea2a2e00aab61484",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0437-4715_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J0437-4715_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419668",
+     "size": 4410,
+     "sha256": "78d4051f715092d4c1459f992b4b234588f520d313d04a1522b7df70e5a664f5",
+     "md5": "e210b8f9546cb8f543e37be18a2d31d2",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0613-0200_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J0613-0200_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419686",
+     "size": 3464,
+     "sha256": "4cd4b8c87208de4e4db9c7da4f5ef354ac2a2976bf8a3edae188660666936515",
+     "md5": "1982dcc4be34c65343b24e3b06c540af",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0614-3329_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J0614-3329_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419659",
+     "size": 1553,
+     "sha256": "199b9d351273aeee6686c9f901d7fa6221d3f295fb68707143345b1637ccebc3",
+     "md5": "79ac3e5029d53fc8c82b5befb08c43d2",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0711-6830_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J0711-6830_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419665",
+     "size": 3133,
+     "sha256": "2b486f5090e26442d3c8daa7626094171e5dde6c7d1e6ccecd60f970e5419d4e",
+     "md5": "716fc8d621133f90e989ae9867a1d95e",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0900-3144_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J0900-3144_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419683",
+     "size": 1558,
+     "sha256": "a4b2e6d4d87d777b903fa87acf0af11dc4c2ae0a5aefdf9e37ac5cdd38769556",
+     "md5": "a68ea65b330e213db8cf398a069b048e",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1017-7156_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J1017-7156_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419671",
+     "size": 3279,
+     "sha256": "9df85ec11db51282002802ea95824fc013a12352ebdf590f2f9613656c50c8ca",
+     "md5": "93f88373300332e52ed75d8e8928d064",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1022+1001_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J1022+1001_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419680",
+     "size": 3892,
+     "sha256": "bd39f9c7884be265387274f3c71169aa7b06345c5dfbf7e98e435406729b9c27",
+     "md5": "1ed7f9ecc027e1d3be9d541880fd82be",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1024-0719_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J1024-0719_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419666",
+     "size": 2652,
+     "sha256": "e9541ccc49ce22f0fd4c0486569a15595d76f3b0d16494362c198704a0d53901",
+     "md5": "3addf982601c77a6de38bfccd4e891a8",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1045-4509_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J1045-4509_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419674",
+     "size": 3123,
+     "sha256": "be42a94557a16d3fffc129f724f8ed5407f2ab88512524c1c3b53e55dc6df95e",
+     "md5": "dd37768210f87735e2e861a0f9d7ab5f",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1125-6014_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J1125-6014_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419681",
+     "size": 2421,
+     "sha256": "ab41de6e6165e3ce28888afd5fb12e52ec918e73843edab122ab98d4a8a96874",
+     "md5": "374d8b51e844f8e4568bc8e121a86ea6",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1446-4701_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J1446-4701_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419685",
+     "size": 2191,
+     "sha256": "64ba9919a126dc9372da2d170c41ebea502124281313e0ee1484dd9b366e072b",
+     "md5": "e4c711bac8a5813d4d3d53b2f2b99d23",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1545-4550_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J1545-4550_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419676",
+     "size": 1997,
+     "sha256": "6467079493442359e9b4479afa80cbfbda43483db533b785c8e64d1e1c9fcfb3",
+     "md5": "744a37cf0d45b0d52ac59246829fc232",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1600-3053_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J1600-3053_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419662",
+     "size": 3589,
+     "sha256": "0874bd64806327ad7a3e9dd9e6cd7365a9cb4f8617ef967822ac49daf9bf3ca4",
+     "md5": "eda4f616559213f262c73c594f3909af",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1603-7202_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J1603-7202_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419677",
+     "size": 3176,
+     "sha256": "e5d677480f0eca1decc8c18ff333367b0290f46bdb79fb6aff19b565261b122f",
+     "md5": "a4c561bffc418124676097ac36a38013",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1643-1224_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J1643-1224_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419682",
+     "size": 3700,
+     "sha256": "443f40285c79ff150d9b45ae762b6f2bee790fd08fb12e193cd7ad7840b4fdc4",
+     "md5": "439794a753d182be6d08765b0bdce7d0",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1713+0747_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J1713+0747_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419690",
+     "size": 4655,
+     "sha256": "3ddd8ded738cb1beb68e0c4833e1a7377afa994daa857bbb5d1303e31f4d5363",
+     "md5": "8471551dfd8f6258de5b894240b48e4e",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1730-2304_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J1730-2304_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419684",
+     "size": 3141,
+     "sha256": "2939145a843d61ef7bbf5c03915d58580961fc45779e0b9c5249b4e0c3423351",
+     "md5": "3e2081c238e2a97ecb5d3098c5a9bb78",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1741+1351_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J1741+1351_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419658",
+     "size": 1042,
+     "sha256": "4ccefedd702de2c820c0d76188bbb5be9fe04a259c318c758e644f3a6cac7918",
+     "md5": "a9ab0d44f4f8bd500213385d438dd2cc",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1744-1134_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J1744-1134_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419670",
+     "size": 3359,
+     "sha256": "1930b9edfde4571115dce061aaaedde43deeff7c79c65e02a15249079b40d609",
+     "md5": "c147bfb9026bc55929120ec227f8705c",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1824-2452A_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J1824-2452A_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419663",
+     "size": 2271,
+     "sha256": "bea4b9f2992982db8cdaba9e70e0875a881f2fde96be51f38753508fc0b9386d",
+     "md5": "8a15a16ccdaa2d47990a7ffad51fa1d6",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1832-0836_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J1832-0836_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419661",
+     "size": 1471,
+     "sha256": "9bec520552e26a0fe1c898aacc987496d8028d9d6e3df2318986c05b0f9ab25d",
+     "md5": "2bf228161c89317b87c8307c2cffeeb2",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1857+0943_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J1857+0943_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419689",
+     "size": 2759,
+     "sha256": "b408cf55c436a5f6030325bee41492edb6ea6eb94cd5e61b0d330f60ee69a086",
+     "md5": "aa8ec0f283ac2c6645bf6361be192190",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1902-5105_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J1902-5105_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419673",
+     "size": 1263,
+     "sha256": "370c6a83cca32bad4d993a0bfbab70d332c5a359fb21d7d8955097fc1b6df0c3",
+     "md5": "bd16edee0885c20624c9840d01fa904b",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1909-3744_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J1909-3744_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419660",
+     "size": 4283,
+     "sha256": "db53f20a6adb14aaf163bc3f4f57629fa1cef66c79ebad5a1ee78a09152d2be7",
+     "md5": "c01905099ad8f17424a4ab9181265d10",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1933-6211_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J1933-6211_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419688",
+     "size": 1553,
+     "sha256": "c46aa4dacafb6a7842a52f68582e3d74cead5360950d72d829e905fc87d88bff",
+     "md5": "1d2ce0ad2d487c8f6aea733fceda0c3a",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1939+2134_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J1939+2134_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419675",
+     "size": 2637,
+     "sha256": "3c3c4f5920f607a5150b8e1a268a64759f89c8dfb448686edaac8d5d035f1b0c",
+     "md5": "7300751bf758b6220098e18b15131327",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2124-3358_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J2124-3358_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419669",
+     "size": 3003,
+     "sha256": "22572bd793eb2194136e33c982780aa163321c9caee29706718d6f3d33f6fbc8",
+     "md5": "e20df6119bc42d172e3f897299e04160",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2129-5721_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J2129-5721_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419679",
+     "size": 2608,
+     "sha256": "4a87d85e9843200b756b4c32181238b11100fb213dc19ea7f30eebeeb3193f2d",
+     "md5": "f87863c34eddd080b340a0b4ee27c062",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2145-0750_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J2145-0750_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419678",
+     "size": 3586,
+     "sha256": "89ffbff2797afe1f0c5c91dceba3cf7d0b0d4c2794af9a1c16a841be1481a14e",
+     "md5": "7d12cae67dfdc0ad735d12f8a44aa696",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2241-5236_singlePsrNoise_sw_nesw0_noise.json",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/noisefiles/J2241-5236_singlePsrNoise_sw_nesw0_noise.json",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419664",
+     "size": 2644,
+     "sha256": "3a4f3ddf63485708bfd4a7a429a37ccd7536dab1e9356d9ced784656b11f915a",
+     "md5": "3bb1356d8c937a9d51d19ece6252a3b1",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0030+0451.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J0030+0451.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419635",
+     "size": 1560,
+     "sha256": "d4afebada55c8b5a730a58fb6eac1b55b62521881b1c1787fe0a7b8a1fff30fc",
+     "md5": "b7e8affbcc13afce1fc84395968d0df7",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0030+0451.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J0030+0451.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419609",
+     "size": 195757,
+     "sha256": "6c6b586931444e440ae50d663e4e92f7af72f0dc12b9600ed1655bb5eb04f014",
+     "md5": "3081a530c87634bd3ef27390d3cdda58",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0125-2327.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J0125-2327.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419654",
+     "size": 1907,
+     "sha256": "d084e48b86ae40117477af535033bac49d9d6551a36c51f73b512609a24121b8",
+     "md5": "73a38729c19e048aeb5a76741fecf7ee",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0125-2327.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J0125-2327.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419653",
+     "size": 906295,
+     "sha256": "008894484d4dfe8e94baaaa510eac930cdf2c418db68815be5c79f24c71cb744",
+     "md5": "590054b892357b329d33c127e098c037",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0437-4715.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J0437-4715.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419598",
+     "size": 4479,
+     "sha256": "5c7f04e98bec3f56e9ab37b4a24787cc9147ba74c722c77f0043e942ab847dbc",
+     "md5": "b9ac0a54aa8f66cd39723819de8e2f89",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0437-4715.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J0437-4715.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419597",
+     "size": 1600406,
+     "sha256": "1e933799313bd8a602236f627f184e4a28db46a7b33b5e659b7cabd8bffe6310",
+     "md5": "f2bbfe206b6890162904468830e11c91",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0613-0200.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J0613-0200.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419613",
+     "size": 3731,
+     "sha256": "8aa16f139bb025207350cd2eac78b6feb914111dc502bd478bd99f59df64d573",
+     "md5": "4a835ecca9baff866609188a1815ee78",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0613-0200.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J0613-0200.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419604",
+     "size": 583261,
+     "sha256": "cd4b2d09726392a388883c86e1fe3231c2f746e5643266b8a069ec3d790fbf36",
+     "md5": "5d62b0685ca552ec12c8f265c648750a",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0614-3329.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J0614-3329.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419608",
+     "size": 1908,
+     "sha256": "39176af272d4efdfb9ad0105d9c46f458dba986ef33881a7a81394a61c0201ea",
+     "md5": "bb5480ba3ed8808f5cbd34e10abd67f4",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0614-3329.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J0614-3329.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419603",
+     "size": 233829,
+     "sha256": "db683e23376252aafe2f8e67201e26c37db3eb7ef6f450d9794b304f55ab9c0f",
+     "md5": "e0aa24816dddd325006e1ec3c7c46600",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0711-6830.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J0711-6830.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419629",
+     "size": 3271,
+     "sha256": "d3c6f98d0e42cf7fdb929fd848bacccad1bec162979bac7acb3acc28eb016cfc",
+     "md5": "7700a23c31ca06110c2c55391276510f",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0711-6830.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J0711-6830.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419633",
+     "size": 900968,
+     "sha256": "7062ac34b7a6d383c17b40f7e0ce48bb298e2b528204c348cd0696f0490871c3",
+     "md5": "737a07bae30a100da85dc98da5c084e3",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0900-3144.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J0900-3144.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419606",
+     "size": 1817,
+     "sha256": "dea4ae3337834ce540f187e79cff7efbcaf13d47eaeb5bdbc6f263f1d73b0ffa",
+     "md5": "da848ba5c0afafb835513aa8b2ba9bf5",
+     "checksum_verified": null
+    },
+    {
+     "name": "J0900-3144.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J0900-3144.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419655",
+     "size": 613961,
+     "sha256": "8a897e271a774024faa8e5def564c981f46b15e671e542ac0ab1d866200eeb7b",
+     "md5": "bbe4311d558e545a6c44afca1a1a2599",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1017-7156.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1017-7156.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419647",
+     "size": 2725,
+     "sha256": "8ac20c8f5574ef6af374d1b7104e70430509b1ee10bb0a2aa75160b4b5a5c6d1",
+     "md5": "fad56bb93c80ba81a63f98655055de2c",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1017-7156.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1017-7156.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419618",
+     "size": 1224835,
+     "sha256": "35de6bd658265b6a74d5b36ea02b604279ae8ab2cbf77249eab163c950003b60",
+     "md5": "f4d9dd31ecfa8272dbbf4591ae2131cf",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1022+1001.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1022+1001.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419621",
+     "size": 3766,
+     "sha256": "abb03eac5e4d44c42dce1f08145b5baf7cb77cd37762175248ba8696300a94df",
+     "md5": "ba699fd49ba3d5df6f31f422a4128b79",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1022+1001.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1022+1001.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419632",
+     "size": 456194,
+     "sha256": "be7367500985e536efb4aa0775737395f533d059086586ec01a8e5ef4e46711d",
+     "md5": "1d193d4c919390f8bc5c751d47c8fbd1",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1024-0719.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1024-0719.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419616",
+     "size": 3243,
+     "sha256": "5182d220b5446445f8c63b5d7767d86975d9a67d8112a4d9e9d55b61d9aee60a",
+     "md5": "a606936adbc73d3c72a62a1400823d40",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1024-0719.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1024-0719.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419628",
+     "size": 210500,
+     "sha256": "9cd650841d02698fdf6f18457428afa3a34edaec348a232c36207366eb93026a",
+     "md5": "8e1b9701c2d8c5b3486eacf2f25d810b",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1045-4509.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1045-4509.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419637",
+     "size": 3618,
+     "sha256": "a9cc7ed9b25d30f734a881d19182d861b558207e2660a8ea643bc04aea257daa",
+     "md5": "786669abab7105055c4084068e6ee160",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1045-4509.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1045-4509.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419617",
+     "size": 435747,
+     "sha256": "a41905bb20e0888c5bfb55f24c27f8680f3b93fca8f516c4b5b837138d7b74a6",
+     "md5": "774fe817dac4a477f8f8b82025ab0ebc",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1125-6014.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1125-6014.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419639",
+     "size": 2911,
+     "sha256": "0ac4e5c3fe8a39c208a7a124f9142bb49020472704a2cd6a7c83512cb4062e64",
+     "md5": "b4d308e02baa83c14eb38dab34619bc3",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1125-6014.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1125-6014.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419612",
+     "size": 657218,
+     "sha256": "7be25f9e1a77376d563d738aae61c696f55ed48566356310ae0dc0ea3120ed0c",
+     "md5": "745f65b0a5836c83cc075980cfbdda10",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1446-4701.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1446-4701.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419656",
+     "size": 2439,
+     "sha256": "c6719cc682c2f81a30c09083862aa73615678734ce266ac511ddd7e81eb6c430",
+     "md5": "ca8947f5a5ffdd1ae98955e6b2c42b27",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1446-4701.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1446-4701.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419594",
+     "size": 146970,
+     "sha256": "5e0e9dc9d42c5e75934c3f64964086c447ce9ade2273fb37cc5d7aa50434efd8",
+     "md5": "3bffdf82fd2b3f9cbeeccae9c1130133",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1545-4550.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1545-4550.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419645",
+     "size": 2529,
+     "sha256": "9a9e4fe3dd04381d5102e33ae4344fa7d181b21d36165442a2c19041eaf21443",
+     "md5": "88c5853fee324251b85822d8ec2c53a6",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1545-4550.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1545-4550.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419630",
+     "size": 505119,
+     "sha256": "cbb1a4b1f48038e2cb4deade64487b6002a7dccd67a4eeb4914360609865f1bc",
+     "md5": "fed46c99c903915e3f84e6506225a0a7",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1600-3053.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1600-3053.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419600",
+     "size": 3876,
+     "sha256": "ae11d6d02659150b739fd2b543b02c7be1740a5735d3ec090758b426c4848602",
+     "md5": "2e4d4c15272a1990a34ac447c1e82184",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1600-3053.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1600-3053.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419627",
+     "size": 433458,
+     "sha256": "1afca41719fd89ed8540c5f85c6be09ff71bc921307ac1dc3713716e3c220c7a",
+     "md5": "3eefa2738c511543f3620b56feac7dfa",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1603-7202.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1603-7202.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419601",
+     "size": 3601,
+     "sha256": "c2dd6c4dae7361c4165b85b85407c19d404854af93ee61f03eefbaba15880bc8",
+     "md5": "1acfe98059dd21c155b9528701a08c32",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1603-7202.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1603-7202.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419615",
+     "size": 786014,
+     "sha256": "5b9a95d738370bea74908600b3b6fb17907faa4b2bb4a7fff297e1f092286b46",
+     "md5": "7b6acbb18cbb7d6ff9e46e9c8eaeaa45",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1643-1224.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1643-1224.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419641",
+     "size": 3593,
+     "sha256": "17d10e16408905122cef88b0f7825bf63d373a1ed041fd449704d786d6a99253",
+     "md5": "7293cd4e4f860df615ab6e8a52f2947b",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1643-1224.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1643-1224.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419650",
+     "size": 382057,
+     "sha256": "f24b1c9cb7b604610f5f21b727f748e03a61748e065e84c38c7f070854584704",
+     "md5": "91e7c93107388e93920f3f9d9e49254a",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1713+0747.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1713+0747.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419602",
+     "size": 3895,
+     "sha256": "a35f2de8fabd2f91aea2f4772047a89bca73581cd6267bd99dd76da1a75720a2",
+     "md5": "9d57fbda93fb95fbf490533bab591946",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1713+0747.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1713+0747.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419636",
+     "size": 423110,
+     "sha256": "be14ff56c33abf38be2a321b16c026777bb861bf74bef8c89af38a1e6dfd761b",
+     "md5": "1387ed7ac4cbc915abbec81b5f2f5229",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1730-2304.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1730-2304.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419634",
+     "size": 3316,
+     "sha256": "012a62972b12605aa421efbe16c3910f2ebe600e1d8072410a03571912524883",
+     "md5": "853404c92a4e0239b7ede5595d467b91",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1730-2304.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1730-2304.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419643",
+     "size": 322810,
+     "sha256": "d37e9783b18b59caf466c2a9795ae739dcdf6324fc88341aaa8bd8cc2c79b6a9",
+     "md5": "247db94aedcf8d4a9f928687c6f6656d",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1741+1351.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1741+1351.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419651",
+     "size": 1903,
+     "sha256": "eac1bf12abbd577c7d8e054bdfe4e5c234f83b87a97b2648614f269ee3dd7d9c",
+     "md5": "da6de0640485e6ab00acff81724a2d76",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1741+1351.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1741+1351.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419595",
+     "size": 37122,
+     "sha256": "c60bc14f94dfa1c7cc0aa4fcd4bb8a66675ce869574aa5e1687d4cf3de80f350",
+     "md5": "72611a5a98ca68bbaf349f6645f4f614",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1744-1134.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1744-1134.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419614",
+     "size": 3358,
+     "sha256": "598bc3f9755e7f698a16e5a6d070368d9197d65bc40ba945dcd22928ae92098b",
+     "md5": "2d351de4b91d9b371f4a3a3843f4ee09",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1744-1134.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1744-1134.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419620",
+     "size": 679087,
+     "sha256": "10845c1cfda7f594dde9ec9e397339a88e8af136e8d2d858e2dddd63edfebf19",
+     "md5": "da9ccc7b13d8732d176e2493849803ed",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1824-2452A.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1824-2452A.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419648",
+     "size": 3187,
+     "sha256": "93ee3cc43c7e339a4ce59108039a31b813607db3e459c6063aac22dc77464211",
+     "md5": "4a05af58c5ebc3bcc482fac425b57d1f",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1824-2452A.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1824-2452A.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419649",
+     "size": 70805,
+     "sha256": "2983d1685df6e167e55e5f5ed1d36b0b3229e458d0fc68aa9c62ac38dcfc9a0e",
+     "md5": "dc55863f0c2a531bfdc70e3a01381230",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1832-0836.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1832-0836.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419644",
+     "size": 1988,
+     "sha256": "2cd8e6d4843265dc139aef2e6586bcd011ebb30c2f3e9c489abb386ca372d0d3",
+     "md5": "0307c26620249c22d51b69d39004c692",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1832-0836.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1832-0836.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419607",
+     "size": 57423,
+     "sha256": "23301d413d7f16d2aec92a8fc667c4c930bdaa62d2284d9960ae237c8c40c84e",
+     "md5": "57874b53f792212a71fed443ec068b21",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1857+0943.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1857+0943.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419623",
+     "size": 3633,
+     "sha256": "cf4d13ea9bbf10667248304b2a87daf6e060e0dc40f4f050a3f3ed305caeaa64",
+     "md5": "caa05fab40e30355bf2cbc8a96f7019b",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1857+0943.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1857+0943.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419599",
+     "size": 205982,
+     "sha256": "dd3a6a22fc5f274f3f012d32418f20d69d5ea1c7657ae9cee4ce07cfd40311f7",
+     "md5": "045653bf504534e9cc43c0f873de36bb",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1902-5105.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1902-5105.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419638",
+     "size": 1822,
+     "sha256": "04d4f629fc39da2e2bf7e944e98aa3e8608f6ea0063765f8ff1623f7eca95a32",
+     "md5": "e02f210acf0b6a8fd7a003ee098b5e6f",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1902-5105.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1902-5105.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419611",
+     "size": 168192,
+     "sha256": "833232eaedff78fa00156d8eaaa94417981514994f45302ef5074b275b8d3807",
+     "md5": "28020e83e74c9934430952b537d3f9ce",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1909-3744.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1909-3744.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419646",
+     "size": 3920,
+     "sha256": "d4476b4c07252425870dfe82d7618bed1fff2bd54f7c2ac0c35c0dca8049f0d5",
+     "md5": "45f51e15f9297bece5dcc6079c539173",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1909-3744.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1909-3744.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419652",
+     "size": 1331532,
+     "sha256": "27dafb0114c70b9a0843b9d12467d895ff883a1852a8dce6266a5093a53b4c30",
+     "md5": "272e08979059f097165754f5b7f041b3",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1933-6211.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1933-6211.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419610",
+     "size": 1770,
+     "sha256": "fe14f05ce5bba686727c5033be5e4041c7372255fb3db049849e8101eea93ed7",
+     "md5": "72fadc134806cda3f99b55f6236c0d24",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1933-6211.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1933-6211.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419631",
+     "size": 298458,
+     "sha256": "3cd14845aa43e9ea01c15260d3964723d846dd1650141a372772ccfa49fbd078",
+     "md5": "1879bef8aabad89dd37f9848e2f6fceb",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1939+2134.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1939+2134.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419625",
+     "size": 3209,
+     "sha256": "28730f9ad3f41706a40586e9be3fded19d6bec60818739fd84cc8e477cfac7d2",
+     "md5": "a4e3e92804db913825119681901f94c1",
+     "checksum_verified": null
+    },
+    {
+     "name": "J1939+2134.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J1939+2134.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419622",
+     "size": 129652,
+     "sha256": "e2d8fc191b0075268bff5482cf6d93d7ed8d2126bbb63fabb0afebbcdcbbc96a",
+     "md5": "98652af895ecc87637bbd0077317f6e0",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2124-3358.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J2124-3358.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419624",
+     "size": 3280,
+     "sha256": "3ce2e1d2b9a0a07e65d958302a552b8aafa18832c0cd38f3f309337788aa007a",
+     "md5": "f8ba97984a5f0d2acc0962b1ed6722f8",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2124-3358.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J2124-3358.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419596",
+     "size": 356102,
+     "sha256": "ede2ab879978be7a2131cd2e355fd48050f90b724eda44a899e84f4513d08deb",
+     "md5": "222832b8757e5ef6bb65b34993ab3f5b",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2129-5721.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J2129-5721.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419619",
+     "size": 3647,
+     "sha256": "d57d183c0477139988efa6724228082cabed2de59178eee36672c1cf764be059",
+     "md5": "c36b89b4d59ea1a3537dd69dbd073529",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2129-5721.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J2129-5721.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419605",
+     "size": 422801,
+     "sha256": "05dc4377f785786225b265343ca11e4b064ce5e7c5c32f2b4bd83216b8423b29",
+     "md5": "26964001d485de5713d6d2a3bd6c54f2",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2145-0750.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J2145-0750.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419642",
+     "size": 3747,
+     "sha256": "84cbcac21a48327a2d8b06f36e6b8374b9ee35b3387f867a13c6c0b8e3163ee9",
+     "md5": "e1fd6c2b8c5f1ab97cec52daaa9e5ffa",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2145-0750.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J2145-0750.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419640",
+     "size": 456902,
+     "sha256": "738f3b0c8c7b7fdc338fbc273c7a05ac1fac5db3c9b6fb0e5dc36482dce8ad16",
+     "md5": "322b7b3acf83ab5f615d1a06cb0f02fa",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2241-5236.par",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J2241-5236.par",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419626",
+     "size": 2955,
+     "sha256": "d6efcb304e0cb170333c4a2e89beec9d26fd3bc99f79743523423c1900e71e0f",
+     "md5": "865304ac4d0fa84e3a0dd95f20505f53",
+     "checksum_verified": null
+    },
+    {
+     "name": "J2241-5236.tim",
+     "path": "data/raw/ppta_dr3_timing/ppta_dr3/toas_and_parameters/uwl/J2241-5236.tim",
+     "url": "https://data.csiro.au/dap/ws/v2/collections/59423/data/65419657",
+     "size": 1081082,
+     "sha256": "b41ffeaee9e1957c0f523fea00654f5e47fb40c1c148f3e394cfc04a2417a434",
+     "md5": "6a47b8e5a1db7f694c8727901ed58952",
+     "checksum_verified": null
+    }
+   ],
+   "total_size": 88995258
+  },
+  "inpta_dr2": {
+   "group": "secondary",
+   "kind": "github",
+   "description": "InPTA DR2 (27 MSPs, uGMRT) official GitHub release repository.",
+   "status": "fetched",
+   "fetched_at": "2026-10-06T19:33:09+00:00",
+   "dest": "data/raw/inpta_dr2",
+   "source_url": "https://github.com/inpta/InPTA.DR2/tree/e2806fcb2c238ec38dd80784dfcb1e6c82f54728",
+   "doi": null,
+   "commit": "e2806fcb2c238ec38dd80784dfcb1e6c82f54728",
+   "files": [
+    {
+     "name": "InPTA.DR2-e2806fcb2c23.tar.gz",
+     "path": "data/raw/inpta_dr2/InPTA.DR2-e2806fcb2c23.tar.gz",
+     "url": "https://codeload.github.com/inpta/InPTA.DR2/tar.gz/e2806fcb2c238ec38dd80784dfcb1e6c82f54728",
+     "size": 12771962,
+     "sha256": "1c3f59e1e3c07c05ae1c37952e2125bd25d18448e4fa6b540814741517852c48",
+     "md5": "b7dfaa8511dbe229faef63aae1086a75",
+     "checksum_verified": null,
+     "extracted_to": "data/raw/inpta_dr2/extracted"
+    }
+   ],
+   "note": "GitHub archive tarballs are not guaranteed byte-stable; the commit sha is the authoritative identifier.",
+   "total_size": 12771962
+  },
+  "inpta_dr2_noise": {
+   "group": "secondary",
+   "kind": "github",
+   "description": "InPTA DR2 noise-analysis (DM12) par files.",
+   "status": "fetched",
+   "fetched_at": "2026-10-06T19:33:10+00:00",
+   "dest": "data/raw/inpta_dr2_noise",
+   "source_url": "https://github.com/inpta/InPTA.DR2.NA/tree/e2f9cc573ba193e227672ec2fbe18dbf9a17f820",
+   "doi": null,
+   "commit": "e2f9cc573ba193e227672ec2fbe18dbf9a17f820",
+   "files": [
+    {
+     "name": "InPTA.DR2.NA-e2f9cc573ba1.tar.gz",
+     "path": "data/raw/inpta_dr2_noise/InPTA.DR2.NA-e2f9cc573ba1.tar.gz",
+     "url": "https://codeload.github.com/inpta/InPTA.DR2.NA/tar.gz/e2f9cc573ba193e227672ec2fbe18dbf9a17f820",
+     "size": 30921,
+     "sha256": "6e862de75f5db43a6700b79c6e3b6ac33b8b8c2c7966142f173022f568c8548b",
+     "md5": "4972c3f5cd1ef0adef394dc9d0c4a8a3",
+     "checksum_verified": null,
+     "extracted_to": "data/raw/inpta_dr2_noise/extracted"
+    }
+   ],
+   "note": "GitHub archive tarballs are not guaranteed byte-stable; the commit sha is the authoritative identifier.",
+   "total_size": 30921
+  }
+ }
+}

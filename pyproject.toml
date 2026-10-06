@@ -1,0 +1,48 @@
+[project]
+name = "ptagwb"
+version = "0.1.0"
+description = "JAX-based reproduction of the NANOGrav 15-yr gravitational-wave-background analysis"
+authors = [
+    { name = "Kasper Nielsen", email = "kasper0406@gmail.com" }
+]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "h5py>=3.16.0",
+    "jax[cuda13]>=0.11.2",
+    "matplotlib>=3.11.2",
+    "numpy>=2.5.3",
+    "numpyro>=0.22.0",
+    "pint-pulsar>=1.1.7",
+    "pyarrow>=25.0.1",
+    "scipy>=1.18.1",
+]
+
+[build-system]
+requires = ["uv_build>=0.8.0,<0.9"]
+build-backend = "uv_build"
+
+[tool.uv]
+# The `oracle` group pulls scikit-sparse (via enterprise), an sdist that needs the
+# SuiteSparse/CHOLMOD headers. Without root, install it with scripts/setup_oracle_env.sh.
+default-groups = ["dev"]
+
+[tool.uv.sources]
+discovery = { git = "https://github.com/nanograv/discovery", rev = "b26d2554df5540a7610eedf926659701daad01ad" }
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.10",
+]
+oracle = [
+    "discovery",
+    "enterprise-extensions>=3.0.3",
+    "enterprise-pulsar>=3.5.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
