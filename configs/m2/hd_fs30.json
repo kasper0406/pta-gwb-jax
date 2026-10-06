@@ -1,0 +1,23 @@
+{
+ "name": "hd_fs30",
+ "model": {
+  "orf": "hd",
+  "common": "freespec",
+  "n_common": 30,
+  "position": "enterprise",
+  "grad_precision": "mixed"
+ },
+ "num_chains": 4,
+ "num_warmup": 150,
+ "num_samples": 400,
+ "block": 100,
+ "target_accept": 0.8,
+ "max_tree_depth": 10,
+ "dense_mass": true,
+ "chain_method": "vectorized",
+ "adapt_mass_matrix": false,
+ "seed": 14,
+ "init": "run:curn_fs30",
+ "metric": "run:curn_fs30",
+ "notes": "HD free spectrum 30 modes (Fig. 1a); mixed-precision backward pass (exact float64 energy), init + metric from curn_fs30"
+}

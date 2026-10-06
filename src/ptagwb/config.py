@@ -38,8 +38,24 @@ PRIORS = {
     "rn_gamma": (0.0, 7.0),  # paper Table 1; m2a/m3a chain priors
     "gw_log10_A": (-18.0, -11.0),  # varied gamma: paper Table 1; m2a/m3a and 14f_PL_hd_crn priors
     "gw_gamma": (0.0, 7.0),
-    # fixed gamma = 13/3: paper Table 1 says U[-18,-14]; the released fixed-gamma spline-ORF core
-    # used U[-18,-11]. UNRESOLVED for HD^13/3 / CURN^13/3; settle in M2 before comparing evidences.
-    "gw_log10_A_fixed_gamma": (-18.0, -14.0),
+    # fixed gamma = 13/3. RESOLVED in M2 (docs/M2_RESULTS.md, Sec. "Priors"): every released
+    # fixed-gamma product whose prior we can recover used U[-18,-11], not the U[-18,-14] of paper
+    # Table 1: SplineORF_FixedGamma_NL.core stores 'gw_crn_log10_A:Uniform(pmin=-18, pmax=-11)' and
+    # its lnpost-lnlike = -67 ln 63 - ln 7 - 7 ln 1.8; the tutorial product-space core curn_hd.core
+    # (CURN^13/3 vs HD^13/3) has lnpost-lnlike = 2 (-67 ln 63) - 2 ln 7 and inactive-model amplitude
+    # samples spanning [-18.00, -11.00]. The posterior never reaches -14 (released HD^13/3 chain max
+    # -14.36), so the choice only shifts evidences against IRN by ln(7/4); it cancels in HD/CURN.
+    "gw_log10_A_fixed_gamma": (-18.0, -11.0),
     "freespec_log10_rho": FREESPEC_LOG10_RHO_PRIORS["production"],
 }
+# Alternatives kept for sensitivity checks (ModelSpec.prior_overrides).
+PRIOR_ALTERNATIVES = {
+    "gw_log10_A_fixed_gamma": {"paper_table1": (-18.0, -14.0)},
+    "freespec_log10_rho": FREESPEC_LOG10_RHO_PRIORS,
+}
+# CURN free spectrum: no released CURN^free chain (and so no normaliser) exists in any bundle we
+# have. The only provenance is the Ceffyl v1 CP KDE grid, which spans [-15.1, -0.9] (the HD grids
+# span exactly the HD^free prior [-15.5, -1.0]). INFERRED, weak: CURN^free most likely used a
+# similarly wide U[-15.1, -0.9]-ish prior; bins with signal (f_1..f_8) are likelihood dominated
+# and insensitive to it. Not needed for the M2 deliverables (HD^free only).
+CURN_FREESPEC_LOG10_RHO_INFERRED = (-15.1, -0.9)

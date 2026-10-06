@@ -1,0 +1,22 @@
+{
+ "name": "hd_vg_5f",
+ "model": {
+  "orf": "hd",
+  "gamma": null,
+  "n_common": 5,
+  "position": "enterprise"
+ },
+ "num_chains": 4,
+ "num_warmup": 150,
+ "num_samples": 500,
+ "block": 100,
+ "target_accept": 0.8,
+ "max_tree_depth": 10,
+ "dense_mass": true,
+ "chain_method": "vectorized",
+ "adapt_mass_matrix": false,
+ "seed": 13,
+ "init": "run:curn_vg_5f",
+ "metric": "run:curn_vg_5f",
+ "notes": "HD varied gamma, 5 common modes (5-mode BF)"
+}

@@ -1,0 +1,22 @@
+{
+ "name": "curn_g433_14f",
+ "model": {
+  "orf": "curn",
+  "gamma": 4.333333333333333,
+  "n_common": 14,
+  "position": "enterprise"
+ },
+ "num_chains": 4,
+ "num_warmup": 500,
+ "num_samples": 1500,
+ "block": 250,
+ "target_accept": 0.8,
+ "max_tree_depth": 10,
+ "dense_mass": false,
+ "chain_method": "vectorized",
+ "init": "prior",
+ "metric": "adapt",
+ "adapt_mass_matrix": true,
+ "seed": 1,
+ "notes": "CURN gamma=13/3, 14 common + 30 IRN modes; diagonal-metric windowed adaptation from prior draws"
+}

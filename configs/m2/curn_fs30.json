@@ -1,0 +1,22 @@
+{
+ "name": "curn_fs30",
+ "model": {
+  "orf": "curn",
+  "common": "freespec",
+  "n_common": 30,
+  "position": "enterprise"
+ },
+ "num_chains": 4,
+ "num_warmup": 500,
+ "num_samples": 1000,
+ "block": 250,
+ "target_accept": 0.8,
+ "max_tree_depth": 10,
+ "dense_mass": false,
+ "chain_method": "vectorized",
+ "init": "prior",
+ "metric": "adapt",
+ "adapt_mass_matrix": true,
+ "seed": 4,
+ "notes": "CURN free spectrum, 30 modes, HD^free production prior U[-15.5,-1]; auxiliary (init + metric for hd_fs30)"
+}

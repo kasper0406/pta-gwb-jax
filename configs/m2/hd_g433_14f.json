@@ -1,0 +1,22 @@
+{
+ "name": "hd_g433_14f",
+ "model": {
+  "orf": "hd",
+  "gamma": 4.333333333333333,
+  "n_common": 14,
+  "position": "enterprise"
+ },
+ "num_chains": 4,
+ "num_warmup": 150,
+ "num_samples": 500,
+ "block": 100,
+ "target_accept": 0.8,
+ "max_tree_depth": 10,
+ "dense_mass": true,
+ "chain_method": "vectorized",
+ "adapt_mass_matrix": false,
+ "seed": 11,
+ "init": "run:curn_g433_14f",
+ "metric": "run:curn_g433_14f",
+ "notes": "HD gamma=13/3; init draws + fixed dense metric from the CURN^13/3 run, step-size-only warmup"
+}
