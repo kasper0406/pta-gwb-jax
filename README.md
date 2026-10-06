@@ -14,10 +14,26 @@ with our own JAX analysis pipeline on a single GPU.
   `discovery` sit in an optional dependency group. Tests use them to cross-check
   likelihood values. They are never imported by `src/ptagwb`.
 
-Status: **M0 (setup)**. Environment, data download, PINT smoke test and the reproduction
-plan are in place. See [`docs/PLAN.md`](docs/PLAN.md) for the analysis settings, target
-numbers and milestones, and [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) for the verified
-versions.
+Status: **M1 (deterministic pipeline and likelihood) done, awaiting review.** M1 covers the
+PINT ingestion into a hashed cache, fixed white noise, Fourier bases, ORFs, and the JAX
+float64 CURN / HD likelihoods with gradients. They are validated against discovery,
+enterprise and the released chains: see [`docs/M1_VALIDATION.md`](docs/M1_VALIDATION.md).
+Sampling (M2 onwards) has not started. See [`docs/PLAN.md`](docs/PLAN.md) for the analysis
+settings, target numbers and milestones, [`docs/SPEC_astra.md`](docs/SPEC_astra.md) for the
+independent reproduction spec, and [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) for the
+verified versions.
+
+```python
+from ptagwb.data import load_pulsars, get_tspan
+from ptagwb.noise import load_noise_dict
+from ptagwb.likelihood import PTALikelihood, precompute
+
+psrs = load_pulsars()                       # 67 GWB pulsars (PINT, cached in data/cache)
+T = get_tspan(psrs)                         # 505861299.1401644 s
+terms = precompute(psrs, load_noise_dict(), T)
+hd = PTALikelihood(terms, T, orf="hd")      # or "curn"; common="freespec" for a free spectrum
+logL = hd.logL({"rn_log10_A": ..., "rn_gamma": ..., "log10_A": -14.6, "gamma": 13 / 3})
+```
 
 ## Setup
 
@@ -27,15 +43,21 @@ pip-installed through `jax[cuda13]`.
 ```bash
 uv sync                                   # core + dev dependencies
 uv run python scripts/check_gpu.py        # JAX sees the GPU; float64 matmul + Cholesky on GPU
-uv run pytest
+uv run python scripts/ingest.py           # PINT -> data/cache/pulsars (~2 min, once)
+uv run pytest                             # oracle tests skip without the oracle group
 ```
 
 Optional reference oracles. This builds scikit-sparse without root; see `docs/ENVIRONMENT.md`:
 
 ```bash
 scripts/setup_oracle_env.sh
-uv run --group oracle python scripts/oracle_sanity.py
+uv run --no-sync python scripts/oracle_sanity.py
+uv run --no-sync pytest                             # incl. oracle tests (~4 min)
+uv run --no-sync python scripts/m1_validate.py --enterprise
 ```
+
+Once the oracle group is installed, use `uv run --no-sync`: a plain `uv run` re-syncs the
+default groups and removes the oracle packages.
 
 ## Data
 
@@ -77,8 +99,9 @@ bins and number of backends, and computes the array span (16.030 yr, as in the p
 
 ```
 src/ptagwb/     our pipeline (data, noise, basis, orf, likelihood, sampling, optstat)
-scripts/        fetch_data.py, smoke_load.py, check_gpu.py, oracle_sanity.py, setup_oracle_env.sh
-tests/          pytest suite (oracle cross-checks will live here)
-docs/           PLAN.md, ENVIRONMENT.md
-data/           MANIFEST.json (committed); raw/ and processed/ are git-ignored
+scripts/        fetch_data.py, smoke_load.py, check_gpu.py, ingest.py, m1_validate.py,
+                oracle_sanity.py, setup_oracle_env.sh
+tests/          unit tests (synthetic PTA vs dense brute force) and oracle tests (-m oracle)
+docs/           PLAN.md, ENVIRONMENT.md, SPEC_astra.md, M1_VALIDATION.md
+data/           MANIFEST.json (committed); raw/, cache/ and processed/ are git-ignored
 ```

@@ -33,7 +33,7 @@ Appendix tables/figures are cited by appendix and LaTeX label, because AASTeX's
 | DM model | **DMX** in the timing model, no DM Gaussian process. DMGP is only a robustness check (Fig. 5) | GWB §2, §5 |
 | White noise | Per receiver/backend: EFAC, EQUAD (enterprise `log10_t2equad`, i.e. sigma^2 = EFAC^2 (sigma_TOA^2 + EQUAD^2)), ECORR (epoch-correlated across sub-bands). **Fixed** to MAP values from single-pulsar noise runs | GWB §2, DETCHAR §4 |
 | White-noise dictionary | `v1p1_wn_dict.json` (697 entries) from the GWB Fig. 1 data bundle. Values are identical to `tutorials/data/15yr_wn_dict.json` in `nanograv/15yr_stochastic_analysis`. Other copies: `v1p1_all_dict.json` (WN + RN, CW release) and the noisedicts embedded in the discovery feather files | own check |
-| ECORR grouping | Epoch quantisation as in enterprise / discovery **[UNCERTAIN: exact epoch window; reproduce discovery's `makegp_ecorr` quantisation]** | |
+| ECORR grouping | Per backend, enterprise `create_quantization_matrix(dt=1 s, nmin=2)`: a bucket opens at a TOA and collects TOAs within 1 s of it; singletons get no ECORR. discovery's default keeps singletons (logL +0.02). **Resolved in M1** (`docs/M1_VALIDATION.md`) | enterprise source; production-chain logl |
 | Intrinsic red noise (IRN) | Power law in every one of the 67 pulsars, **30** Fourier frequencies (i = 1..30, 2-59 nHz) | GWB §2 |
 | Common process | **14** frequencies (i = 1..14, 2-28 nHz). 14 is the MAP break frequency of a broken-power-law CURN fit: f_break MAP = 2.75e-8 Hz ~ 14/T. Median 3.2(+5.4/-1.2)e-8 Hz, 90% CI | GWB §2, App. C |
 | PSD | phi_i = A^2/(12 pi^2) (1/T) (f_i/f_ref)^(-gamma) f_ref^-3, f_ref = 1/yr. Same form for IRN, CURN and HD | GWB Eq. 5-7 |
@@ -123,7 +123,8 @@ likelihood (67 psr, 30 IRN + 14 common freq, fixed WN, SVD timing model) on the 
 random chain samples it reproduces the stored **absolute** `logl`, about 7,973,1xx, to within
 the float32 rounding of the stored column (|diff| < 0.2). One GPU evaluation takes about 2 ms.
 So we have an end-to-end absolute target for our own likelihood: same inputs, same answer
-to <~1e-6 relative (to be tightened in M2 using float64 discovery evaluations).
+to <~1e-6 relative. M1 tightened this with float64 discovery and enterprise evaluations: our
+likelihood agrees with both to below 4e-7 absolute (`docs/M1_VALIDATION.md`).
 
 ---
 
@@ -131,27 +132,32 @@ to <~1e-6 relative (to be tightened in M2 using float64 discovery evaluations).
 
 - **M0 (done)**: environment (JAX CUDA 13 on the RTX 5090, float64 OK), data fetched with
   checksums, PINT loads all 68 (+8 split) pulsars, plan.
-- **M1: data layer.** PINT -> per-pulsar arrays: residuals, TOA errors, backend flags,
+- **M1 (done, 2026-10-06; covers the original M1-M3 below)**: PINT ingestion and cache,
+  fixed WN, bases, ORFs, JAX CURN/HD likelihood with gradients. It matches discovery and
+  enterprise to below 4e-7 absolute (8e6-sized logL) and the production chains' float32
+  `logl`. HD value + gradient takes 12 ms (float64) or 7.7 ms (mixed-precision gradient).
+  See `docs/M1_VALIDATION.md`. The original sub-plan was:
+- *data layer.* PINT -> per-pulsar arrays: residuals, TOA errors, backend flags,
   radio frequencies, positions, design matrix. Store them as our own on-disk format.
   Compare to the discovery/tutorial feathers (`v1p1_de440_pint_bipm2019-*`), which come
   from the same par/tim via enterprise+PINT: residuals to <~1 ns, identical TOA counts and
   flag partitions, M column spans (compare projectors, not raw columns). Parse the WN
   dictionary into our noise parameters.
-- **M2: single-pulsar likelihood** in JAX: white noise (EFAC/EQUAD/ECORR), IRN with 30
+- *single-pulsar likelihood* in JAX: white noise (EFAC/EQUAD/ECORR), IRN with 30
   freqs, timing-model marginalisation (Woodbury / Schur, float64). Cross-check against
   discovery and enterprise at random parameter points to ~1e-8 relative.
-- **M3: PTA likelihoods.** CURN (block-diagonal) and HD (dense 67 x 28 inter-pulsar block)
+- *PTA likelihoods.* CURN (block-diagonal) and HD (dense 67 x 28 inter-pulsar block)
   on the GPU. Match discovery to float64 precision and the m2a chain `logl` (float32).
   Time per evaluation.
-- **M4: sampling.** CURN^13/3, CURN^gamma, HD^13/3, HD^gamma, CURN^free/HD^free (30f).
+- **M2: sampling.** CURN^13/3, CURN^gamma, HD^13/3, HD^gamma, CURN^free/HD^free (30f).
   NUTS via numpyro, plus our own sampler if needed. Compare marginals with the released
   chains (quantiles, KS / Wasserstein distance, 2-D (gamma, log10 A) contours).
-- **M5: model comparison and OS.** HD vs CURN Bayes factor (target 226 +/- 70 at 14 freq,
+- **M3: model comparison and OS.** HD vs CURN Bayes factor (target 226 +/- 70 at 14 freq,
   about 965 at 5 freq) by product-space and/or reweighting, CURN vs IRN about 10^12.1. OS
   S/N (5 +/- 1, 4 +/- 1), binned HD (15 bins, chi^2 = 8.1), multi-component OS table.
   Optionally phase-shift / sky-scramble backgrounds (expensive; GPU makes the OS ones
   cheap).
-- **M6 (optional)**: EPTA DR2new / PPTA DR3 / InPTA with the same pipeline.
+- **M4 (optional)**: EPTA DR2new / PPTA DR3 / InPTA with the same pipeline.
 
 ## 4. Known risks and open questions
 

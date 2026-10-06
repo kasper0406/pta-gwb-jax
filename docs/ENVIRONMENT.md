@@ -59,5 +59,7 @@ samples of the released NG15 CURN chain it reproduces the chain's stored absolut
 likelihood (~7.97e6) to within the float32 rounding of the stored column. One evaluation
 takes about 2 ms after JIT.
 
-Plain `uv sync` installs only the core and dev groups. Never import oracle packages
+Plain `uv sync` installs only the core and dev groups, and so does every plain `uv run`,
+which re-syncs. With the oracle group installed, run everything as `uv run --no-sync ...`
+so the oracle packages stay installed. Never import oracle packages
 from `src/ptagwb`; `tests/test_setup.py` enforces this.
