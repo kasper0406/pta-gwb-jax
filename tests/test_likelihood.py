@@ -114,3 +114,15 @@ def test_convention_constant(pta):
     p = {k: jnp.asarray(v) for k, v in _params(len(psrs), 0).items()}
     ntoa = sum(p_.ntoa for p_ in psrs)
     np.testing.assert_allclose(float(a.logL(p)) - float(b.logL(p)), 0.5 * ntoa * np.log(2 * np.pi), rtol=1e-12)
+
+
+def test_timing_rank_deficiency_fails():
+    from ptagwb.likelihood import TimingRankError, timing_basis
+
+    rng = np.random.default_rng(0)
+    M = rng.normal(size=(50, 4))
+    timing_basis(M)  # fine
+    with pytest.raises(TimingRankError, match="rank deficient"):
+        timing_basis(np.column_stack([M, 3.0 * M[:, 1]]))  # duplicated (scaled) column
+    with pytest.raises(TimingRankError, match="all-zero"):
+        timing_basis(np.column_stack([M, np.zeros(50)]))

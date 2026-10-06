@@ -12,35 +12,50 @@ Two stages
 ----------
 1. **Parameter-independent precompute (host, numpy float64, once per pulsar).** Whiten with
    N_a^-1/2 (exact blockwise ECORR whitening, ``noise.WhiteNoise.whiten``), QR-factor the
-   whitened timing basis, and project the whitened Fourier basis and residuals onto its
-   orthogonal complement. This yields the timing-marginalised contractions::
+   whitened timing basis, and project the whitened Fourier basis F_p and residuals r_p onto
+   its orthogonal complement. A second QR, F_p = Q_F R_F, gives the *square-root*
+   representation of the timing-marginalised contractions::
 
-       s_a = r^T P r,   b_a = F^T P r  (60,),   A_a = F^T P F  (60, 60),
-       P   = N^-1 - N^-1 M (M^T N^-1 M)^-1 M^T N^-1
+       R_F (60, 60) upper triangular,  c = Q_F^T r_p (60,),  s_perp = |r_p - Q_F c|^2
+       (A = F^T P F = R_F^T R_F,  b = F^T P r = R_F^T c,  r^T P r = s_perp + |c|^2)
 
    plus log|N_a| and log|M^T N^-1 M|. No TOA-sized array is touched afterwards, and every
    pulsar's terms have the same shape, so the hot path is a dense stacked batch (no padding).
+   A = R_F^T R_F is never formed in the hot path (forming it squares its condition number).
 
-2. **Per evaluation (JAX, jit/grad).** With Phi_a the diagonal prior and the Woodbury and
-   determinant lemmas applied to the *projected* operator P (valid because the flat timing
-   prior is the infinite-variance limit of a GP and the GPs can be absorbed in any order)::
+2. **Per evaluation (JAX, jit/grad).** With Phi_a the diagonal coefficient prior, the
+   Woodbury/determinant lemmas on the projected operator (valid because the flat timing prior
+   is the infinite-variance limit of a GP and GPs can be absorbed in any order) become, with
+   Y = R_F Phi^1/2 and the reduced QR  [Y; I] = [Q1; Q2] T  (T^T T = I + Phi^1/2 A Phi^1/2)::
 
-       Shat_a = I + Phi_a^1/2 A_a Phi_a^1/2 = L_a L_a^T,   y_a = L_a^-1 Phi_a^1/2 b_a
-       -2 log L_a = s_a - |y_a|^2 + log|Shat_a| + log|N_a| + log|M^T N^-1 M| + m_a log(1e40)
+       y = Q1^T c,   -2 log L_a = s_perp + |c|^2 - |y|^2 + log|T^T T| + const_a
 
-   * CURN (``orf=None``): Phi_a = phi^RN_a + phi^CP on the first 28 entries; separable.
-   * Correlated common process (HD, monopole, dipole, any SPD Gamma): absorb only the
-     intrinsic RN per pulsar, which gives the RN-projected common-mode terms::
+   No normal-equation matrix is formed: QR of the stacked matrix works with the square root,
+   so the ~1e20 condition number of I + Phi^1/2 A Phi^1/2 in the IRN prior corner
+   (log10_A -> -11, gamma -> 7) is never squared.
 
-         K_a = L_a^-1 Phi_a^1/2 A_a[:, :28],  E_a = A_a[:28, :28] - K_a^T K_a,  d_a = b_a[:28] - K_a^T y_a
+   * CURN: Phi_a = phi^RN_a + phi^CP on the first 28 entries; separable.
+   * Correlated common process (HD, monopole, dipole, any SPD Gamma): split
+     Gamma = lam0 I + Gamma' with lam0 = 0.5 lambda_min(Gamma), and absorb per pulsar
+     R = Phi^RN + lam0 phi^CP (on the common modes) in the square-root stage. This keeps
+     phi^CP E <= 1/lam0 bounded when the common process dominates; without the split, Sigma'
+     inherits cond(A) ~ 1e12 in that corner. The projected common-mode precision and score
+     are::
 
-     then with Q = Gamma (x) diag(phi^CP) = Z Z^T, Z = chol(Gamma) (x) diag(sqrt phi^CP)::
+         E_a = [(A^-1 + R)^-1]_GG = [R^-1/2 (I + R^1/2 A R^1/2)^-1 R^1/2 A]_GG
+             = [R^-1/2 T^-1 Q1^T R_F]_G,G ,          d_a = [R^-1/2 T^-1 y]_G
 
-         B = I + Z^T blockdiag(E_a) Z   (67*28 = 1876 square),   z = Z^T d
-         -2 log L = sum_a [s_a - |y_a|^2 + log|Shat_a| + const_a] + log|B| - z^T B^-1 z
+     G = the 28 common columns, R = Phi^RN. No subtraction takes place. The earlier form
+     E = A_GG - K^T K, d = b_G - K^T y cancelled catastrophically when the intrinsic RN
+     dominates (relative error ~ eps |A| / |R^-1| ~ 1e-1 at the prior corner). Then with
+     Q = Gamma' (x) diag(phi^CP)::
 
-     using log|Q| + log|Q^-1 + E| = log|B| and d^T (Q^-1 + E)^-1 d = z^T B^-1 z. B >= I, so
-     its Cholesky is well conditioned, and no explicit inverse of Q or Gamma is formed.
+         Sigma' = Gamma'^-1 (x) I_28 + blockdiag(phi^1/2 E_a phi^1/2)    (67*28 = 1876 square)
+         -2 log L = sum_a [...] + log|Sigma'| + 28 log|Gamma'| - dt^T Sigma'^-1 dt,  dt = phi^1/2 d
+
+     using log|Q| + log|Q^-1 + E| = log|Sigma'| + 28 log|Gamma'|. ``method="B"`` instead
+     factorises the congruent B = I + Z^T E Z (Z = chol(Gamma') (x) phi^1/2) with plain
+     autodiff, as a reference. Accuracy against a 50-digit joint reference: tests/test_corners.py.
 
 Constants (``convention``): ``"chain"`` reproduces the absolute value of discovery and of the
 enterprise v3.3.1 likelihood that wrote the NG15 production chains' ``logl`` column
@@ -70,11 +85,39 @@ TIMING_PRIOR_VARIANCE = 1e40  # enterprise / discovery improper timing-model pri
 # ---------------------------------------------------------------------- precompute
 
 
-def timing_basis(Mmat: np.ndarray, method: str = "svd") -> np.ndarray:
+TIMING_RCOND_MIN = 1e-10  # NG15 worst case: 4.9e-7 (J1853+1303)
+
+
+class TimingRankError(ValueError):
+    """The (column-normalised) timing design matrix is numerically rank deficient."""
+
+
+def check_timing_rank(Mmat: np.ndarray, name: str = "", rcond_min: float = TIMING_RCOND_MIN) -> np.ndarray:
+    """Singular values of the column-normalised design matrix; raise if s_min/s_max < rcond_min.
+
+    A rank-deficient M would make the SVD basis contain arbitrary directions (and the
+    unit-norm basis a singular M^T N^-1 M). We neither truncate nor regularise silently: fix the
+    timing model (e.g. drop the duplicated/unconstrained parameter) instead.
+    """
+    Mmat = np.asarray(Mmat, dtype=np.float64)
+    norms = np.linalg.norm(Mmat, axis=0)
+    if np.any(norms == 0):
+        raise TimingRankError(f"{name}: all-zero design-matrix column(s) {np.flatnonzero(norms == 0).tolist()}")
+    sv = np.linalg.svd(Mmat / norms, compute_uv=False)
+    if sv[-1] / sv[0] < rcond_min:
+        raise TimingRankError(
+            f"{name}: timing design matrix numerically rank deficient: s_min/s_max = {sv[-1] / sv[0]:.2e} "
+            f"< {rcond_min:.0e} (column-normalised, {Mmat.shape[1]} columns)"
+        )
+    return sv
+
+
+def timing_basis(Mmat: np.ndarray, method: str = "svd", name: str = "") -> np.ndarray:
     """Timing-model basis: ``svd`` = thin-SVD left singular vectors (discovery
     ``makegp_timing(svd=True)``, enterprise ``use_svd=True``); ``normed`` = unit-norm
-    columns (enterprise default)."""
+    columns (enterprise default). Fails on numerical rank deficiency (``check_timing_rank``)."""
     Mmat = np.asarray(Mmat, dtype=np.float64)
+    check_timing_rank(Mmat, name)
     if method == "svd":
         U, _, _ = np.linalg.svd(Mmat, full_matrices=False)
         return U
@@ -91,12 +134,25 @@ class PulsarTerms:
     pos: np.ndarray  # (3,)
     ntoa: int
     m: int  # number of timing-model columns
-    s: float  # r^T P r
-    b: np.ndarray  # (2 n_modes,) F^T P r
-    A: np.ndarray  # (2 n_modes, 2 n_modes) F^T P F
+    RA: np.ndarray  # (2 n_modes, 2 n_modes) upper-triangular R_F, F^T P F = R_F^T R_F
+    c: np.ndarray  # (2 n_modes,) Q_F^T r_p
+    s_perp: float  # |r_p - Q_F c|^2
     logdet_N: float
     logdet_MNM: float
-    timing_singular_values: np.ndarray  # of the raw design matrix (rank diagnostics)
+    timing_singular_values: np.ndarray  # of the column-normalised design matrix
+
+    @property
+    def A(self) -> np.ndarray:
+        """F^T P F (diagnostics / references only; never used in the likelihood)."""
+        return self.RA.T @ self.RA
+
+    @property
+    def b(self) -> np.ndarray:
+        return self.RA.T @ self.c
+
+    @property
+    def s(self) -> float:
+        return float(self.s_perp + self.c @ self.c)
 
     def const(self, convention: str = "chain") -> float:
         c = self.logdet_N + self.logdet_MNM + self.m * np.log(TIMING_PRIOR_VARIANCE)
@@ -108,10 +164,16 @@ class PulsarTerms:
 
 
 def precompute_pulsar(
-    psr, wn: WhiteNoise, T: float, n_modes: int = 30, timing: str = "svd"
+    psr, wn: WhiteNoise, T: float, n_modes: int = 30, timing: str = "svd", position: str = "icrs"
 ) -> PulsarTerms:
-    """Stage-1 contractions for one pulsar (numpy float64, host)."""
-    Mt = timing_basis(psr.Mmat, timing)
+    """Stage-1 contractions for one pulsar (numpy float64, host).
+
+    ``position``: ``"icrs"`` (default, PINT ICRS unit vector) or ``"enterprise"`` (the
+    vector enterprise / the released NG15 feathers use; differs for B-name pulsars, see
+    ``data.enterprise_position``). Only the HD/monopole/dipole ORFs depend on it.
+    """
+    sv = check_timing_rank(psr.Mmat, psr.name)
+    Mt = timing_basis(psr.Mmat, timing, psr.name)
     _, _, F = _basis.fourier_basis(psr.toas, n_modes, T)
     r = np.asarray(psr.residuals, dtype=np.float64)
 
@@ -127,15 +189,26 @@ def precompute_pulsar(
         return X - Q @ (Q.T @ X)  # one re-orthogonalisation pass
 
     Fp, rp = project(Wf), project(wr)
-    sv = np.linalg.svd(np.asarray(psr.Mmat, dtype=np.float64) / np.linalg.norm(psr.Mmat, axis=0), compute_uv=False)
+    QF, RF = np.linalg.qr(Fp, mode="reduced")
+    c = QF.T @ rp
+    rperp = rp - QF @ c
+    rperp = rperp - QF @ (QF.T @ rperp)
+    if position == "icrs":
+        pos = psr.pos
+    elif position == "enterprise":
+        pos = getattr(psr, "pos_enterprise", None)
+        if pos is None:
+            raise ValueError(f"{psr.name}: no enterprise position stored (re-ingest with the current schema)")
+    else:
+        raise ValueError(f"unknown position convention {position!r}")
     return PulsarTerms(
         name=psr.name,
-        pos=np.asarray(psr.pos, dtype=np.float64),
+        pos=np.asarray(pos, dtype=np.float64),
         ntoa=len(r),
         m=Mt.shape[1],
-        s=float(rp @ rp),
-        b=Fp.T @ rp,
-        A=Fp.T @ Fp,
+        RA=RF,
+        c=c,
+        s_perp=float(rperp @ rperp),
         logdet_N=wn.logdet(),
         logdet_MNM=logdet_MNM,
         timing_singular_values=sv,
@@ -148,10 +221,11 @@ def precompute(
     T: float,
     n_modes: int = 30,
     timing: str = "svd",
+    position: str = "icrs",
     **wn_kwargs,
 ) -> list[PulsarTerms]:
     return [
-        precompute_pulsar(p, build_white_noise(p, noisedict, **wn_kwargs), T, n_modes, timing)
+        precompute_pulsar(p, build_white_noise(p, noisedict, **wn_kwargs), T, n_modes, timing, position)
         for p in psrs
     ]
 
@@ -163,14 +237,28 @@ def _chol_logdet(L):
     return 2.0 * jnp.sum(jnp.log(jnp.diagonal(L, axis1=-2, axis2=-1)), axis=-1)
 
 
-def _rn_absorb(A, b, s, phi):
-    """Per pulsar: Shat = I + phi^1/2 A phi^1/2 = L L^T; returns (q, logdet Shat, L, y, sqrt phi)."""
+def _rn_absorb(RA, c, s_perp, phi):
+    """Per pulsar, square-root form. QR of [R_F Phi^1/2; I] = [Q1; Q2] T gives
+    T^T T = I + Phi^1/2 A Phi^1/2 without forming it. Returns (q, log|T^T T|, T, Q1, y, sqrt phi)
+    with q = r^T P r - b^T (Phi^-1 + A)^-1 b."""
     sq = jnp.sqrt(phi)
-    n = A.shape[-1]
-    S = jnp.eye(n) + sq[:, None] * A * sq[None, :]
-    L = jnp.linalg.cholesky(S)
-    y = jsl.solve_triangular(L, sq * b, lower=True)
-    return s - y @ y, _chol_logdet(L), L, y, sq
+    n = RA.shape[-1]
+    Qs, Tm = jnp.linalg.qr(jnp.concatenate([RA * sq[None, :], jnp.eye(n, dtype=RA.dtype)], axis=0))
+    Q1 = Qs[:n]
+    y = Q1.T @ c
+    q = s_perp + c @ c - y @ y
+    ld = 2.0 * jnp.sum(jnp.log(jnp.abs(jnp.diagonal(Tm))))
+    return q, ld, Tm, Q1, y, sq
+
+
+def _common_terms(Tm, Q1, y, sq, RA, nc2: int):
+    """RN-projected common-mode precision E (nc2, nc2) and score d (nc2,), subtraction-free:
+    E = [R^-1/2 T^-1 Q1^T R_F]_GG, d = [R^-1/2 T^-1 y]_G (see module docstring)."""
+    Z = jsl.solve_triangular(Tm, Q1.T @ RA[:, :nc2], lower=False)
+    E = Z[:nc2] / sq[:nc2, None]
+    E = 0.5 * (E + E.T)
+    d = jsl.solve_triangular(Tm, y, lower=False)[:nc2] / sq[:nc2]
+    return E, d
 
 
 def _tri_inv_lower(L, base: int = 128):
@@ -284,6 +372,7 @@ class PTALikelihood:
         orf_diag_eps: float = 1e-5,
         method: str = "sigma",
         grad_precision: str = "float64",
+        split_fraction: float = 0.5,
     ):
         self.names = [t.name for t in terms]
         self.P = len(terms)
@@ -291,14 +380,14 @@ class PTALikelihood:
         self.common, self.convention = common, convention
         if common not in ("powerlaw", "freespec"):
             raise ValueError(f"unknown common spectrum {common!r}")
-        if any(t.A.shape != (2 * n_modes, 2 * n_modes) for t in terms):
+        if any(t.RA.shape != (2 * n_modes, 2 * n_modes) for t in terms):
             raise ValueError("precomputed terms have a different number of Fourier modes")
 
         f, df = _basis.fourier_frequencies(n_modes, T)
         self.f, self.df = jnp.asarray(f), jnp.asarray(df)
-        self.A = jnp.asarray(np.stack([t.A for t in terms]))
-        self.b = jnp.asarray(np.stack([t.b for t in terms]))
-        self.s = jnp.asarray(np.array([t.s for t in terms]))
+        self.RA = jnp.asarray(np.stack([t.RA for t in terms]))
+        self.c = jnp.asarray(np.stack([t.c for t in terms]))
+        self.s_perp = jnp.asarray(np.array([t.s_perp for t in terms]))
         self.const_total = float(sum(t.const(convention) for t in terms))
         self.pos = np.stack([t.pos for t in terms])
 
@@ -320,6 +409,16 @@ class PTALikelihood:
             raise ValueError(f"unknown grad_precision {grad_precision!r}")
         self.method, self.grad_precision = method, grad_precision
         if G is not None:
+            # Diagonal splitting Gamma = lam0 I + Gamma', lam0 = split_fraction * lambda_min(Gamma).
+            # The lam0 phi^CP part is absorbed per pulsar together with the intrinsic RN (square-root
+            # QR stage), so phi^1/2 E' phi^1/2 <= 1/lam0 stays bounded even when the common
+            # process dominates; without this, Sigma' inherits cond(A) ~ 1e12 in the corner where
+            # the common power is huge and the IRN negligible.
+            lam_min = float(np.linalg.eigvalsh(G)[0])
+            if lam_min <= 0:
+                raise ValueError(f"ORF matrix not positive definite (lambda_min = {lam_min:.3e})")
+            self.lam0 = split_fraction * lam_min
+            G = G - self.lam0 * np.eye(self.P)
             Lg = np.linalg.cholesky(G)
             Ginv = np.linalg.solve(Lg.T, np.linalg.solve(Lg, np.eye(self.P)))
             Ginv = 0.5 * (Ginv + Ginv.T)
@@ -329,6 +428,7 @@ class PTALikelihood:
             self._core_sigma = _make_core_sigma(jnp.asarray(Ginv), 2 * n_common, grad_precision)
         else:
             self.Lgamma = None
+            self.lam0 = 0.0
 
         self.logL = jax.jit(self._logL)
         self.value_and_grad = jax.jit(jax.value_and_grad(self._logL))
@@ -353,15 +453,12 @@ class PTALikelihood:
 
         if self.Lgamma is None:  # CURN: common power on the diagonal, separable
             phi = phi.at[:, :nc2].add(phic[None, :])
-            q, ld, _, _, _ = jax.vmap(_rn_absorb)(self.A, self.b, self.s, phi)
+            q, ld, *_ = jax.vmap(_rn_absorb)(self.RA, self.c, self.s_perp, phi)
             return -0.5 * (jnp.sum(q + ld) + self.const_total)
 
-        q, ld, L, y, sq = jax.vmap(_rn_absorb)(self.A, self.b, self.s, phi)
-        # RN-projected common-mode terms E_a, d_a
-        X = sq[:, :, None] * self.A[:, :, :nc2]  # (P, 2n, nc2)
-        K = jax.vmap(lambda L_, X_: jsl.solve_triangular(L_, X_, lower=True))(L, X)
-        E = self.A[:, :nc2, :nc2] - jnp.einsum("pij,pik->pjk", K, K)
-        d = self.b[:, :nc2] - jnp.einsum("pij,pi->pj", K, y)
+        phi = phi.at[:, :nc2].add(self.lam0 * phic[None, :])  # IRN + lam0 * common (diagonal part)
+        q, ld, Tm, Q1, y, sq = jax.vmap(_rn_absorb)(self.RA, self.c, self.s_perp, phi)
+        E, d = jax.vmap(lambda *a: _common_terms(*a, nc2))(Tm, Q1, y, sq, self.RA)
 
         sqc = jnp.sqrt(phic)
         Es = E * sqc[None, :, None] * sqc[None, None, :]

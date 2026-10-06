@@ -96,11 +96,14 @@ def test_vs_enterprise(feathers, noisedict, terms_feathers, orf):
 
 
 @pytest.mark.parametrize("orf", ["curn", "hd"])
-def test_reproduces_chain_logl(feathers, terms_feathers, ours, terms_ours, orf):
-    """Released production chains (enterprise 3.3.1) store logl as float32 (ulp 0.5 at 8e6)."""
+def test_reproduces_chain_logl(feathers, terms_feathers, ours, terms_ours, noisedict, orf):
+    """Released production chains (enterprise 3.3.1) store logl as float32 (ulp 0.5 at 8e6).
+    'ours' = our PINT arrays with ICRS positions (default); 'ours/enterprise-pos' = same arrays
+    with the enterprise/production sky positions (only HD depends on positions)."""
     chain = load_chain(CHAIN[orf])
     rows = chain.iloc[np.random.default_rng(3).choice(len(chain), 8, replace=False)]
-    for terms, T, tag in ((*terms_feathers, "feathers"), (*terms_ours, "ours")):
+    terms_ent = (precompute(ours, noisedict, terms_ours[1], position="enterprise"), terms_ours[1])
+    for terms, T, tag in ((*terms_feathers, "feathers"), (*terms_ours, "ours"), (*terms_ent, "ours/enterprise-pos")):
         L = PTALikelihood(terms, T, orf=orf)
         d = np.array([float(L.logL(L.params_from_named(r.to_dict()))) - float(r["logl"]) for _, r in rows.iterrows()])
         print(f"{orf}/{tag}: ours - chain logl: mean {d.mean():+.3f}, max |.-mean| {np.abs(d - d.mean()).max():.3f}")
@@ -124,7 +127,7 @@ def test_prior_edge_vs_extended_precision(feathers, noisedict):
         ref = curn_loglike_ld(pulsar_contractions_ld(p, noisedict, T), T, la, g, -17.33, 5.64)
         d = float(L.logL(L.params_from_named(pt))) - float(ref)
         print(f"{name}: ours - long double = {d:+.2e}")
-        assert abs(d) <= 3e-8  # discovery: up to 2e-4 at these points
+        assert abs(d) <= 1e-8  # discovery: up to 2e-4 at these points
 
 
 def test_identity_orf_equals_curn_full(terms_ours, ours):
@@ -136,11 +139,19 @@ def test_identity_orf_equals_curn_full(terms_ours, ours):
         assert abs(a - b) <= 1e-7, (a, b)
 
 
-def test_full_pta_gradient_fd(terms_ours, ours):
+@pytest.mark.parametrize("where", ["posterior", "common-corner", "all-corner"])
+def test_full_pta_gradient_fd(terms_ours, ours, where):
+    """Full-PTA HD gradient vs a 5-point finite-difference stencil, at a posterior sample, with
+    the common process at the prior corner (log10_A = -11, gamma = 7), and with every IRN
+    also at its corner."""
     terms, T = terms_ours
     L = PTALikelihood(terms, T, orf="hd")
     pt = parameter_points([p.name for p in ours], load_chain("m3a"), 1, 0, seed=6)[0]
     p0 = L.params_from_named(pt)
+    if where != "posterior":
+        p0 = dict(p0, log10_A=jnp.asarray(-11.0), gamma=jnp.asarray(7.0))
+    if where == "all-corner":
+        p0 = dict(p0, rn_log10_A=jnp.full(len(terms), -11.0), rn_gamma=jnp.full(len(terms), 7.0))
     g = jax.grad(L._logL)(p0)
     h = 1e-3  # 5-point stencil: truncation O(h^4), round-off ~1e-8 / h
     checks = [("log10_A", None), ("gamma", None), ("rn_log10_A", 0), ("rn_gamma", 30), ("rn_log10_A", 50)]
@@ -154,4 +165,4 @@ def test_full_pta_gradient_fd(terms_ours, ours):
         f = {s_: float(L.logL(dict(p0, **{k: jnp.asarray(v + s_ * e)}))) for s_ in (-2, -1, 1, 2)}
         fd = (f[-2] - 8 * f[-1] + 8 * f[1] - f[2]) / (12 * h)
         an = float(g[k] if i is None else g[k][i])
-        assert abs(fd - an) <= 1e-4 * max(1.0, abs(an)), (k, i, fd, an)
+        assert abs(fd - an) <= 1e-4 * max(1.0, abs(an)), (where, k, i, fd, an)
