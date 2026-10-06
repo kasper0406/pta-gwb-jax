@@ -47,7 +47,7 @@ import numpy as np
 from .config import DATA_DIR, RAW_DIR, REPO_ROOT
 
 CACHE_DIR = DATA_DIR / "cache" / "pulsars"
-SCHEMA_VERSION = 1  # bump when the exported arrays or their conventions change
+SCHEMA_VERSION = 2  # bump when the exported arrays or their conventions change
 SPLIT_RE = re.compile(r"(ao|gbt)$")
 MIN_SPAN_YR = 3.0
 JULIAN_YEAR_S = 365.25 * 86400.0
@@ -214,7 +214,13 @@ def resolve_backend_flags(flags: dict[str, np.ndarray], n: int) -> np.ndarray:
     return ret.astype("U")
 
 
-def load_pulsar_pint(par: Path, tim: Path, clock: str = "release", release: str = "ng15_v2.1.0") -> Pulsar:
+def load_pulsar_pint(
+    par: Path,
+    tim: Path,
+    clock: str = "release",
+    release: str = "ng15_v2.1.0",
+    freeze_placeholders: bool = True,
+) -> Pulsar:
     """Load one pulsar with PINT and export it (no caching).
 
     ``clock='release'`` uses the clock files shipped with the NG15 release (frozen; what the
@@ -239,6 +245,17 @@ def load_pulsar_pint(par: Path, tim: Path, clock: str = "release", release: str 
     warnings.filterwarnings("ignore")
 
     model, toas = get_model_and_toas(str(par), str(tim), planets=True)
+    frozen_placeholders = []
+    if freeze_placeholders:
+        # A fit flag on a parameter that sits at exactly 0 with no uncertainty is an unfitted
+        # placeholder (NG15: only J1024-0719 "F3 0 1"; the tempo2 version of that par file has
+        # no F3, and the design matrix of the released GWB-analysis pulsar files has no F3
+        # column). Freezing it changes no residual (value 0), only drops the column.
+        for pname in model.free_params:
+            prm = getattr(model, pname)
+            if prm.value == 0 and not prm.uncertainty_value:
+                prm.frozen = True
+                frozen_placeholders.append(pname)
     if model.EPHEM.value != "DE440" or model.CLOCK.value != "TT(BIPM2019)":
         raise ValueError(f"{par}: unexpected EPHEM/CLOCK {model.EPHEM.value}/{model.CLOCK.value}")
     name = model.PSR.value
@@ -280,6 +297,7 @@ def load_pulsar_pint(par: Path, tim: Path, clock: str = "release", release: str 
         "clock_standard": model.CLOCK.value,
         "schema": SCHEMA_VERSION,
         "input_hash": input_hash(par, tim, clock, release),
+        "frozen_placeholders": frozen_placeholders,
         "raj_rad": float(ra),
         "decj_rad": float(dec),
     }
