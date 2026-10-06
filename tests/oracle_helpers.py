@@ -47,6 +47,7 @@ def pulsar_from_feather(path: Path) -> Pulsar:
         Mmat=M,
         fitpars=list(meta.get("fitpars") or []),
         pos=np.asarray(meta["pos"], dtype=np.float64),
+        pos_enterprise=np.asarray(meta["pos"], dtype=np.float64),  # feathers carry enterprise positions
         flags=flags,
         meta={"source": str(path), "noisedict": meta.get("noisedict", {})},
     )

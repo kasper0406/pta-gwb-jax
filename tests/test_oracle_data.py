@@ -52,6 +52,9 @@ def test_frontend_vs_feathers(ours, feathers, noisedict):
     refs = {p.name: p for p in feathers}
     assert [p.name for p in ours] == sorted(refs)
     rows = [compare_frontend(p, refs[p.name], noisedict) for p in ours]
+    # the optional enterprise-convention positions reproduce the released ones
+    for p in ours:
+        assert np.linalg.norm(p.pos_enterprise - refs[p.name].pos) < 1e-12, p.name
     for r in rows:
         assert r["ntoa"] == r["ntoa_ref"], r["name"]
         assert r["max_dtoaerr_s"] == 0.0, r["name"]
@@ -146,3 +149,4 @@ def test_vs_enterprise_pintpulsar(ours):
         np.testing.assert_array_equal(o.backend_flags, ep.backend_flags.astype("U"))
         ang = np.arccos(np.clip(o.pos @ ep.pos, -1, 1))
         assert ang < (2e-2 if name.startswith("B") else 1e-6), (name, ang)
+        np.testing.assert_allclose(o.pos_enterprise, ep.pos, rtol=0, atol=1e-15)

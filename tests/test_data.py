@@ -64,6 +64,11 @@ def test_cached_gwb_selection():
     assert len(psrs) == 67
     # 505861299.1401644 s is hard-coded in the collaboration's figure code
     assert abs(get_tspan(psrs) - 505861299.1401644) < 1e-3
+    pm = {p.name: p for p in psrs}
+    # explicit, verified exception: J1024-0719 F3 frozen -> 149 columns as in the released files
+    assert pm["J1024-0719"].Mmat.shape[1] == 149 and "F3" not in pm["J1024-0719"].fitpars
+    assert pm["J1024-0719"].meta["frozen_placeholders"] == ["F3"]
+    assert all(p.meta["frozen_placeholders"] == [] for p in psrs if p.name != "J1024-0719")
     for p in psrs:
         assert np.all(np.diff(p.toas) >= 0)
         assert p.Mmat.shape == (p.ntoa, len(p.fitpars))

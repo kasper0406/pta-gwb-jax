@@ -18,6 +18,8 @@ released discovery feathers):
 ``Mmat``            ``model.designmatrix(toas)`` (n_toa, n_par), including the phase offset
 ``fitpars``         names of the design-matrix columns
 ``pos``             unit vector to the pulsar (ICRS) at the timing-model reference position
+``pos_enterprise``  the unit vector enterprise / the released NG15 products use (pyephem; for
+                    B-name pulsars B1950-equinox coordinates, 0.5 deg off) -- comparisons only
 ==================  ===========================================================================
 
 All per-TOA arrays are sorted by barycentric TOA with a stable (merge) sort, as in
@@ -47,13 +49,25 @@ import numpy as np
 from .config import DATA_DIR, RAW_DIR, REPO_ROOT
 
 CACHE_DIR = DATA_DIR / "cache" / "pulsars"
-SCHEMA_VERSION = 2  # bump when the exported arrays or their conventions change
+SCHEMA_VERSION = 3  # bump when the exported arrays or their conventions change
 SPLIT_RE = re.compile(r"(ao|gbt)$")
 MIN_SPAN_YR = 3.0
 JULIAN_YEAR_S = 365.25 * 86400.0
 # flags kept in the cache besides the resolved backend flag
 KEEP_FLAGS = ("f", "fe", "be", "group", "g", "sys", "i", "pta", "name", "chan", "subint")
 EXPECTED_EXCLUDED = ("J0614-3329",)
+
+# Explicit, verified exceptions to "fit every parameter the par file flags as free".
+# J1024-0719_PINT_20220302.nb.par has the line "F3 0 1": value exactly 0, fit flag set, no
+# uncertainty column, i.e. F3 was never actually fitted. Evidence: (i) the tempo2 version of the
+# same par file (narrowband/alternate/tempo2) has no F3; (ii) the design matrix of the released
+# GWB-analysis pulsar file (discovery/tutorial feather v1p1_de440_pint_bipm2019-J1024-0719) has
+# 149 columns and no F3 column, whereas PINT 1.1.7 would build 150. Freezing F3 changes no
+# residual (value 0) and restores the analysis' timing subspace. Each entry is checked: the
+# parameter must be free with value 0 and no uncertainty, and the resulting column count must
+# equal the released design matrix's.
+FROZEN_PARAMS = {"J1024-0719": ("F3",)}
+EXPECTED_NCOL_AFTER_FREEZE = {"J1024-0719": 149}
 
 
 @dataclass
@@ -72,6 +86,7 @@ class Pulsar:
     Mmat: np.ndarray
     fitpars: list[str]
     pos: np.ndarray
+    pos_enterprise: np.ndarray | None = None  # enterprise/feather convention (see enterprise_position)
     flags: dict[str, np.ndarray] = field(default_factory=dict)
     meta: dict = field(default_factory=dict)
 
@@ -101,6 +116,8 @@ class Pulsar:
             "Mmat": self.Mmat,
             "pos": self.pos,
         }
+        if self.pos_enterprise is not None:
+            arrays["pos_enterprise"] = self.pos_enterprise
         arrays.update({f"flag_{k}": v.astype("U") for k, v in self.flags.items()})
         header = {"name": self.name, "fitpars": list(self.fitpars), "meta": self.meta}
         tmp = path.with_suffix(".tmp.npz")
@@ -125,6 +142,7 @@ class Pulsar:
                 Mmat=z["Mmat"],
                 fitpars=header["fitpars"],
                 pos=z["pos"],
+                pos_enterprise=z["pos_enterprise"] if "pos_enterprise" in z.files else None,
                 flags=flags,
                 meta=header["meta"],
             )
@@ -246,16 +264,17 @@ def load_pulsar_pint(
 
     model, toas = get_model_and_toas(str(par), str(tim), planets=True)
     frozen_placeholders = []
-    if freeze_placeholders:
-        # A fit flag on a parameter that sits at exactly 0 with no uncertainty is an unfitted
-        # placeholder (NG15: only J1024-0719 "F3 0 1"; the tempo2 version of that par file has
-        # no F3, and the design matrix of the released GWB-analysis pulsar files has no F3
-        # column). Freezing it changes no residual (value 0), only drops the column.
-        for pname in model.free_params:
+    if freeze_placeholders and model.PSR.value in FROZEN_PARAMS:
+        for pname in FROZEN_PARAMS[model.PSR.value]:
             prm = getattr(model, pname)
-            if prm.value == 0 and not prm.uncertainty_value:
-                prm.frozen = True
-                frozen_placeholders.append(pname)
+            if prm.frozen or prm.value != 0 or prm.uncertainty_value:
+                raise ValueError(
+                    f"{model.PSR.value}: expected {pname} to be a free, zero-valued placeholder without "
+                    f"uncertainty (got frozen={prm.frozen}, value={prm.value}, unc={prm.uncertainty_value}); "
+                    "input differs from the verified NG15 release"
+                )
+            prm.frozen = True
+            frozen_placeholders.append(pname)
     if model.EPHEM.value != "DE440" or model.CLOCK.value != "TT(BIPM2019)":
         raise ValueError(f"{par}: unexpected EPHEM/CLOCK {model.EPHEM.value}/{model.CLOCK.value}")
     name = model.PSR.value
@@ -268,6 +287,9 @@ def load_pulsar_pint(
     freqs_topo = np.asarray(toas.get_freqs().to_value(u.MHz), dtype=np.float64)
     M, fitpars, _units = model.designmatrix(toas)
     M = np.asarray(M, dtype=np.float64)
+    if frozen_placeholders and M.shape[1] != EXPECTED_NCOL_AFTER_FREEZE[name]:
+        raise ValueError(f"{name}: {M.shape[1]} design-matrix columns after freezing {frozen_placeholders}, "
+                         f"expected {EXPECTED_NCOL_AFTER_FREEZE[name]}")
     telescope = np.asarray(toas.get_obss()).astype("U")
 
     # all flags as strings, "" where absent (enterprise PintPulsar convention)
@@ -282,6 +304,7 @@ def load_pulsar_pint(
     icrs = model.coords_as_ICRS(epoch=None)
     ra, dec = icrs.ra.to_value(u.rad), icrs.dec.to_value(u.rad)
     pos = np.array([np.cos(ra) * np.cos(dec), np.sin(ra) * np.cos(dec), np.sin(dec)])
+    pos_ent = enterprise_position(model, name)
 
     isort = np.argsort(btoas, kind="mergesort")
     flags = {k: allflags_np[k][isort] for k in KEEP_FLAGS if k in allflags_np}
@@ -314,9 +337,32 @@ def load_pulsar_pint(
         Mmat=M[isort],
         fitpars=list(fitpars),
         pos=pos,
+        pos_enterprise=pos_ent,
         flags=flags,
         meta=meta,
     )
+
+
+def enterprise_position(model, name: str) -> np.ndarray:
+    """Unit vector exactly as enterprise ``PintPulsar`` computes ``psr.pos`` (and hence as in the
+    released NG15 feathers and production chains), reimplemented here with pyephem.
+
+    RAJ/DECJ are used directly if present. Otherwise ELONG/ELAT go through pyephem
+    ``Equatorial(Ecliptic(elong, elat), epoch=...)`` with epoch "1950" whenever "B" occurs in the
+    pulsar name and "2000" otherwise. For the B-name pulsars this yields the B1950-equinox
+    direction, 0.46-0.59 deg from ICRS. Only for apples-to-apples comparisons with the
+    released products; ``pos`` (ICRS) is the physically correct default.
+    """
+    import astropy.units as u
+    from ephem import Ecliptic, Equatorial
+
+    if hasattr(model, "RAJ") and hasattr(model, "DECJ"):
+        ra, dec = model.RAJ.quantity.to_value(u.rad), model.DECJ.quantity.to_value(u.rad)
+    else:
+        elong, elat = model.ELONG.quantity.to_value(u.rad), model.ELAT.quantity.to_value(u.rad)
+        eq = Equatorial(Ecliptic(elong, elat), epoch="1950" if "B" in name else "2000")
+        ra, dec = float(eq.ra), float(eq.dec)
+    return np.array([np.cos(ra) * np.cos(dec), np.sin(ra) * np.cos(dec), np.sin(dec)])
 
 
 def _ingest_one(args) -> tuple[str, str]:
