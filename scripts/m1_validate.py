@@ -77,6 +77,7 @@ def main() -> None:
     terms_ours = precompute(ours, nd, T)
     t_pre = time.perf_counter() - t0
     terms_ref = precompute(refs, nd, Tref)
+    terms_ours_ent = precompute(ours, nd, T, position="enterprise")
     out["precompute_s"] = t_pre
     names = [p.name for p in ours]
 
@@ -96,6 +97,7 @@ def main() -> None:
         pts += parameter_points(names, None, 0, args.n_prior, seed=seed + 10)
         L_ref = PTALikelihood(terms_ref, Tref, orf=orf)
         L_ours = PTALikelihood(terms_ours, T, orf=orf)
+        L_ours_ent = PTALikelihood(terms_ours_ent, T, orf=orf)
         # feather arrays with ICRS positions (isolates the enterprise B1950 position quirk)
         terms_ref_icrs = [type(t)(**{**t.__dict__, "pos": rmap_ours.pos}) for t, rmap_ours in zip(terms_ref, ours)]
         L_ref_icrs = PTALikelihood(terms_ref_icrs, Tref, orf=orf)
@@ -112,6 +114,7 @@ def main() -> None:
                 row[f"disc_{key[0]}_{'nmin2' if key[1] else 'nmin1'}"] = float(fn({k: pd[k] for k in params}))
             row["ours_ref"] = float(L_ref.logL(L_ref.params_from_named(pt)))
             row["ours_ours"] = float(L_ours.logL(L_ours.params_from_named(pt)))
+            row["ours_ours_entpos"] = float(L_ours_ent.logL(L_ours_ent.params_from_named(pt)))
             row["ours_ref_icrs"] = float(L_ref_icrs.logL(L_ref_icrs.params_from_named(pt)))
             if pt.get("_chain_row") is not None:
                 row["chain_logl"] = float(chain.iloc[pt["_chain_row"]]["logl"])
@@ -134,11 +137,13 @@ def main() -> None:
         if orf == "hd":
             pq = a[:, 4] - a[:, 0]
             print(f"  B-name position quirk (ICRS - enterprise pos, feathers): mean {pq.mean():.3e} spread {np.ptp(pq):.3e}")
-        ch = [(r["ours_ref"] - r["chain_logl"], r["ours_ours"] - r["chain_logl"]) for r in rows if "chain_logl" in r]
+        ch = [(r["ours_ref"] - r["chain_logl"], r["ours_ours"] - r["chain_logl"], r["ours_ours_entpos"] - r["chain_logl"])
+              for r in rows if "chain_logl" in r]
         if ch:
             ch = np.array(ch)
             print(f"  chain logl: ours(feathers) - logl max |.| {np.max(np.abs(ch[:, 0])):.3f}; "
-                  f"ours(our arrays) - logl: {ch[:, 1].mean():.3f} +- {ch[:, 1].std():.3f}")
+                  f"ours(our arrays, ICRS) - logl: {ch[:, 1].mean():.3f} +- {ch[:, 1].std():.3f}; "
+                  f"ours(our arrays, enterprise pos) - logl: {ch[:, 2].mean():.3f} +- {ch[:, 2].std():.3f}")
         n1 = np.array([r["disc_ref_nmin1"] - r["disc_ref_nmin2"] for r in rows])
         print(f"  discovery default ECORR (keeps singletons) - nmin2: mean {n1.mean():.4f} spread {np.ptp(n1):.2e}")
 

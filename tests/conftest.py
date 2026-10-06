@@ -2,12 +2,37 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--require-oracles",
+        action="store_true",
+        default=False,
+        help="validation mode: every skipped test (missing data, oracle packages or GPU) is a "
+        "failure. Equivalent to PTAGWB_REQUIRE_ORACLES=1.",
+    )
+
+
+def _required(config) -> bool:
+    return config.getoption("--require-oracles") or os.environ.get("PTAGWB_REQUIRE_ORACLES", "") not in ("", "0")
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    outcome = yield
+    rep = outcome.get_result()
+    if rep.skipped and _required(item.config):
+        reason = rep.longrepr[2] if isinstance(rep.longrepr, tuple) else str(rep.longrepr)
+        rep.outcome = "failed"
+        rep.longrepr = f"skipped in --require-oracles / PTAGWB_REQUIRE_ORACLES mode: {reason}"
 
 
 def pytest_configure(config):
