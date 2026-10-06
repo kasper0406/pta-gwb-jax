@@ -10,7 +10,7 @@ How to reproduce:
 
 ```bash
 uv run --no-sync python scripts/ingest.py           # PINT -> data/cache/pulsars (about 105 s on 16 cores)
-uv run --no-sync pytest                              # 59 tests, about 8 min (oracle tests included)
+uv run --no-sync pytest                              # 74 tests, about 9 min (oracle tests included)
 PTAGWB_REQUIRE_ORACLES=1 uv run --no-sync pytest     # validation mode: any skip is a failure
 uv run --no-sync python scripts/m1_validate.py --enterprise   # numbers below -> outputs/m1_validation.json
 ```
@@ -30,7 +30,19 @@ So a green run there means every oracle comparison actually ran.
 5. Validation mode was added.
 6. Enterprise-convention sky positions are available as an option.
 
-All numbers below are from revision 2.
+**Revision 3 (second review).**
+
+1. The per-pulsar square-root reduction now has an analytic VJP. Gradients no longer go
+   through JAX's generic QR rule, which lost up to ~1e-4 relative accuracy in the free-spectrum
+   domain (Sec. 3c).
+2. `split_fraction` must be finite and in (0, 1); non-finite or asymmetric ORF matrices are
+   rejected.
+3. The timing-rank check requires full column rank, including n_columns <= n_rows.
+4. The prior normaliser is reported at full precision (Sec. 7).
+5. New tests: free-spectrum and 30-mode identity scans, and correlated 50-digit checks for
+   all ORFs.
+
+All numbers below are from revision 3 unless marked otherwise.
 
 ## 1. What was built
 
@@ -231,6 +243,54 @@ Tests, all in `tests/test_corners.py` (`slow`, needs the data):
 * **Full-PTA HD gradients** vs a 5-point stencil at a posterior sample, with the common
   process at (-11, 7), and with every IRN also at (-11, 7) (`test_full_pta_gradient_fd`).
 
+### 3c. Free-spectrum domain (second review) and the analytic reduction VJP
+
+Values in revision 2 were accurate everywhere, but the gradients still went through JAX's
+generic QR derivative. Where the prior variances span many decades, that rule loses
+accuracy. The reviewer's point: J2043+1711, `n_common = 30`, free spectrum with all
+`log10_rho = -1.1` (inside the adopted prior), IRN (-11.1, 6.9). Errors there:
+
+* d/d IRN log10_A: 5.9e-5 (HD) against a reference of -0.0926324.
+* d/d log10_rho[2]: 6.8e-5.
+* J2043+B1937 with HD or dipole: about 1e-5.
+
+The reduction (`likelihood._reduce`) is now a `custom_vjp` taking the diagonal prior
+variance `r`. Its backward pass uses only the accurately computed `E = (A^-1 + R)^-1` and
+`d = E A^-1 b`:
+
+    dq/dr_k = -d_k^2,   d log|I + R^1/2 A R^1/2| / dr_k = E_kk,
+    dE/dr_k = -E e_k e_k^T E,   dd/dr_k = -E e_k d_k
+
+These are exact identities for `q = r^T P r - b^T (R^-1 + A)^-1 b`. Everything upstream of
+`r` (power law, free spectrum, `lam0 phi^CP`) and downstream (`Sigma'` core) is
+differentiated as before. Errors against the 50-digit reference after the change, at the
+reviewer's point:
+
+| Case | value | d/d IRN log10_A | d/d IRN gamma | d/d log10_rho[2] | d/d log10_rho[0] |
+|---|---|---|---|---|---|
+| J2043, CURN | 2e-10 | 5e-12 | 3e-12 | 2e-11 | 4e-12 |
+| J2043, HD Gamma = 1 (sigma and B) | 2e-10 | 9e-12 | 5e-12 | 2e-11 | 8e-12 |
+| J2043+B1937, HD (sigma and B) | 4e-11 | 4e-12 | 2e-12 | 9e-12 | 3e-12 |
+| J2043+B1937, dipole | 1e-11 | 1e-11 | 7e-12 | 7e-12 | 4e-12 |
+| J2043+B1937, monopole (sigma / B) | 7e-11 / 1.3e-10 | 2e-11 | 1e-11 | 4e-13 | 4e-11 |
+
+New tests (`tests/test_corners.py`):
+
+* **Identity scans, all 67 pulsars, in three more configurations.** Each compares the
+  `Gamma = I` HD path (both methods) with CURN, in value and every gradient component, at
+  1e-7. Worst discrepancies:
+  * power law, 30 common modes, 25 corner/interior points: 9e-14;
+  * free spectrum, 14 modes: 8e-12;
+  * free spectrum, 30 modes: 1.5e-10.
+
+  The free-spectrum points cross 5 IRN settings (corners plus (-11.1, 6.9)) with 6 rho
+  profiles. The profiles are all at -15.5, all at -1.0, alternating -15.5/-1.0 in both
+  orders, all at -1.1 (the reviewer's point), and a mid-range ramp.
+* **Correlated 50-digit checks**, J2043+1711 + B1937+21, `n_common = 30`, for HD, dipole and
+  monopole, each with power law (-11.1, 6.9) and (-11, 7) and with free spectrum at -1.1 and
+  alternating bounds. Value within 1e-8; gradients in two IRN amplitudes, an IRN slope and
+  two or three common parameters within 1e-7 relative (12 test cases).
+
 Other checks:
 
 * Synthetic PTA (5 pulsars, multi-channel epochs, singleton epochs, 2 backends) vs
@@ -259,10 +319,13 @@ Other checks:
 
 | | value | value + gradient |
 |---|---|---|
-| CURN (67 batched 120 x 60 QRs) | 3.7 ms | 3.7 to 4.1 ms |
-| HD, exact float64 | 9.3 ms | **15.3 ms** |
-| HD, `grad_precision="mixed"` | 9.2 ms | **11.0 ms** |
-| HD, `method="B"` (reference) | 9.5 ms | 33 ms |
+| CURN, 14-mode power law (67 batched 120 x 60 QRs) | 3.6 ms | 3.6 ms |
+| HD, 14-mode power law, exact float64 | 9.2 ms | **14.9 ms** |
+| HD, 14-mode power law, `grad_precision="mixed"` | 9.0 ms | **10.3 ms** |
+| HD, 14-mode power law, `method="B"` (reference) | 9.6 ms | 32.5 ms |
+| CURN, **30-mode free spectrum** | 3.7 ms | 3.6 ms |
+| HD, **30-mode free spectrum** (67 x 60 = 4020 system), exact | 20.8 ms | **51.0 ms** |
+| HD, 30-mode free spectrum, `grad_precision="mixed"` | 20.7 ms | **24.8 ms** |
 | discovery HD (value only, same GPU) | 7.3 ms | |
 | discovery CURN (value only) | 1.6 ms | |
 | Stage-1 precompute, host numpy, all 67 pulsars | about 11 s, once | |
@@ -270,8 +333,9 @@ Other checks:
 **Regression vs revision 1, accepted for correctness.** Revision 1 was 0.24/0.56 ms for CURN
 and 5.9/12.0 ms for HD. The batched float64 QR (cuSOLVER) costs about 3.4 ms, where the
 per-pulsar Cholesky cost 0.3 ms. A hand-written vectorised Householder sweep brings the value
-down to 1.0 ms, but its autodiff gradient is slower (5.5 ms). A custom VJP for the
-square-root stage is the obvious M2 optimisation if throughput matters.
+down to 1.0 ms, but its autodiff gradient is slower (5.5 ms). Revision 3's analytic VJP for
+the square-root stage made the gradient nearly free, so CURN value + gradient is 3.6 ms. The
+remaining cost is the forward QR.
 
 On this GPU float64 runs at about 1/64 of the float32 rate. The float64 matmul peak measured
 1.76 TFLOPS. The float64 Cholesky of the 1876 system takes 5.4 ms (cuSOLVER), and that sets
@@ -287,8 +351,9 @@ prior draws. Per component, relative to max(|g|, 1), it is at most 1.1e-4. HMC/N
 approximate gradient, because leapfrog with any deterministic gradient field is still
 reversible and volume preserving and the Metropolis step uses the exact float64 value;
 only the acceptance rate can suffer. Float64 gradients remain the default ("correctness
-over speed"). Both paths now miss the ~10 ms target for value + gradient: exact 15.3 ms,
-mixed 11.0 ms.
+over speed"). Both 14-mode paths miss the ~10 ms target for value + gradient: exact
+14.9 ms, mixed 10.3 ms. The 30-mode free-spectrum HD system is 4020-dimensional and takes
+51 ms (24.8 ms mixed).
 
 ## 5. Deviations from / additions to `docs/SPEC_astra.md`
 
@@ -327,7 +392,9 @@ as the common phase origin; HD with auto-correlation 1; the improper timing prio
   points), but the 50-digit comparisons cover only 2 to 4 pulsars at a time. The scan
   cannot detect an error common to the CURN and HD paths. Both use the same square-root
   stage, which was validated only on the 50-digit subsets.
-* Speed regressed (Sec. 4). The square-root stage needs a custom VJP for M2 throughput.
+* Speed regressed compared with revision 1 (Sec. 4). The forward batched QR (3.4 ms) and the
+  4020-dimensional free-spectrum HD system (51 ms value + gradient) are the M2 throughput
+  bottlenecks.
 * Fixed-gamma common amplitude prior: paper U[-18, -14] vs the released fixed-gamma spline
   core U[-18, -11]. Unresolved for HD^13/3 and CURN^13/3; recorded in `config.PRIORS`, to be
   settled in M2.
@@ -342,10 +409,14 @@ coefficient RMS in seconds, with `phi_k = 10^(2 log10_rho_k)`. Evidence:
 
 1. **Released HD free-spectrum chains.** These are the Fig. 1(a) core
    `30fCP_30fiRN_3A_freespec_chain.core` (490,000 samples) and the tutorial
-   `presampled_cores/hd_30f_fs.core`. In both, `lnpost - lnlike` is constant at
-   **-357.814487** (std 4e-7). The other 134 parameters are 67 x IRN `U[-20, -11] x U[0, 7]`,
-   which their sample ranges confirm, contributing 67 ln(1/63) = -277.590. That leaves
-   -80.2245 = 30 ln(1/w), so **w = 14.5000000** per rho, to 1e-10.
+   `presampled_cores/hd_30f_fs.core`. In both, `lnpost - lnlike` is constant, with std
+   3.6e-7. Its means are **-357.8144861503552** (figure core) and -357.8144861475138
+   (tutorial core). The other 134 parameters are 67 x IRN `U[-20, -11] x U[0, 7]`, which
+   their sample ranges confirm, contributing -67 ln 63 = -277.590026668233. Assuming equal,
+   independent uniform widths w for the 30 rho, this leaves -30 ln w, so
+   **w = 14.499999999675** (figure core) and 14.499999998301 (tutorial core). For comparison,
+   -67 ln 63 - 30 ln 14.5 = -357.814486151029. The equal-width decomposition is an
+   assumption; the normaliser itself only fixes the total prior volume.
 2. **Lower edge.** In 28 of the 30 frequencies the samples reach **-15.50** (to 3
    decimals) and go no lower. Width 14.5 then fixes the upper edge at **-1.0**. No
    sample exceeds -5.25, so the upper edge is set by the prior width, not by sample extrema.
@@ -364,7 +435,10 @@ coefficient RMS in seconds, with `phi_k = 10^(2 log10_rho_k)`. Evidence:
    bounds. The runtime info and model pickles of the free-spectrum run are not in any
    release bundle we have. The width argument rests on the stored `lnpost - lnlike`.
 
-Status: HD^free is verified as `U[-15.5, -1.0]`. **CURN^free is unverified**: no released
+Status: HD^free is **inferred** as `U[-15.5, -1.0]` from three independent pieces of
+evidence: the normaliser, the sample floor and the KDE grid. It is not a recovered sampler
+configuration; no run script, runtime info or model pickle of the free-spectrum run is
+available. **CURN^free is unverified**: no released
 CURN free-spectrum chain is available, and the Ceffyl CP grid [-15.1, -0.9] differs. M2 must
 check this before comparing CURN^free marginals or evidences. `paper_table1 = (-9, -4)` is
 kept as an alternative.

@@ -24,8 +24,9 @@ def enable_x64() -> None:
 FREESPEC_LOG10_RHO_PRIORS = {
     # What the released HD free-spectrum chains sampled: the Fig. 1(a) core
     # 30fCP_30fiRN_3A_freespec_chain.core and the tutorial hd_30f_fs.core. In both, ln(prior)
-    # is constant at -357.814487, which with 67 x U[-20,-11] x U[0,7] IRN priors leaves a
-    # per-rho width of 14.5000000; samples pile up at -15.5. The Ceffyl HD KDE grids
+    # is constant (mean -357.8144861503552 in the figure core). With 67 x U[-20,-11] x U[0,7]
+    # IRN priors and equal widths, that implies 14.499999999675 per rho; samples reach -15.50
+    # and go no lower. INFERRED, not a recovered sampler config. The Ceffyl HD KDE grids
     # (Zenodo 8060824) span exactly [-15.5, -1.0].
     "production": (-15.5, -1.0),
     # Paper Table 1, "log-Uniform in rho_i [-18, -8]" read as log10(phi_k / s^2), i.e.

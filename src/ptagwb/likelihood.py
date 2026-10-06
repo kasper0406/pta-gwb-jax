@@ -30,7 +30,9 @@ Two stages
 
        y = Q1^T c,   -2 log L_a = s_perp + |c|^2 - |y|^2 + log|T^T T| + const_a
 
-   No normal-equation matrix is formed: QR of the stacked matrix works with the square root,
+   Gradients of this stage use an analytic VJP (``_reduce``) in terms of E = (A^-1 + R)^-1 and
+   d = E A^-1 b rather than JAX's generic QR derivative, which is inaccurate when R spans
+   many decades. No normal-equation matrix is formed: QR of the stacked matrix works with the square root,
    so the ~1e20 condition number of I + Phi^1/2 A Phi^1/2 in the IRN prior corner
    (log10_A -> -11, gamma -> 7) is never squared.
 
@@ -100,14 +102,19 @@ def check_timing_rank(Mmat: np.ndarray, name: str = "", rcond_min: float = TIMIN
     timing model (e.g. drop the duplicated/unconstrained parameter) instead.
     """
     Mmat = np.asarray(Mmat, dtype=np.float64)
+    n, m = Mmat.shape
+    if not np.all(np.isfinite(Mmat)):
+        raise TimingRankError(f"{name}: non-finite entries in the timing design matrix")
+    if m > n:
+        raise TimingRankError(f"{name}: {m} timing parameters but only {n} TOAs (cannot have full column rank)")
     norms = np.linalg.norm(Mmat, axis=0)
     if np.any(norms == 0):
         raise TimingRankError(f"{name}: all-zero design-matrix column(s) {np.flatnonzero(norms == 0).tolist()}")
     sv = np.linalg.svd(Mmat / norms, compute_uv=False)
-    if sv[-1] / sv[0] < rcond_min:
+    if len(sv) != m or sv[-1] / sv[0] < rcond_min:
         raise TimingRankError(
             f"{name}: timing design matrix numerically rank deficient: s_min/s_max = {sv[-1] / sv[0]:.2e} "
-            f"< {rcond_min:.0e} (column-normalised, {Mmat.shape[1]} columns)"
+            f"< {rcond_min:.0e} (column-normalised, {m} columns)"
         )
     return sv
 
@@ -237,28 +244,58 @@ def _chol_logdet(L):
     return 2.0 * jnp.sum(jnp.log(jnp.diagonal(L, axis1=-2, axis2=-1)), axis=-1)
 
 
-def _rn_absorb(RA, c, s_perp, phi):
-    """Per pulsar, square-root form. QR of [R_F Phi^1/2; I] = [Q1; Q2] T gives
-    T^T T = I + Phi^1/2 A Phi^1/2 without forming it. Returns (q, log|T^T T|, T, Q1, y, sqrt phi)
-    with q = r^T P r - b^T (Phi^-1 + A)^-1 b."""
-    sq = jnp.sqrt(phi)
+def _reduce_fwd_impl(RA, c, s_perp, r):
+    """Square-root absorption of a diagonal coefficient prior r (>0) for one pulsar.
+
+    QR of [R_F R^1/2; I] = [Q1; Q2] T gives T^T T = I + R^1/2 A R^1/2 without forming it. Returns
+
+        q  = r^T P r - b^T (R^-1 + A)^-1 b          (= s_perp + |c|^2 - |Q1^T c|^2)
+        ld = log|I + R^1/2 A R^1/2|
+        E  = (A^-1 + R)^-1 = R^-1/2 T^-1 Q1^T R_F    (full n x n, symmetrised; no subtraction)
+        d  = (A^-1 + R)^-1 A^-1 b = R^-1/2 T^-1 Q1^T c
+    """
+    sq = jnp.sqrt(r)
     n = RA.shape[-1]
     Qs, Tm = jnp.linalg.qr(jnp.concatenate([RA * sq[None, :], jnp.eye(n, dtype=RA.dtype)], axis=0))
     Q1 = Qs[:n]
     y = Q1.T @ c
     q = s_perp + c @ c - y @ y
     ld = 2.0 * jnp.sum(jnp.log(jnp.abs(jnp.diagonal(Tm))))
-    return q, ld, Tm, Q1, y, sq
+    Z = jsl.solve_triangular(Tm, jnp.concatenate([Q1.T @ RA, y[:, None]], axis=1), lower=False) / sq[:, None]
+    E = 0.5 * (Z[:, :n] + Z[:, :n].T)
+    d = Z[:, n]
+    return q, ld, E, d
 
 
-def _common_terms(Tm, Q1, y, sq, RA, nc2: int):
-    """RN-projected common-mode precision E (nc2, nc2) and score d (nc2,), subtraction-free:
-    E = [R^-1/2 T^-1 Q1^T R_F]_GG, d = [R^-1/2 T^-1 y]_G (see module docstring)."""
-    Z = jsl.solve_triangular(Tm, Q1.T @ RA[:, :nc2], lower=False)
-    E = Z[:nc2] / sq[:nc2, None]
-    E = 0.5 * (E + E.T)
-    d = jsl.solve_triangular(Tm, y, lower=False)[:nc2] / sq[:nc2]
-    return E, d
+@jax.custom_vjp
+def _reduce(RA, c, s_perp, r):
+    return _reduce_fwd_impl(RA, c, s_perp, r)
+
+
+def _reduce_fwd(RA, c, s_perp, r):
+    out = _reduce_fwd_impl(RA, c, s_perp, r)
+    _, _, E, d = out
+    return out, (E, d, RA, c, s_perp)
+
+
+def _reduce_bwd(res, cts):
+    """Analytic derivatives w.r.t. the diagonal prior r, in terms of the (accurately computed)
+    E = (A^-1 + R)^-1 and d = E A^-1 b only:
+
+        dq/dr_k = -d_k^2,   dld/dr_k = E_kk,   dE/dr_k = -E e_k e_k^T E,   dd/dr_k = -E e_k d_k
+
+    Differentiating through the QR (JAX's generic rule) instead loses up to ~1e-4 relative
+    accuracy when R spans many decades (e.g. free spectrum at log10_rho -> -1 with IRN at the
+    prior corner). The data (R_F, c, s_perp) are constants: zero cotangents.
+    """
+    E, d, RA, c, s_perp = res
+    qb, ldb, Eb, db = cts
+    Eb = 0.5 * (Eb + Eb.T)
+    rb = -qb * d * d + ldb * jnp.diagonal(E) - jnp.sum((E @ Eb) * E, axis=1) - d * (E @ db)
+    return jnp.zeros_like(RA), jnp.zeros_like(c), jnp.zeros_like(s_perp), rb
+
+
+_reduce.defvjp(_reduce_fwd, _reduce_bwd)
 
 
 def _tri_inv_lower(L, base: int = 128):
@@ -409,6 +446,10 @@ class PTALikelihood:
             raise ValueError(f"unknown grad_precision {grad_precision!r}")
         self.method, self.grad_precision = method, grad_precision
         if G is not None:
+            if G.shape != (self.P, self.P) or not np.all(np.isfinite(G)) or not np.allclose(G, G.T, rtol=0, atol=1e-14):
+                raise ValueError("ORF matrix must be a finite, symmetric (P, P) array")
+            if not (np.isfinite(split_fraction) and 0.0 < split_fraction < 1.0):
+                raise ValueError(f"split_fraction must be finite and in (0, 1), got {split_fraction!r}")
             # Diagonal splitting Gamma = lam0 I + Gamma', lam0 = split_fraction * lambda_min(Gamma).
             # The lam0 phi^CP part is absorbed per pulsar together with the intrinsic RN (square-root
             # QR stage), so phi^1/2 E' phi^1/2 <= 1/lam0 stays bounded even when the common
@@ -453,12 +494,12 @@ class PTALikelihood:
 
         if self.Lgamma is None:  # CURN: common power on the diagonal, separable
             phi = phi.at[:, :nc2].add(phic[None, :])
-            q, ld, *_ = jax.vmap(_rn_absorb)(self.RA, self.c, self.s_perp, phi)
+            q, ld, _, _ = jax.vmap(_reduce)(self.RA, self.c, self.s_perp, phi)
             return -0.5 * (jnp.sum(q + ld) + self.const_total)
 
         phi = phi.at[:, :nc2].add(self.lam0 * phic[None, :])  # IRN + lam0 * common (diagonal part)
-        q, ld, Tm, Q1, y, sq = jax.vmap(_rn_absorb)(self.RA, self.c, self.s_perp, phi)
-        E, d = jax.vmap(lambda *a: _common_terms(*a, nc2))(Tm, Q1, y, sq, self.RA)
+        q, ld, E, d = jax.vmap(_reduce)(self.RA, self.c, self.s_perp, phi)
+        E, d = E[:, :nc2, :nc2], d[:, :nc2]
 
         sqc = jnp.sqrt(phic)
         Es = E * sqc[None, :, None] * sqc[None, None, :]

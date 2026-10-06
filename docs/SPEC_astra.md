@@ -348,9 +348,10 @@ installed enterprise and discovery sources. Details and evidence are in
    `log10_rho ~ U[-9, -4]` from the paper's Table 1 ("log-Uniform in rho_i [-18, -8]"). The
    released HD free-spectrum production chains (Fig. 1(a) core
    `30fCP_30fiRN_3A_freespec_chain.core`, tutorial `hd_30f_fs.core`) actually sampled
-   **`log10_rho ~ U[-15.5, -1.0]`**. Evidence: `lnpost - lnlike = -357.814487` is constant,
-   which after the 67 IRN `U[-20,-11] x U[0,7]` priors implies a width of 14.5000000 per
-   rho; samples reach -15.50 and go no lower; the Ceffyl HD KDE grids span exactly
+   **`log10_rho ~ U[-15.5, -1.0]`** (inferred, not recovered from a sampler config).
+   Evidence: `lnpost - lnlike` is constant, with mean -357.8144861503552 in the figure core.
+   After the 67 IRN `U[-20,-11] x U[0,7]` priors, and assuming equal widths, that implies
+   14.499999999675 per rho (exactly 14.5 gives -357.814486151029); samples reach -15.50 and go no lower; the Ceffyl HD KDE grids span exactly
    [-15.5, -1]. [-9, -4] is the range the Fig. 1(a) notebook uses to histogram, truncate and
    renormalise the marginals before plotting. Raw-chain reproduction needs [-15.5, -1];
    reproducing the figure additionally needs that truncation. The CURN^free prior is

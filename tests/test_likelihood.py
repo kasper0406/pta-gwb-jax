@@ -126,3 +126,20 @@ def test_timing_rank_deficiency_fails():
         timing_basis(np.column_stack([M, 3.0 * M[:, 1]]))  # duplicated (scaled) column
     with pytest.raises(TimingRankError, match="all-zero"):
         timing_basis(np.column_stack([M, np.zeros(50)]))
+    with pytest.raises(TimingRankError, match="only 2 TOAs"):
+        timing_basis(np.array([[1.0, 0.0, 1.0], [0.0, 1.0, 1.0]]))  # more parameters than TOAs
+
+
+@pytest.mark.parametrize("bad", [-1.0, 0.0, 1.0, float("nan"), float("inf")])
+def test_split_fraction_validated(pta, bad):
+    _, _nd, T, terms = pta
+    with pytest.raises(ValueError, match="split_fraction"):
+        PTALikelihood(terms, T, n_modes=NM, n_common=NC, orf="hd", split_fraction=bad)
+
+
+def test_nonfinite_orf_rejected(pta):
+    _, _nd, T, terms = pta
+    G = np.eye(len(terms))
+    G[0, 1] = G[1, 0] = np.nan
+    with pytest.raises(ValueError, match="finite"):
+        PTALikelihood(terms, T, n_modes=NM, n_common=NC, orf=G)

@@ -76,8 +76,9 @@ def _inv_spd(M):
 
 
 def loglike_dec(terms, T, rn_log10_A, rn_gamma, log10_A, gamma, Gamma=None, n_modes=30, n_common=14,
-                include_const=False):
-    """Joint-system log-likelihood in 50-digit arithmetic. ``Gamma=None`` means CURN."""
+                include_const=False, log10_rho=None):
+    """Joint-system log-likelihood in 50-digit arithmetic. ``Gamma=None`` means CURN. A common
+    free spectrum is selected by passing ``log10_rho`` (n_common values; log10_A/gamma ignored)."""
     P = len(terms)
     m = 2 * n_modes
     nc2 = 2 * n_common
@@ -85,7 +86,10 @@ def loglike_dec(terms, T, rn_log10_A, rn_gamma, log10_A, gamma, Gamma=None, n_mo
     fk = [D(k + 1) / Td for k in range(n_modes)]
     phi_rn = [[powerlaw_dec(fk[k // 2], Td, _dec(rn_log10_A[a]), _dec(rn_gamma[a]))
                for k in range(m)] for a in range(P)]
-    phi_c = [powerlaw_dec(fk[k // 2], Td, _dec(log10_A), _dec(gamma)) for k in range(nc2)]
+    if log10_rho is not None:
+        phi_c = [_pow(TEN, 2 * _dec(log10_rho[k // 2])) for k in range(nc2)]
+    else:
+        phi_c = [powerlaw_dec(fk[k // 2], Td, _dec(log10_A), _dec(gamma)) for k in range(nc2)]
     G = np.eye(P) if Gamma is None else np.asarray(Gamma)
     N = P * m
     # Phi couples pulsars only mode by mode: invert / log-det the P x P block of every mode.
@@ -142,6 +146,7 @@ def grad_fd_dec(terms, T, params: dict, which: list[tuple[str, int | None]], Gam
                 arr = [_dec(x) for x in np.atleast_1d(params[key])]
                 arr[idx] += sgn * hd
                 p[key] = arr
-            vals.append(loglike_dec(terms, T, p["rn_log10_A"], p["rn_gamma"], p["log10_A"], p["gamma"], Gamma, **kw))
+            vals.append(loglike_dec(terms, T, p["rn_log10_A"], p["rn_gamma"], p.get("log10_A"), p.get("gamma"), Gamma,
+                                    log10_rho=p.get("log10_rho"), **kw))
         out[(key, idx)] = float((vals[0] - vals[1]) / (2 * hd))
     return out

@@ -48,7 +48,51 @@ def _p(P, la, g, lac, gc):
     return {"rn_log10_A": jnp.full(P, la), "rn_gamma": jnp.full(P, g), "log10_A": jnp.asarray(lac), "gamma": jnp.asarray(gc)}
 
 
-def test_scan_identity_orf_equals_curn_all_corners(setup):
+RHO_LO, RHO_HI = -15.5, -1.0  # adopted free-spectrum prior (config.PRIORS["freespec_log10_rho"])
+
+
+def _rho_profiles(nc):
+    alt = np.where(np.arange(nc) % 2 == 0, RHO_LO, RHO_HI)
+    return {"lo": np.full(nc, RHO_LO), "hi": np.full(nc, RHO_HI), "alt": alt, "alt2": alt[::-1].copy(),
+            "review": np.full(nc, -1.1), "mid": np.linspace(-6.0, -9.0, nc)}
+
+
+def _points(common, nc):
+    """(IRN corners) x (common corners / rho bound profiles), plus the reviewers' points."""
+    irn = [(-20.0, 0.0), (-20.0, 7.0), (-11.0, 0.0), (-11.0, 7.0), (-11.1, 6.9)]
+    if common == "powerlaw":
+        com = [(-18.0, 0.0), (-18.0, 7.0), (-11.0, 0.0), (-11.0, 7.0), (-11.1, 6.9)]
+        return [(a, g, {"log10_A": jnp.asarray(la), "gamma": jnp.asarray(gc)}) for a, g in irn for la, gc in com]
+    return [(a, g, {"log10_rho": jnp.asarray(r)}) for a, g in irn for r in _rho_profiles(nc).values()]
+
+
+@pytest.mark.parametrize("common,nc", [("powerlaw", 30), ("freespec", 14), ("freespec", 30)])
+def test_scan_identity_orf_equals_curn_domain(setup, common, nc):
+    """As below, for the power law with 30 common modes and the free spectrum with 14 and 30
+    modes over the adopted rho prior bounds [-15.5, -1] (all-low, all-high, alternating, the
+    reviewer's interior point log10_rho = -1.1, a mid profile) x IRN corners."""
+    _, T, terms = setup
+    P = len(terms)
+    kw = {"common": common, "n_common": nc}
+    curn = PTALikelihood(terms, T, orf="curn", **kw)
+    others = [PTALikelihood(terms, T, orf=np.eye(P), **kw), PTALikelihood(terms, T, orf=np.eye(P), method="B", **kw)]
+    worst = (0.0, None)
+    for a, g, com in _points(common, nc):
+        p = {"rn_log10_A": jnp.full(P, a), "rn_gamma": jnp.full(P, g), **com}
+        v0, g0 = curn.value_and_grad(p)
+        for L in others:
+            v1, g1 = L.value_and_grad(p)
+            assert abs(float(v1) - float(v0)) <= 1e-6, (a, g, L.method, float(v1) - float(v0))
+            for k in g0:
+                x, y = np.atleast_1d(np.asarray(g0[k])), np.atleast_1d(np.asarray(g1[k]))
+                err = np.abs(x - y) / np.maximum(1.0, np.abs(x))
+                i = int(np.argmax(err))
+                worst = max(worst, (float(err[i]), (a, g, L.method, k, i)), key=lambda t: t[0])
+                assert err[i] <= 1e-7, (a, g, L.method, k, i, x[i], y[i])
+    print(f"{common}/{nc}: worst relative gradient discrepancy {worst}")
+
+
+def test_scan_identity_orf_equals_curn_all_corners(setup):  # power law, 14 common modes
     """Gamma = I through the reduced HD path vs separable CURN, all 67 pulsars, 16 corners plus the
     reviewer's points: values and every gradient component (per-pulsar IRN gradients localise
     any failure to a pulsar)."""
@@ -145,3 +189,34 @@ def test_hd_correlated_vs_long_double_toa_level(setup, noisedict):
     # tolerance covers float64 vs long-double *stage-1* rounding (TOA-level whitening/QR of up to
     # 6e4 TOAs): measured 1e-10 at posterior-like points, 8e-8 at the prior corners.
     _hd_subset_check(sub, T, pts, tol_v=3e-7, tol_g=None, ref_terms=ld)
+
+
+@pytest.mark.parametrize("orf", ["hd", "dipole", "monopole"])
+@pytest.mark.parametrize("common", ["powerlaw", "freespec"])
+def test_correlated_all_orfs_vs_decimal(setup, orf, common):
+    """J2043+1711 + B1937+21 (the reviewers' pulsars) with a genuinely correlated ORF, 30 common
+    modes, vs the 50-digit joint reference: value and IRN / common gradients."""
+    _, T, terms = setup
+    tmap = {t.name: t for t in terms}
+    sub = [tmap["J2043+1711"], tmap["B1937+21"]]
+    G = orfs.ORFS[orf](np.stack([t.pos for t in sub]))
+    c = -0.5 * sum(t.const() for t in sub)
+    if common == "freespec":
+        cases = [{"log10_rho": np.full(30, -1.1)}, {"log10_rho": _rho_profiles(30)["alt"]}]
+        which = [("log10_rho", 0), ("log10_rho", 2), ("log10_rho", 29)]
+    else:
+        cases = [{"log10_A": -11.1, "gamma": 6.9}, {"log10_A": -11.0, "gamma": 7.0}]
+        which = [("log10_A", None), ("gamma", None)]
+    which = [("rn_log10_A", 0), ("rn_gamma", 0), ("rn_log10_A", 1)] + which
+    Ls = [PTALikelihood(sub, T, orf=G, common=common, n_common=30, method=m) for m in ("sigma", "B")]
+    for com in cases:
+        prm = {"rn_log10_A": [-11.1, -11.0], "rn_gamma": [6.9, 7.0], **com}
+        ref = float(loglike_dec(sub, T, prm["rn_log10_A"], prm["rn_gamma"], com.get("log10_A"), com.get("gamma"),
+                                Gamma=G, n_common=30, log10_rho=com.get("log10_rho")))
+        gref = grad_fd_dec(sub, T, prm, which, Gamma=G, n_common=30)
+        for L in Ls:
+            v, g = L.value_and_grad({k: jnp.asarray(v_) for k, v_ in prm.items()})
+            assert abs(float(v) - c - ref) <= 1e-8, (orf, common, L.method, float(v) - c - ref)
+            for (k, i), gr in gref.items():
+                an = float(np.atleast_1d(np.asarray(g[k]))[0 if i is None else i])
+                assert abs(an - gr) <= 1e-7 * max(1.0, abs(gr)), (orf, common, L.method, k, i, an, gr)
