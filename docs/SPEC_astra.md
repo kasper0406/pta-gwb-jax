@@ -376,4 +376,13 @@ installed enterprise and discovery sources. Details and evidence are in
    but not in enterprise 3.3.1 or discovery. The production chains used 3.3.1.
 7. **Sec. 4, monopole/dipole regulariser.** discovery uses 1 + 1e-6, enterprise 1 + 1e-5.
 8. **Sec. 5, fixed-gamma common amplitude.** Table 1 says `U[-18, -14]`, but the released
-   fixed-gamma spline-ORF core used `U[-18, -11]`. Unresolved for HD^13/3 and CURN^13/3.
+   fixed-gamma spline-ORF core used `U[-18, -11]`. **Resolved in M2: `U[-18, -11]`.** Every
+   released fixed-gamma product whose prior is recoverable used it: the spline-ORF core stores
+   `gw_crn_log10_A:Uniform(pmin=-18, pmax=-11)` and its `lnpost - lnlike` equals
+   `-67 ln 63 - ln 7 - 7 ln 1.8`; the tutorial CURN^13/3 vs HD^13/3 product-space core has
+   `lnpost - lnlike = 2(-67 ln 63) - 2 ln 7` and inactive-model amplitudes spanning
+   [-18.00, -11.00]. Posteriors never approach -14, so the choice only moves evidences against
+   IRN by ln(7/4) and cancels in HD/CURN (`docs/M2_RESULTS.md`).
+9. **Sec. 5, CURN free spectrum (added in M2).** No released CURN^free chain or normaliser
+   exists in the bundles we have; the only provenance is the Ceffyl v1 CP KDE grid
+   [-15.1, -0.9]. Inferred (weak) and not needed for M2, which runs HD^free only.
