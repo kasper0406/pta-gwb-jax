@@ -4,9 +4,9 @@
   never clobbering); the compiled CPU HLO of the known-bad pattern must contain no ``__ynn_fusion``.
 * Compiled reducer VJPs (production and fast) on XLA:CPU must equal the eager gradients for
   scalar-loss, constant nonzero, explicit-zero, partial (HD-like) and runtime cotangents with the
-  workaround on. With it off (opt-out env var) the production reducer is known to fail for
-  constant cotangents: documented in KNOWN_BAD_WITHOUT_WORKAROUND (not an xfail, which strict
-  mode would turn into a failure); every other case must still pass.
+  workaround on, with it off (opt-out env var; both backward rules carry optimization barriers),
+  and for four import orders in fresh processes (incl. JAX initialised before ``import ptagwb``,
+  which must warn, or raise with PTAGWB_STRICT_XLA_FLAGS=1).
 """
 
 from __future__ import annotations
@@ -16,6 +16,8 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 TESTS = Path(__file__).resolve().parent
 
@@ -81,11 +83,10 @@ def test_reducer_vjp_cpu_with_workaround():
     _assert_cases(out)
 
 
-# Documented known failure without the workaround (an expected-failure test written as a passing
-# one, because PTAGWB_REQUIRE_ORACLES / --require-oracles turns every xfail into a failure): all
-# cases outside KNOWN_BAD must still pass; KNOWN_BAD may fail (measured 0.14-2.6 scaled error on the
-# synthetic PTA, 4e273 on 67 NG15 pulsars) or pass (e.g. after an upstream XLA fix).
-KNOWN_BAD_WITHOUT_WORKAROUND = {"prod/const"}
+# Without the XLA flag (opt-out) both reducers must still be correct: their backward rules keep
+# the vulnerable products behind optimization barriers. Before the production barrier was added,
+# prod/const failed here (0.14-2.6 scaled error on the synthetic PTA, 4e273 on 67 NG15 pulsars).
+KNOWN_BAD_WITHOUT_WORKAROUND: set[str] = set()  # was {"prod/const"} before the production barrier
 
 
 def test_reducer_vjp_cpu_without_workaround_known_failures():
@@ -114,3 +115,55 @@ def test_reducer_vjp_default_backend():
     T = tspan(psrs)
     like = PTALikelihood(precompute(psrs, nd, T, n_modes=30), T, n_modes=30, n_common=30, orf="curn", common="freespec")
     _assert_cases({"errors": ynn_cases.run_cases(like)})
+
+
+ORDERS = {
+    "ptagwb_first": "",
+    "jax_imported_first": "import jax",
+    "array_created_first": "import jax.numpy as jnp; jnp.ones(1).block_until_ready()",
+    "devices_queried_first": "import jax; jax.devices()",
+}
+
+ORDER_CASES = """
+import warnings
+warnings.simplefilter("always")
+{pre}
+with warnings.catch_warnings(record=True) as w:
+    import ptagwb
+late_warning = any("initialised before `import ptagwb`" in str(x.message) for x in w)
+import sys, json
+sys.path.insert(0, {tests!r})
+import jax
+from ptagwb.config import xla_cpu_ynn_fusion_active
+from ptagwb.likelihood import PTALikelihood, precompute
+from synthetic import make_pta, tspan
+import ynn_cases
+psrs, nd = make_pta(5, seed=0, n_epochs=70, signal=3e-7)
+T = tspan(psrs)
+like = PTALikelihood(precompute(psrs, nd, T, n_modes=30), T, n_modes=30, n_common=30, orf="curn", common="freespec")
+print("RESULT " + json.dumps({{"active": xla_cpu_ynn_fusion_active(), "late_warning": late_warning,
+                              "errors": ynn_cases.run_cases(like)}}))
+"""
+
+
+@pytest.mark.parametrize("order", list(ORDERS))
+def test_import_order(order):
+    """Fresh process per import order: both reducers must give correct compiled gradients for
+    nonzero-constant and explicit-zero (and all other) cotangents, whether or not the XLA flag
+    took effect (the backward rules carry optimization barriers); a late import must warn."""
+    out = _run(ORDER_CASES.format(pre=ORDERS[order], tests=str(TESTS)))
+    late = order in ("array_created_first", "devices_queried_first")
+    assert out["active"] is late
+    assert out["late_warning"] is late
+    for red in ("prod", "hh"):
+        for case in ("const", "zeros"):
+            assert f"{red}/{case}" in out["errors"]
+    _assert_cases(out)
+
+
+def test_late_import_strict_mode_raises():
+    env = {k: v for k, v in os.environ.items() if k != "XLA_FLAGS"}
+    env.update(JAX_PLATFORMS="cpu", PTAGWB_STRICT_XLA_FLAGS="1")
+    r = subprocess.run([sys.executable, "-c", "import jax; jax.devices(); import ptagwb"], env=env,
+                       capture_output=True, text=True, timeout=600, check=False)
+    assert r.returncode != 0 and "XlaFlagsTooLateError" in r.stderr

@@ -291,7 +291,13 @@ def _reduce_bwd(res, cts):
     E, d, RA, c, s_perp = res
     qb, ldb, Eb, db = cts
     Eb = 0.5 * (Eb + Eb.T)
-    rb = -qb * d * d + ldb * jnp.diagonal(E) - jnp.sum((E @ Eb) * E, axis=1) - d * (E @ db)
+    # optimization_barrier: XLA:CPU (jaxlib 0.11.2) miscompiles reduce(dot(E, broadcast(c)) * E)
+    # inside a YNNPACK fusion when a cotangent is a broadcast constant (docs/PERF.md Sec. 3a).
+    # The barrier keeps the products out of the fused reduction, independently of XLA_FLAGS /
+    # import order; same arithmetic, no effect on the GPU path.
+    EEb = jax.lax.optimization_barrier(E @ Eb)
+    Edb = jax.lax.optimization_barrier(E @ db)
+    rb = -qb * d * d + ldb * jnp.diagonal(E) - jnp.sum(EEb * E, axis=1) - d * Edb
     return jnp.zeros_like(RA), jnp.zeros_like(c), jnp.zeros_like(s_perp), rb
 
 

@@ -361,7 +361,9 @@ fusion). The likelihood's reducer VJP is affected on the **CPU backend** when it
 (broadcast) cotangents on E; the production likelihood's own gradient was verified unaffected on
 CPU (compiled vs eager <= 9e-11 at 52 NG15 points across CURN/HD/dipole/monopole and both spectra),
 and the GPU backend, on which every number in this document was produced, does not use YNNPACK
-(compiled = eager to <= 2.4e-11). `ptagwb` now disables the fusion via `XLA_FLAGS` at import.
+(compiled = eager to <= 2.4e-11). The production backward rule now keeps the affected products
+behind `optimization_barrier`s (values bit-identical, gradients <= 1e-14, GPU speed unchanged), and
+`ptagwb` disables the fusion via `XLA_FLAGS` at import (warning if JAX was initialised first).
 
 ## 5. Deviations from / additions to `docs/SPEC_astra.md`
 

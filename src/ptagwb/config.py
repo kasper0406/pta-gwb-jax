@@ -34,6 +34,53 @@ def disable_xla_cpu_ynn_fusion() -> bool:
     return True
 
 
+YNN_STRICT_ENV = "PTAGWB_STRICT_XLA_FLAGS"
+
+
+class XlaFlagsTooLateError(RuntimeError):
+    """The JAX CPU backend was initialised before ``ptagwb`` could disable the YNNPACK fusion."""
+
+
+def check_xla_cpu_ynn_fusion_late(flags_before: str) -> bool:
+    """Called at ``import ptagwb``: if a JAX backend was already initialised (JAX computation or
+    ``jax.devices()`` before the import), the XLA_FLAGS workaround cannot take effect. Then compile
+    a tiny probe; if the CPU backend still forms YNN fusions, warn (or raise
+    ``XlaFlagsTooLateError`` when ``PTAGWB_STRICT_XLA_FLAGS=1``). Returns True if the fusion is
+    active. The likelihood's own backward rule is protected regardless (optimization barriers);
+    other CPU gradients in the same process are not.
+    """
+    import os
+    import sys
+    import warnings
+
+    if "--xla_cpu_experimental_ynn_fusion_type" in flags_before or "jax" not in sys.modules:
+        return False
+    try:
+        from jax._src import xla_bridge
+
+        initialised = xla_bridge.backends_are_initialized()
+    except Exception:  # noqa: BLE001 - private API; assume initialised and probe
+        initialised = True
+    if not initialised:
+        return False
+    try:
+        active = xla_cpu_ynn_fusion_active()
+    except RuntimeError:  # no CPU backend (e.g. JAX_PLATFORMS=cuda)
+        return False
+    if active:
+        msg = (
+            "ptagwb: the JAX CPU backend was initialised before `import ptagwb`, so the XLA:CPU "
+            "YNNPACK-fusion workaround (--xla_cpu_experimental_ynn_fusion_type=) is NOT in effect "
+            "in this process. XLA:CPU (jaxlib 0.11.2) can miscompile reverse-mode gradients "
+            "(docs/PERF.md Sec. 3a). Import ptagwb before any JAX computation or jax.devices(), or "
+            "start Python with XLA_FLAGS=--xla_cpu_experimental_ynn_fusion_type= ."
+        )
+        if os.environ.get(YNN_STRICT_ENV, "") not in ("", "0"):
+            raise XlaFlagsTooLateError(msg)
+        warnings.warn(msg, RuntimeWarning, stacklevel=3)
+    return active
+
+
 def xla_cpu_ynn_fusion_active() -> bool:
     """Compile the known-bad pattern on the CPU backend and report whether XLA formed a YNNPACK
     fusion (``__ynn_fusion`` in the optimised HLO). False means the workaround is in effect."""

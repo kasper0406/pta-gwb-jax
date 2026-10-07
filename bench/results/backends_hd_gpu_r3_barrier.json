@@ -1,0 +1,80 @@
+{
+ "env": {
+  "git_sha": "02967a3034a1c427005aecb3c47a61811a6c86b4",
+  "dirty": true,
+  "dirty_hash": "9714473147740c68",
+  "jax": "0.11.2",
+  "backend": "gpu",
+  "devices": [
+   "cuda:0"
+  ],
+  "XLA_FLAGS": "--xla_cpu_experimental_ynn_fusion_type=",
+  "host": "kworkstation",
+  "time": "2026-10-07T21:41:13"
+ },
+ "orf": "hd",
+ "grad_precision": "float64",
+ "OPENBLAS_NUM_THREADS": "",
+ "rows": [
+  {
+   "variant": "prod",
+   "options": {
+    "class": "PTALikelihood",
+    "reduce": "production (_reduce: geqrf+orgqr)",
+    "tri_inv": "production (_tri_inv_lower)",
+    "method": "sigma",
+    "grad_precision": "float64",
+    "orf": "hd",
+    "common": "powerlaw",
+    "n_common": 14,
+    "n_modes": 30
+   },
+   "batch": 1,
+   "pmap_devices": 1,
+   "call_ms": 14.882993884384632,
+   "per_chain_grad_ms": 14.882993884384632,
+   "min_ms": 14.481655322015285,
+   "value_only_ms": 9.394253604114056
+  },
+  {
+   "variant": "prod",
+   "options": {
+    "class": "PTALikelihood",
+    "reduce": "production (_reduce: geqrf+orgqr)",
+    "tri_inv": "production (_tri_inv_lower)",
+    "method": "sigma",
+    "grad_precision": "float64",
+    "orf": "hd",
+    "common": "powerlaw",
+    "n_common": 14,
+    "n_modes": 30
+   },
+   "batch": 4,
+   "pmap_devices": 1,
+   "call_ms": 38.144571473822,
+   "per_chain_grad_ms": 9.5361428684555,
+   "min_ms": 37.76083793491125,
+   "value_only_ms": null
+  },
+  {
+   "variant": "prod",
+   "options": {
+    "class": "PTALikelihood",
+    "reduce": "production (_reduce: geqrf+orgqr)",
+    "tri_inv": "production (_tri_inv_lower)",
+    "method": "sigma",
+    "grad_precision": "float64",
+    "orf": "hd",
+    "common": "powerlaw",
+    "n_common": 14,
+    "n_modes": 30
+   },
+   "batch": 16,
+   "pmap_devices": 1,
+   "call_ms": 93.13330031000078,
+   "per_chain_grad_ms": 5.820831269375049,
+   "min_ms": 92.77505241334438,
+   "value_only_ms": null
+  }
+ ]
+}

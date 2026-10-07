@@ -413,6 +413,9 @@ def run_nuts(cfg: RunConfig, post: Posterior, log=print) -> Path:
         },
         "host": os.uname().nodename,
         "jax": jax.__version__,
+        "backend": jax.default_backend(),
+        "devices": [str(dv) for dv in jax.devices()],
+        "xla_flags": os.environ.get("XLA_FLAGS", ""),
         "started": time.strftime("%Y-%m-%dT%H:%M:%S"),
     }
     (out / "meta.json").write_text(json.dumps(meta, indent=1))

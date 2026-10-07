@@ -31,9 +31,10 @@ re-tested with a matched, repeated HD comparison, which overturned the first-rou
   dipole, monopole}, CPU and GPU, single and vmapped, incl. corners and bound profiles.
 * **XLA:CPU compiler bug** (review rounds 1-2): XLA:CPU's YNNPACK fusion (jaxlib 0.11.2) miscompiles
   `reduce(dot(E, broadcast(c)) * E)`, hitting reducer VJPs with broadcast cotangents on the CPU
-  backend (production and fast reducers). Package-wide workaround: `ptagwb` disables the fusion
-  via XLA_FLAGS at import (verified: no `__ynn_fusion`), plus optimization barriers in the fast
-  VJP. The production likelihood gradient was not affected on CPU at any tested NG15 point and the
+  backend (production and fast reducers). Fixed independently of import order by optimization
+  barriers in both backward rules (production values bit-identical, gradients <= 1e-14, GPU speed
+  unchanged), plus `ptagwb` disabling the fusion via XLA_FLAGS at import with a warning if JAX was
+  initialised first. The production likelihood gradient was not affected on CPU at any tested NG15 point and the
   GPU never uses YNNPACK, so M1/M2 (GPU) are unaffected (Sec. 3a; reproducer `bench/xla_ynn_repro.py`).
 * **Samplers**: on CURN BlackJAX NUTS showed ~2x the ESS/s of NumPyro NUTS, but this is lockstep
   loss plus step-size landing, not implementation (matched fixed-step control: 1.84 vs 1.82 ms per
@@ -250,22 +251,33 @@ an `optimization_barrier` are computed correctly; with `--xla_cpu_experimental_y
 (jax + numpy only; exit code 1 when wrong) for an upstream report -- **not filed**, the decision is
 the user's. The GPU backend does not use YNNPACK (no `__ynn_fusion` in any GPU HLO).
 
-**Workaround (package-wide, covers production).** `ptagwb/__init__.py` calls
-`config.disable_xla_cpu_ynn_fusion()`, which appends `--xla_cpu_experimental_ynn_fusion_type=` to
-`XLA_FLAGS` (never clobbering existing flags; not overriding an explicit user value of that flag;
-opt-out `PTAGWB_KEEP_XLA_CPU_YNN_FUSION=1`). XLA reads the flags when a backend is first
-initialised, so importing `ptagwb` before the first JAX computation is required (all scripts do).
-`config.xla_cpu_ynn_fusion_active()` compiles the known-bad pattern on the CPU backend and reports
-whether a YNN fusion formed. Second defence, fast reducer only: its VJP puts the two products
-behind `optimization_barrier` (verified correct with the fusion forcibly enabled). Symbolic-zero
-skipping (round 1) only removes unused work; it is not a protection by itself.
+**Defences (package-wide, cover production, independent of import order).**
+1. *Backward rules carry `optimization_barrier`s* around the two products (production
+   `likelihood._reduce_bwd` since review round 3, and the fast VJP), which keeps them out of the
+   fused reduction whatever the XLA flags. Production effect, measured on the GPU at the matrix
+   points (5 configurations, single and batched): values bit-identical, gradients <= 1e-14
+   relative; HD value+grad 14.88 / 9.54 / 5.82 ms per chain at B = 1 / 4 / 16 (before: 14.85 /
+   9.55 / 5.80).
+2. *XLA flag*: `ptagwb/__init__.py` appends `--xla_cpu_experimental_ynn_fusion_type=` to
+   `XLA_FLAGS` (never clobbering; not overriding an explicit user value; opt-out
+   `PTAGWB_KEEP_XLA_CPU_YNN_FUSION=1`). XLA reads the flags when a backend is first initialised, so
+   this protects *all* CPU code in the process only if `ptagwb` is imported before any JAX
+   computation or `jax.devices()`.
+3. *Late-import detection*: if a backend was already initialised at `import ptagwb`, a tiny probe is
+   compiled; if the CPU backend still forms YNN fusions, ptagwb emits an actionable
+   `RuntimeWarning` (raise `XlaFlagsTooLateError` instead with `PTAGWB_STRICT_XLA_FLAGS=1`).
+   `config.xla_cpu_ynn_fusion_active()` reports the state at any time.
+Symbolic-zero skipping (fast VJP) only removes unused work; it is not a protection by itself.
 
-**Tests** (`tests/test_xla_cpu_ynn.py`, CPU via subprocesses): the flag is set and effective (no
+**Tests** (`tests/test_xla_cpu_ynn.py`, CPU, fresh subprocesses): the flag is set and effective (no
 `__ynn_fusion`), appended to pre-existing `XLA_FLAGS`, and the opt-out restores the fusion; compiled
-vs eager reducer VJPs for scalar-loss, constant nonzero, explicit-zero, partial (HD-like block) and
-runtime cotangents, production and fast reducers: must pass with the workaround (all <= 1e-9;
-measured <= 4e-11); without it the production `const` case is a documented known failure (0.14-2.6 on the synthetic PTA; written as a passing test that requires all *other* cases to pass, because the strict mode turns xfails into failures); the
-fast reducer passes even without it (barriers); and the same cases on the default backend (GPU).
+vs eager reducer VJPs (production and fast) for scalar-loss, constant nonzero, explicit-zero,
+partial (HD-like block) and runtime cotangents, with the flag (all <= 1e-9; measured <= 4e-11) and
+without it (barriers); the same cases on the default backend (GPU); and **four import orders**
+(`ptagwb` first; `import jax` first; an array created first; `jax.devices()` first): all cases
+correct for both reducers in every order, with the late-import warning emitted exactly in the last
+two, and the strict mode raising. Negative control: with the production barriers removed, the
+late-import orders and the flag-off case fail (`prod/const`).
 
 **Impact on production** (`bench/ynn_impact.py`, `bench/results/ynn_impact_*.json`; production
 `PTALikelihood`, all 67 NG15 pulsars, compiled vs eager value+gradient at 6-7 points each
@@ -281,7 +293,9 @@ x {CURN, HD, dipole, monopole}):
 | reducer VJP, constant cotangents (production / fast), 67 psr | **4e273** / 1.4e-10 | 3.5e-13 / 1.4e-10 | 3.6e-13 / 1.8e-12 |
 | other cotangent patterns (scalar, zeros, partial, runtime) | <= 3.6e-11 | <= 4.4e-11 | <= 2.6e-11 |
 
-So the production *likelihood* gradient was **not** affected on the CPU at any tested point --
+(These impact numbers were measured before the production barrier was added, i.e. they describe
+the production code that produced M1/M2.) So the production *likelihood* gradient was **not**
+affected on the CPU at any tested point --
 its fused patterns are benign -- even though YNN fusions do occur in its HLO; the production
 *reducer* VJP is wrong on CPU only for constant/broadcast cotangents on E, which the likelihood
 never produces (HD's E cotangent comes from the joint system: a dense block). On the GPU compiled
@@ -298,7 +312,9 @@ times and per-gradient costs in `docs/M2_RESULTS.md` are GPU timings), and no sc
 `JAX_PLATFORMS=cpu` except `scripts/m2_rerun_fs30.sh`, which runs `m2_freespec_diag.py` --
 diagnostics on stored draws, no likelihood or gradient. The M2 Bayes-factor and optimal-statistic
 post-processing (`m2_bayes.py`, `m2_optstat.py`) evaluate likelihood *values* only. Hence the M1/M2
-results are unaffected by this CPU-compiler bug; the workaround protects future CPU use.
+results are unaffected by this CPU-compiler bug; the defences protect future CPU use. (Historical
+M1/M2 run metadata does not record the backend, so "GPU" is established from the environment and
+timings, not per run; `run_nuts` now records `backend`, `devices` and `XLA_FLAGS` in `meta.json`.)
 
 **Open production numerical limitation (not fixed here).** For the monopole/dipole ORFs (with
 diag_eps = 1e-5 the split Gamma' has condition number 1.3e7 / 7.8e6) the production Sigma form
