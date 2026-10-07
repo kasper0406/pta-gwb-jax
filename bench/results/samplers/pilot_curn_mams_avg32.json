@@ -64,5 +64,25 @@
   "XLA_FLAGS": "",
   "host": "kworkstation",
   "time": "2026-10-07T10:07:33"
+ },
+ "bias": {
+  "quantile_z_max_abs": 2.099025567825666,
+  "quantile_z_worst": {
+   "param": "J1909-3744_red_noise_gamma",
+   "q": 0.5,
+   "z": -2.099025567825666,
+   "delta": -0.11384143877562325
+  },
+  "quantile_n_abs_z_gt3": 0,
+  "quantile_n_tests": 51,
+  "common_q50_delta": -0.002737998931245045,
+  "mean_chi2": 141.0242523488734,
+  "mean_dof": 135,
+  "mean_z_max_abs": 3.0768779783230173,
+  "mean_z_worst_param": "J2234+0611_red_noise_gamma",
+  "sd_ratio_median": 0.9977594117694711,
+  "sd_ratio_min": 0.12619295256078175,
+  "sd_ratio_max": 1.0774364592353405,
+  "sd_ratio_common": 1.006482933918037
  }
 }
