@@ -46,11 +46,11 @@ runtime) at an HD^13/3 posterior draw, production code:
 | stage (production, 1 chain) | time [ms] | flops | achieved |
 |---|---|---|---|
 | value | 8.67 | | |
-| **value + gradient** | **14.29** | ~6.9 GF | 0.48 TFLOP/s (25% of DGEMM peak) |
+| **value + gradient** | **14.29** (re-measured 14.69) | 6.97 GF | 0.47-0.49 TFLOP/s (25% of DGEMM peak) |
 | per-pulsar square-root stage, forward (67 x [QR 120x60 + Q formation + trsm]) | 3.54 | 0.14 GF | **0.04 TFLOP/s** |
 |   of which batched geqrf (`geqr2_batch_kernel`) / orgqr | 2.61 / 0.73 | | |
 | 1876-dim Cholesky (cuSOLVER potrf, `getrf_wo_pivot` kernel) | 4.85-4.98 | 2.2 GF | 0.44 TFLOP/s |
-| backward triangular inverse L^-1 (production recursion) | 5.24 | 4.4 GF | 0.84 TFLOP/s |
+| backward triangular inverse L^-1 (production recursion) | 5.24 | 4.4 GF (dense recursion: 2n^3/3; triangular minimum n^3/3 = 2.2 GF) | 0.84 TFLOP/s |
 |   of which 32 leaf `trsm` calls / GEMMs | 2.18 / ~2.6 | | |
 | diag blocks of Sigma'^-1 (einsum) + 2 trsv | 0.21 + 0.31 | 0.2 GF | |
 | per-pulsar analytic VJP (`_reduce_bwd`) | 0.08 | 0.03 GF | |
@@ -62,7 +62,10 @@ runtime) at an HD^13/3 posterior draw, production code:
 * The production backward tri-inverse is a depth-first recursion: the top-level products are
   dense 938^3 GEMMs (the triangular zeros are multiplied), and its 32 small leaf `trsm`s run
   one at a time (68 us each).
-* XLA's `cost_analysis` reports 4.7 GF for value+grad but does not count the cuSOLVER custom calls.
+* FLOP model (`bench/profile_hd.py`, `flop_model` in `bench/results/profile_gpu_r2.json`): QR 0.10 +
+  rest of the reduction 0.04 + Cholesky n^3/3 = 2.20 + production inverse 2n^3/3 = 4.40 (its
+  recursion multiplies the triangular zeros) + diagonal blocks 0.20 + reduction VJP 0.03 =
+  **6.97 GF**. XLA's `cost_analysis` reports 4.7 GF but does not count the cuSOLVER custom calls.
 
 ## 2. CPU vs GPU
 
@@ -119,35 +122,65 @@ same square-root (Householder) numerics. Two changes:
    (`_mm_lower_left/right`; 44% fewer flops than dense products). 5.2 -> **1.86 ms**
    (B = 16: 2.63 -> 1.60 ms per chain).
 
-**Exactness** (`bench/check_exact.py`, results in `bench/results/exact_gpu.json`): all 67 NG15
-pulsars, HD and CURN, at 8 HD posterior draws, the 16 prior corners + 2 reviewer points of
-`tests/test_corners.py` (where I + Phi^1/2 A Phi^1/2 reaches cond ~1e20) and 8 random prior draws,
-single and vmapped. Values are compared **without the parameter-independent constant** (the full
-logL ~ -8e6 has an ulp of 1.9e-9, which would make any difference below 1e-9 invisible).
+**Exactness.** Criterion: value (without the parameter-independent constant) <= 1e-9 absolute and
+every gradient component <= 1e-8 relative to max(|g|, 1), compiled, single and vmapped -- or,
+where production's *own* rounding floor is already larger, within 10x that floor. The floor is
+measured as production vs production with the 67 pulsars permuted (a mathematically exact
+identity that changes every rounding). Why constant-free: the full logL is about +7.97e6 (ULP
+9.3e-10), so a 1e-9 criterion on it would be at the rounding granularity; the parameter-dependent
+part is ~1e5-4e5 (ULP 1.5e-11-5.8e-11).
 
-| variant | max abs value diff | max gradient diff / max(abs g, 1) | criterion |
-|---|---|---|---|
-| hh + levels (HD) | 5.8e-11 | 9.2e-14 | 1e-9 / 1e-8: pass |
-| hh + recursive (HD) | 5.8e-11 | 9.2e-14 | pass |
-| prod + levels (HD) | 5.8e-11 | 1.1e-13 | pass |
-| hh (CURN) | 5.8e-11 | 1.1e-13 | pass |
+`bench/check_exact.py` (all 67 NG15 pulsars, enterprise positions; `bench/results/exact_ng15_cpu.json`,
+`exact_ng15_gpu.json`): {power law, free spectrum} x {14, 30} common modes x {CURN, HD, dipole,
+monopole}, at 3 interior draws, IRN corners x common corners (power law: (-18|-11) x (0|7) plus the
+reviewer point (-11.1, 6.9)) and free-spectrum bound profiles (all -15.5, all -1.0, alternating
+both ways, all -1.1, all -7), single and vmapped. `hh + levels`, XLA:CPU:
 
-5.8e-11 is the ulp of the parameter-dependent part of logL (~1e5-1e6), i.e. bit-level agreement.
-`tests/test_perf_likelihood.py` pins this (synthetic PTA incl. all 16 corners for CURN/HD x three
-variants, the QR and tri-inverse kernels separately, and an NG15 oracle test with the same 18
-corner points + prior draws).
+@@EXACT_TABLE@@
 
-**Speed (GPU, ms per chain-gradient)**
+All 32 configurations (16 x CPU/GPU) agree within the tolerance. Where dv exceeds 1e-9 (HD
+free spectrum 30: 1.6e-9; dipole up to 2.3e-8) it is ~30 ULP of a 3.6e5 parameter-dependent value
+(relative 5e-15), and production's own permutation floor is of the same order or larger (the
+monopole/dipole ORFs are regularised with diag_eps = 1e-5, which makes production itself
+reproducible only to ~1e-6 in the value and ~1e-8 in the gradient). We call this agreement within
+measured tolerances, not bitwise equality.
+
+**Blocker found in review and fixed: compiled CURN gradient ~1e281 on XLA:CPU.** With the fast
+reducer, compiled CURN gradients (free spectrum, 30-mode power law) came out as garbage
+(|g| ~ 1e100-1e281) on CPU while the value, the uncompiled gradient, the forward reduction
+and the backward rule alone were all correct. Bisection: the analytic VJP's term
+`rowsum((E @ Eb) * E)` with the *instantiated zero* cotangent Eb (CURN never uses E) is fused by
+XLA:CPU (jaxlib 0.11.2) into a YNNPACK library fusion (`__ynn_fusion`:
+`reduce(dot(E, broadcast(0)) * E)`) that returns garbage; `--xla_cpu_experimental_ynn_fusion_type=`
+(fusion off) gives the correct gradient, and the GPU is unaffected. Production happens not to
+form this fusion (checked: production CPU gradients with and without YNN fusion agree to 1e-13 for
+all 16 configurations, and with the GPU to the platform floor), but it uses the same backward
+rule, so it is exposed to the same compiler bug in principle. **Fix**
+(`perf_likelihood._reduce_bwd_sz`): the reducer's custom VJP uses `symbolic_zeros=True` and skips
+the terms whose cotangent is a symbolic zero, so the dot never exists (and the wasted n^3 work
+disappears). No fallback. **Regression coverage** (`tests/test_perf_likelihood.py`): the same
+4 x 4 matrix on a synthetic PTA, compiled, single and vmapped, on the default backend (GPU) and in a
+`JAX_PLATFORMS=cpu` subprocess, plus three extra variant combinations and the NG15 matrix (oracle
+test); with the old backward rule the CPU test fails at its first point (non-finite gradient).
+`FastPTALikelihood` now rejects `method="B"` instead of silently ignoring it.
+
+**Speed (GPU, ms per chain-gradient; re-measured after the fix with `"prod"` = the production
+`PTALikelihood` class, `bench/results/backends_*_gpu_r2*.json`, which record the effective options and
+the source revision incl. a dirty-diff hash)**
 
 | variant | B = 1 | B = 4 | B = 16 | B = 64 |
 |---|---|---|---|---|
-| HD production | 14.4 | 9.4 | 5.8 | 5.5 |
-| **HD hh + levels (exact)** | **8.5** (1.69x) | **7.2** (1.31x) | **4.4** (1.32x) | **4.0** (1.37x) |
-| HD hh + levels, value only | 6.2 | | | |
-| HD production, `grad_precision="mixed"` (approx. gradient) | 9.5 | 6.4 | 3.3 | 3.1 |
-| HD hh + levels, `grad_precision="mixed"` (approx. gradient) | 7.0 | 5.8 | 2.9 | 2.5 |
-| CURN production | 3.6 | 1.17 | 0.70 | 1.11 |
-| **CURN hh (exact)** | **1.07** (3.4x) | **0.51** (2.3x) | **0.31** (2.2x) | 0.56 |
+| HD production | 15.0 | 9.5 | 5.8 | 5.5 |
+| **HD hh + levels (exact)** | **8.8** (1.71x) | **7.3** (1.31x) | **4.4** (1.32x) | **4.0** (1.37x) |
+| HD hh + levels, value only | 6.5 | | | |
+| HD production, `grad_precision="mixed"` (approx. gradient) | 10.4 | 6.6 | 3.4 | |
+| HD hh + levels, `grad_precision="mixed"` (approx. gradient) | 7.0 | 5.8 | 3.0 | |
+| CURN production | 3.6 | 1.16 | 0.71 | 1.11 |
+| **CURN hh (exact)** | **1.02** (3.5x) | **0.48** (2.4x) | **0.29** (2.4x) | 0.54 |
+
+(Superseded first-round rows, where the `"prod"` label of `bench_backends.py` silently meant
+`FastPTALikelihood(reduce="prod", tri_inv="levels")` for the mixed-precision row, are kept in
+`bench/results/superseded/`; the production float64 rows were unaffected and agree within 4%.)
 
 (The CPU does not benefit: the `fori_loop` Householder is a GPU optimisation; on XLA:CPU the
 production LAPACK path stays faster, 5.4 vs 7.4 ms for CURN.)
@@ -214,29 +247,37 @@ Considered and rejected:
 
 ### CURN^13/3 (cheap proxy), 3 seeds, mean +- sd over seeds
 
-| sampler (chains) | ESS/s common | ESS/s min bulk | ESS/s min tail | ESS/kgrad common | ESS/kgrad min bulk | ESS/kgrad min tail | grads/draw | warmup [s] | max R-hat | exact? bias check |
+| sampler (chains) | ESS/s common | ESS/s min bulk | ESS/s min tail | ESS/kgrad common | ESS/kgrad min bulk | ESS/kgrad min tail | grads/draw | warmup [s] | max R-hat | exact? / bias check vs M2 |
 |---|---|---|---|---|---|---|---|---|---|---|
 | NumPyro NUTS, M2 production (4; diag. metric adapted from prior) | 1.03 | 0.12 | 0.023 | 1.73 | 0.20 | 0.039 | 92 | 660 | 1.03 | reference |
-| NumPyro NUTS (4; CURN metric, step-size warmup) | 2.76 +- 0.09 | 1.32 +- 0.52 | 0.82 +- 0.73 | 1.87 +- 0.05 | 0.89 +- 0.36 | 0.56 +- 0.50 | 93 | 58 | 1.02 | yes; pass |
-| **BlackJAX NUTS** (4; same) | **5.51 +- 0.53** | **3.27 +- 0.55** | **2.39 +- 1.9** | **2.76 +- 0.24** | **1.64 +- 0.27** | **1.20 +- 0.94** | 63 | 44 | 1.01 | yes; pass |
-| **MAMS**, avg 8 steps (4) | **6.65 +- 0.71** | 3.34 +- 2.4 | 2.07 +- 1.7 | **3.39 +- 0.36** | 1.70 +- 1.2 | 1.05 +- 0.87 | 16 | 130-160 | 1.02 | yes; pass |
-| ChEES-HMC (64) | 4.22 +- 0.48 | 2.59 +- 0.37 | 2.29 +- 0.56 | 2.38 +- 0.27 | 1.46 +- 0.21 | 1.30 +- 0.32 | 6.4 | 107 | 1.10 | yes; pass |
+| NumPyro NUTS (4; CURN metric, step-size warmup) | 2.76 +- 0.09 | 1.32 +- 0.52 | 0.82 +- 0.73 | 1.87 +- 0.05 | 0.89 +- 0.36 | 0.56 +- 0.50 | 93 | 58 | 1.02 | yes; no discrepancy detected |
+| **BlackJAX NUTS** (4; same) | **5.51 +- 0.53** | **3.27 +- 0.55** | **2.39 +- 1.9** | **2.76 +- 0.24** | **1.64 +- 0.27** | **1.20 +- 0.94** | 63 | 44 | 1.01 | yes; no discrepancy detected |
+| **MAMS**, avg 8 steps (4) | **6.65 +- 0.71** | 3.34 +- 2.4 | 2.07 +- 1.7 | **3.39 +- 0.36** | 1.70 +- 1.2 | 1.05 +- 0.87 | 16 | 130-160 | 1.02 | yes; no discrepancy detected |
+| ChEES-HMC (64) | 4.22 +- 0.48 | 2.59 +- 0.37 | 2.29 +- 0.56 | 2.38 +- 0.27 | 1.46 +- 0.21 | 1.30 +- 0.32 | 6.4 | 107 | 1.10 | yes; no discrepancy detected |
 | MEADS (64) | 2.71 +- 2.1 | 1.92 +- 1.5 | 0.92 +- 0.74 | 1.53 +- 1.2 | 1.08 +- 0.88 | 0.52 +- 0.42 | 1 | 73 | 1.06 / **50** / 1.08 | yes; **seed 2 failed** (stuck chains, R-hat 50) |
-| MCLMC, unadjusted (4) | 17.9 +- 1.6 | 9.85 +- 0.92 | 6.31 +- 4.2 | 9.07 +- 0.83 | 4.99 +- 0.47 | 3.2 +- 2.1 | 2 | 12 | 1.01 | **no; biased** (below) |
+| MCLMC, unadjusted (4) | 17.9 +- 1.6 | 9.85 +- 0.92 | 6.31 +- 4.2 | 9.07 +- 0.83 | 4.99 +- 0.47 | 3.2 +- 2.1 | 2 | 12 (24k grads) | 1.01 | **no; biased** (below) |
 
-CURN wall-clock throughput per 4-chain leapfrog step (same likelihood, B = 4: 2.05 ms):
-BlackJAX NUTS 1.97 ms, NumPyro 2.74 ms (NumPyro's per-step overhead is ~0.7 ms, negligible at
-HD cost). ChEES/MEADS run 64 chains (B = 64, 0.56 ms per chain-gradient).
+**Timing caveat for the CURN table.** The NumPyro rows came from the production driver
+(`run_nuts`), whose timers include the first sampling block's compilation and stop without an
+explicit device synchronisation; the BlackJAX rows exclude compilation (AOT) and synchronise. The
+HD comparison below uses two benchmark drivers with identical timing boundaries. ChEES/MEADS run
+64 chains (B = 64, 0.54 ms per chain-gradient).
 
 Observations:
 
-* **NumPyro vs BlackJAX NUTS (same metric, same likelihood, same target 0.8)**: BlackJAX's
-  continuous dual averaging ends at a ~25% larger step (0.054 vs 0.043 in whitened units;
-  realised acceptance 0.88 vs 0.93), so trees have 63 instead of 93 steps (depth 6 instead of
-  6-7) at the same ESS per draw: 1.5x ESS per gradient, and 2x ESS/s with the lower per-step
-  overhead. Likely cause: NumPyro's step-size-only warmup restarts dual averaging at its window
-  boundaries and ends on a short last window, which biases the step size low (the M2 doc's "acceptance
-  0.92-0.94 overshoots" observation). No divergences in any NUTS run.
+* **NumPyro vs BlackJAX NUTS on CURN: the ~2x ESS/s gap is lockstep loss plus step-size
+  adaptation, not implementation overhead.** From the stored per-chain tree sizes: lockstep
+  efficiency (useful / executed leapfrog steps of the 4 vectorised chains) is 0.732 / 0.738 /
+  0.749 for NumPyro and 0.998 / 0.990 / 0.948 for BlackJAX (seeds 1-3); time per *executed*
+  (max-over-chains) leapfrog step is the same, 1.99-2.02 vs 1.96-1.97 ms. NumPyro's windowed warmup
+  leaves the four chains at different step sizes (0.039-0.050) that straddle the tree-depth 6/7
+  boundary (63 vs 127 leapfrog steps; the boundary is near 0.045-0.05 in whitened units), so the
+  vectorised call waits for the depth-7 chains; BlackJAX's continuous dual averaging ends at
+  0.049-0.058 for all chains (63 steps; accept 0.88 vs 0.93). Matched control (`fixedstep_curn_*`:
+  both kernels at a fixed step 0.05, no adaptation, same seed and init, the two benchmark drivers):
+  1.836 (NumPyro kernel) vs 1.820 ms (BlackJAX) per executed leapfrog step, i.e. **implementation
+  overhead ~1%**. That NumPyro's smaller step sizes come from its window-end dual-averaging restarts
+  is an inference from its source, not isolated here. No divergences in any NUTS run.
 * **MAMS** has the best common-parameter ESS/grad and ESS/s, but its worst-parameter ESS is
   noisier (seed 3: J0610-2100 funnel, tail ESS 26). Its BlackJAX tuner is expensive: per
   gradient 4-6x slower than sampling (130-160 s on CURN, **26 min on HD**).
@@ -255,22 +296,47 @@ Observations:
   underpowered there). A funnel-aware reparameterisation of the IRN (M2 open issue 4) is the
   lever for the worst-parameter ESS, not the sampler.
 
-**Bias checks** (`bench/analyze_samplers.py`; vs the M2 production chains): 51 quantile tests per
-run (q05/q50/q95 of gw_log10_A and 16 IRN parameters of 8 pulsars incl. the funnel ones),
-z = delta q / sqrt(MCSE_run^2 + MCSE_ref^2), plus an all-parameter mean test chi^2 =
-sum_j z_j^2 (135 parameters). Exact samplers: max |z| 1.7-2.9, no |z| > 3 in 51 tests, chi^2/135
-= 0.6-1.3 (all NUTS, MAMS, ChEES runs; MEADS seeds 1, 3). The common amplitude quantiles of the
-pooled exact runs, [-14.672, -14.565, -14.476], match M2 CURN [-14.670, -14.563, -14.474].
+**Bias checks** (`bench/analyze_samplers.py`; vs the M2 production chains). (i) 51 quantile tests
+per run (q05/q50/q95 of gw_log10_A and 16 IRN parameters of 8 pulsars incl. the funnel ones),
+z = delta q / sqrt(MCSE_run^2 + MCSE_ref^2) with the quantile MCSE of Vehtari et al. (2021);
+(ii) all 135 posterior means, z_j = delta mean / sqrt(MCSE_run^2 + MCSE_ref^2) with the MCSE of
+the raw mean (ESS of the raw split chains, not the rank-normalised bulk ESS). The z_j are
+correlated, so sum z_j^2 / 135 is reported as a *descriptive* statistic, not a calibrated chi^2
+test. Exact samplers (all NUTS, MAMS, ChEES runs; MEADS seeds 1 and 3): quantile max |z| 1.7-2.9
+with no |z| > 3 in 51 tests; mean max |z| 1.6-3.8 over 135 parameters (expected maximum of 135
+standard normals ~2.9-3.3; one run at 3.8), sum z^2 / 135 = 0.54-1.30. **No discrepancy detected**
+-- which is not proof of agreement, in particular not for the low-amplitude IRN tails that no
+perf run visited (above). The common-amplitude quantiles of the pooled exact runs,
+[-14.672, -14.565, -14.476], match M2 CURN [-14.670, -14.563, -14.474].
 
-**Unadjusted MCLMC is biased** (as expected, flagged): all three seeds fail the mean test
-(chi^2/135 = 1.7, 2.4, 2.8; max |z| 6.3-10.5, always J1713+0747's IRN amplitude). Against the
-pooled exact runs: the J1713+0747 IRN-amplitude mean is off by **0.43 posterior sd**, the common
-amplitude mean by **+0.15 sd** (median -14.557 vs -14.565) and its sd is 6% too small. Its
-apparent 3x ESS/s advantage is therefore not usable for production; it would need the
-MH-adjusted version (MAMS) or a much smaller step (energy-error tuning `desired_energy_var`),
-which removes the advantage.
+**Unadjusted MCLMC is biased** (as expected, flagged): in all three seeds J1713+0747's IRN
+amplitude mean is off by z = 9.0, 6.2, 10.5 (raw-mean MCSE), sum z^2 / 135 = 1.5-2.6, and 1-2 of the
+51 quantile tests exceed |z| = 3. Against the pooled exact runs: the J1713+0747 IRN-amplitude
+mean is off by **0.43 posterior sd**, the common amplitude mean by **+0.15 sd** (median -14.557 vs
+-14.565) and its sd is 6% too small. Its apparent 3x ESS/s advantage is therefore not usable for
+production; it would need the MH-adjusted version (MAMS) or a much smaller step (energy-error
+tuning `desired_energy_var`), which removes the advantage. (Its warmup cost in the table is the
+tuner's own integrator-step count, 3 x 1000 steps x 2 gradients x 4 chains = 24k gradients; the
+first-round JSONs had recorded 7.2k and were corrected.)
 
-### HD^13/3 (target), one seed
+### HD^13/3: matched NumPyro vs BlackJAX NUTS (the evidence for the recommendation)
+
+Set-up: both on the exact fast likelihood (`hh + levels`), same whitened target and identity
+metric (= the CURN dense metric), same init draws, seeds 1 and 2, 4 vectorised chains, target
+acceptance 0.8, max depth 10, and the **same warmup recipe under test: 100 step-size
+dual-averaging iterations starting from the CURN-tuned step size 0.055** (NumPyro: its windowed
+schedule; BlackJAX: one continuous DA run). Two benchmark drivers with identical timing boundaries
+(`run_np_nuts` drives NumPyro's NUTS *kernel* with our own scan loops; `run_bj_nuts2`): AOT
+compilation timed separately, every timer stops after `block_until_ready`. Sampling continues in
+blocks of 50 draws until common bulk ESS >= 400 and *max* R-hat (all 135 parameters) < 1.01, or
+1000 (seed 1) / 800 (seed 2, GPU budget) draws per chain; the per-block trace gives the time to each
+target. "Time to target" includes compilation and warmup.
+
+@@HD_MATCHED_TABLE@@
+
+@@HD_MATCHED_TEXT@@
+
+### HD^13/3, first-round exploratory runs (unmatched: different likelihood, run length, seed than M2)
 
 | sampler (chains) | likelihood | ESS/s common | ESS/s min bulk | ESS/s min tail | ESS/kgrad common | ESS/kgrad min bulk | ESS/kgrad min tail | grads/draw | warmup | sampling | max R-hat |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -280,8 +346,8 @@ which removes the advantage.
 | MAMS, avg 8 (4) | hh + levels | 0.282 | 0.252 | 0.104 | 2.03 | 1.82 | 0.75 | 16 | 26 min | 16 min / 2062 draws | 1.022 |
 | ChEES-HMC (16), short pilot | hh + levels | (0.50) | (0.35) | (0.22) | 2.21 | 1.55 | 0.99 | 4.4 | 2 min | 1.5 min / 300 draws | **1.42: not converged** |
 
-HD bias checks (vs M2 hd_g433_14f, 51 quantile tests + all-parameter mean test): BlackJAX NUTS
-max |z| 2.6, chi^2/135 = 1.04; MAMS 2.5, 0.96; ChEES (unconverged) 3.1 with one |z| > 3 in 51 tests, chi^2/135 = 0.73. The HD runs are short (one seed), so
+HD bias checks (vs M2 hd_g433_14f): quantile max |z| 2.6 (BlackJAX NUTS), 2.5 (MAMS), 3.1 with one
+|z| > 3 in 51 tests (ChEES, unconverged); mean max |z| 3.0 / 3.0 / 2.8, sum z^2 / 135 = 1.04 / 0.99 / 0.70. The HD runs are short (one seed), so
 their ESS/s carry ~+-30% (bulk) to ~+-100% (worst tail) uncertainty judging from the CURN
 seed-to-seed spread.
 
@@ -371,20 +437,20 @@ builds `bench/cache/terms_*.pkl` (stage-1 precompute, ~1-4 min).
 
 ```bash
 # Q1 profile
-python bench/profile_hd.py                                   # -> bench/results/profile_gpu.json
+python bench/profile_hd.py --tag _r2                         # -> bench/results/profile_gpu_r2.json
 python bench/profile_hd.py --jax-trace 20 && python bench/parse_trace.py bench/traces/jax_hd_gpu 20
 python bench/trace_batched.py hd hh+levels 16 && python bench/parse_trace.py bench/traces/batched_hd_hh+levels_float64_16 10
 # Q2 backends / batching
-python bench/bench_backends.py --orf hd --batch 1 4 16 64 --variant prod
-python bench/bench_backends.py --orf curn --batch 1 4 16 64 256 --variant prod
 JAX_PLATFORMS=cpu OPENBLAS_NUM_THREADS=16 python bench/bench_backends.py --orf hd --batch 1 4 --variant prod --tag _ob16
 JAX_PLATFORMS=cpu OPENBLAS_NUM_THREADS=1 XLA_FLAGS=--xla_force_host_platform_device_count=16 \
     python bench/bench_backends.py --orf hd --batch 16 --variant prod --pmap --tag _pmap16_ob1_B16
 # Q3 exact variants: exactness and speed
-python bench/check_exact.py                                  # -> bench/results/exact_gpu.json
-python bench/bench_backends.py --orf hd --batch 1 4 16 64 --variant hh+levels --tag _v2
-python bench/bench_backends.py --orf hd --batch 1 4 16 64 --variant prod hh+levels --grad-precision mixed --tag _v2_mixed
-python bench/bench_backends.py --orf curn --batch 1 4 16 64 256 --variant hh --tag _v1
+python bench/check_exact.py && JAX_PLATFORMS=cpu python bench/check_exact.py   # -> exact_ng15_{gpu,cpu}.json
+python bench/exact_table.py
+python bench/bench_backends.py --orf hd --batch 1 4 16 64 --variant prod hh+levels --tag _r2
+python bench/bench_backends.py --orf curn --batch 1 4 16 64 --variant prod hh --tag _r2
+python bench/bench_backends.py --orf hd --batch 1 4 16 --variant prod hh+levels --grad-precision mixed --tag _r2_mixed
+
 uv run --no-sync pytest tests/test_perf_likelihood.py
 # Q4 samplers (one line per run; seeds 1-3 for CURN, seed 1 for HD; CURN pilots: --seed 0 --tag pilot_curn_<sampler>,
 # MAMS pilots with --opt avg_steps=2/8/16/32)
@@ -399,6 +465,13 @@ python bench/samplers.py --model hd --like hh+levels --seed 1 --sampler mams --c
 python bench/samplers.py --model hd --like hh+levels --seed 1 --sampler chees --chains 16 --warmup 400 --samples 300
 # aborted (budget): --model hd --seed 2 --sampler bj_nuts --chains 16 --warmup 100 --samples 150 --opt init_step=0.05
 python bench/bench_value_only.py
+# matched-step implementation-overhead control (CURN) and the matched HD comparison
+for s in np_nuts bj_nuts2; do python bench/samplers.py --model curn --like hh --seed 1 --sampler $s --chains 4 --warmup 0 \
+    --samples 300 --opt init_step=0.05 --opt adapt=false --opt block=100 --tag fixedstep_curn_${s}_s1; done
+for seed in 1 2; do for s in bj_nuts2 np_nuts; do python bench/samplers.py --model hd --like hh+levels --seed $seed \
+    --sampler $s --chains 4 --warmup 100 --samples 1000 --opt init_step=0.055 --opt block=50 --opt 'until=[400,1.01]' \
+    --tag matched_hd_${s}_s$seed; done; done        # seed 2 was run with --samples 800 (GPU budget)
+JAX_PLATFORMS=cpu python bench/hd_matched_table.py
 JAX_PLATFORMS=cpu python bench/m2_reference.py               # M2 production runs in the same format
 JAX_PLATFORMS=cpu python bench/analyze_samplers.py           # bias checks + bench/results/samplers_summary.json
 ```

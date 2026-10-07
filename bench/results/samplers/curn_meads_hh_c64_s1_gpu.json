@@ -64,13 +64,14 @@
   "quantile_n_abs_z_gt3": 0,
   "quantile_n_tests": 51,
   "common_q50_delta": -7.724758847160729e-05,
-  "mean_chi2": 141.51214220033938,
+  "mean_sumz2": 147.714065014155,
   "mean_dof": 135,
-  "mean_z_max_abs": 2.925873968434293,
+  "mean_z_max_abs": 3.0161858192383186,
   "mean_z_worst_param": "J1751-2857_red_noise_log10_A",
   "sd_ratio_median": 1.0002377212129114,
   "sd_ratio_min": 0.6541164722664669,
   "sd_ratio_max": 1.1467962086898043,
-  "sd_ratio_common": 1.003764553283124
+  "sd_ratio_common": 1.003764553283124,
+  "version": 2
  }
 }

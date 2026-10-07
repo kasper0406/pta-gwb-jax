@@ -3,7 +3,7 @@
  "draws_per_chain": 5000,
  "thin": 10,
  "grads_sampling": 400000.0,
- "grads_warmup": 7200,
+ "grads_warmup": 24000,
  "grads_per_draw_mean": 2.0,
  "t_compile": 4.174022432882339,
  "t_warm": 12.111861822195351,
@@ -73,13 +73,16 @@
   "quantile_n_abs_z_gt3": 1,
   "quantile_n_tests": 51,
   "common_q50_delta": 0.004769325287504955,
-  "mean_chi2": 226.9038482477505,
+  "mean_sumz2": 206.24404378885342,
   "mean_dof": 135,
-  "mean_z_max_abs": 6.311076034908661,
+  "mean_z_max_abs": 6.248681177775849,
   "mean_z_worst_param": "J1713+0747_red_noise_log10_A",
   "sd_ratio_median": 0.9987935540736873,
   "sd_ratio_min": 0.12302358078522853,
   "sd_ratio_max": 1.2276694307885891,
-  "sd_ratio_common": 0.9463061420586877
- }
+  "sd_ratio_common": 0.9463061420586877,
+  "version": 2
+ },
+ "grads_warmup_recorded_old": 7200,
+ "grads_warmup_note": "corrected post hoc: tuner integrator steps 3 x round(0.1 x int(W/0.3)) x 2 grads x chains (review minor 8)"
 }

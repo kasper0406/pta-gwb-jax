@@ -12,7 +12,8 @@ import sys
 d = sys.argv[1]
 ncalls = int(sys.argv[2]) if len(sys.argv) > 2 else 1
 f = max(glob.glob(f"{d}/**/perfetto_trace.json.gz", recursive=True))
-ev = json.load(gzip.open(f))
+with gzip.open(f) as fh:
+    ev = json.load(fh)
 ev = ev["traceEvents"] if isinstance(ev, dict) else ev
 # find GPU stream threads: pid names containing "/device:GPU"
 pnames = {e["pid"]: e["args"]["name"] for e in ev if e.get("ph") == "M" and e.get("name") == "process_name"}

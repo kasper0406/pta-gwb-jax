@@ -417,7 +417,7 @@ def run_chees(tg: Target, C, W, N, seed, block=100, lr=0.025, step0=0.1):
     optim = optax.adam(lr)
 
     def warm(k, pos):
-        (st, params), info = warmup.run(k, pos, step0, optim, W, max_sampling_steps=N)
+        (st, params), _info = warmup.run(k, pos, step0, optim, W, max_sampling_steps=N)
         return st, params["step_size"], params["integration_steps_params"][0], params["inverse_mass_matrix"]
 
     cw, t_cw = _aot(warm, kw, w0)
@@ -429,8 +429,6 @@ def run_chees(tg: Target, C, W, N, seed, block=100, lr=0.025, step0=0.1):
         return jnp.asarray(jnp.ceil(dynamic_hmc.halton_sequence(i, max_bits) * n_leap), dtype=int)
 
     kern = dynamic_hmc.build_kernel(next_random_arg_fn=lambda i: i + 1, integration_steps_fn=integration_steps_fn)
-    ns_w = jnp.zeros(())
-
     def samp_step(st, k):
         def one(k_, s_):
             s2, info = kern(k_, s_, logd, eps, imm, integration_steps_params=(nleap,))

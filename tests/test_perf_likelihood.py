@@ -194,7 +194,7 @@ def test_synthetic_matrix_cpu():
     """The full matrix on XLA:CPU in a fresh process (the default backend here is the GPU)."""
     env = dict(os.environ, JAX_PLATFORMS="cpu")
     code = f"import sys; sys.path.insert(0, {str(Path(__file__).parent)!r}); import test_perf_likelihood as t; t._main_cpu_subprocess()"
-    r = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True, timeout=1800)
+    r = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True, timeout=1800, check=False)
     assert r.returncode == 0, r.stderr[-3000:]
     line = next(ln for ln in r.stdout.splitlines() if ln.startswith("RESULT "))
     out = json.loads(line[len("RESULT "):])

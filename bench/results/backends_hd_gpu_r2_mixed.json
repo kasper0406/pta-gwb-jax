@@ -10,8 +10,11 @@
   ],
   "XLA_FLAGS": "",
   "host": "kworkstation",
-  "time": "2026-10-07T14:45:12"
+  "time": "2026-10-07T14:43:48"
  },
+ "orf": "hd",
+ "grad_precision": "mixed",
+ "OPENBLAS_NUM_THREADS": "",
  "rows": [
   {
    "variant": "prod",
@@ -20,15 +23,18 @@
     "reduce": "production (_reduce: geqrf+orgqr)",
     "tri_inv": "production (_tri_inv_lower)",
     "method": "sigma",
-    "grad_precision": "float64",
+    "grad_precision": "mixed",
     "orf": "hd",
     "common": "powerlaw",
     "n_common": 14,
     "n_modes": 30
    },
-   "batch": 16,
-   "call_ms": 43.242369778454304,
-   "per_eval_ms": 2.702648111153394
+   "batch": 1,
+   "pmap_devices": 1,
+   "call_ms": 10.383074404671788,
+   "per_chain_grad_ms": 10.383074404671788,
+   "min_ms": 10.195179376751184,
+   "value_only_ms": 9.112572530284524
   },
   {
    "variant": "prod",
@@ -37,15 +43,18 @@
     "reduce": "production (_reduce: geqrf+orgqr)",
     "tri_inv": "production (_tri_inv_lower)",
     "method": "sigma",
-    "grad_precision": "float64",
+    "grad_precision": "mixed",
     "orf": "hd",
     "common": "powerlaw",
     "n_common": 14,
     "n_modes": 30
    },
-   "batch": 64,
-   "call_ms": 167.22170496359468,
-   "per_eval_ms": 2.612839140056167
+   "batch": 4,
+   "pmap_devices": 1,
+   "call_ms": 26.575743919238448,
+   "per_chain_grad_ms": 6.643935979809612,
+   "min_ms": 26.334491092711687,
+   "value_only_ms": null
   },
   {
    "variant": "prod",
@@ -54,32 +63,18 @@
     "reduce": "production (_reduce: geqrf+orgqr)",
     "tri_inv": "production (_tri_inv_lower)",
     "method": "sigma",
-    "grad_precision": "float64",
-    "orf": "hd",
-    "common": "powerlaw",
-    "n_common": 14,
-    "n_modes": 30
-   },
-   "batch": 256,
-   "call_ms": 658.7997297756374,
-   "per_eval_ms": 2.5734364444360835
-  },
-  {
-   "variant": "hh+levels",
-   "options": {
-    "class": "FastPTALikelihood",
-    "reduce": "hh",
-    "tri_inv": "levels",
-    "method": "sigma",
-    "grad_precision": "float64",
+    "grad_precision": "mixed",
     "orf": "hd",
     "common": "powerlaw",
     "n_common": 14,
     "n_modes": 30
    },
    "batch": 16,
-   "call_ms": 37.20839787274599,
-   "per_eval_ms": 2.3255248670466244
+   "pmap_devices": 1,
+   "call_ms": 54.175332421436906,
+   "per_chain_grad_ms": 3.3859582763398066,
+   "min_ms": 53.897437173873186,
+   "value_only_ms": null
   },
   {
    "variant": "hh+levels",
@@ -88,15 +83,18 @@
     "reduce": "hh",
     "tri_inv": "levels",
     "method": "sigma",
-    "grad_precision": "float64",
+    "grad_precision": "mixed",
     "orf": "hd",
     "common": "powerlaw",
     "n_common": 14,
     "n_modes": 30
    },
-   "batch": 64,
-   "call_ms": 131.91731227561831,
-   "per_eval_ms": 2.061208004306536
+   "batch": 1,
+   "pmap_devices": 1,
+   "call_ms": 6.957719102501869,
+   "per_chain_grad_ms": 6.957719102501869,
+   "min_ms": 6.930469069629908,
+   "value_only_ms": 6.812730338424444
   },
   {
    "variant": "hh+levels",
@@ -105,15 +103,38 @@
     "reduce": "hh",
     "tri_inv": "levels",
     "method": "sigma",
-    "grad_precision": "float64",
+    "grad_precision": "mixed",
     "orf": "hd",
     "common": "powerlaw",
     "n_common": 14,
     "n_modes": 30
    },
-   "batch": 256,
-   "call_ms": 509.0005430392921,
-   "per_eval_ms": 1.9882833712472348
+   "batch": 4,
+   "pmap_devices": 1,
+   "call_ms": 23.29342975281179,
+   "per_chain_grad_ms": 5.823357438202947,
+   "min_ms": 23.178279865533113,
+   "value_only_ms": null
+  },
+  {
+   "variant": "hh+levels",
+   "options": {
+    "class": "FastPTALikelihood",
+    "reduce": "hh",
+    "tri_inv": "levels",
+    "method": "sigma",
+    "grad_precision": "mixed",
+    "orf": "hd",
+    "common": "powerlaw",
+    "n_common": 14,
+    "n_modes": 30
+   },
+   "batch": 16,
+   "pmap_devices": 1,
+   "call_ms": 47.48162720352411,
+   "per_chain_grad_ms": 2.967601700220257,
+   "min_ms": 47.238278202712536,
+   "value_only_ms": null
   }
  ]
 }

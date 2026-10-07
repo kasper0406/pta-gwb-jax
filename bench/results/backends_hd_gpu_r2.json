@@ -1,0 +1,180 @@
+{
+ "env": {
+  "git_sha": "69e223d48a06aa462de5e6db8570bfd4184f4385",
+  "dirty": false,
+  "dirty_hash": null,
+  "jax": "0.11.2",
+  "backend": "gpu",
+  "devices": [
+   "cuda:0"
+  ],
+  "XLA_FLAGS": "",
+  "host": "kworkstation",
+  "time": "2026-10-07T14:40:10"
+ },
+ "orf": "hd",
+ "grad_precision": "float64",
+ "OPENBLAS_NUM_THREADS": "",
+ "rows": [
+  {
+   "variant": "prod",
+   "options": {
+    "class": "PTALikelihood",
+    "reduce": "production (_reduce: geqrf+orgqr)",
+    "tri_inv": "production (_tri_inv_lower)",
+    "method": "sigma",
+    "grad_precision": "float64",
+    "orf": "hd",
+    "common": "powerlaw",
+    "n_common": 14,
+    "n_modes": 30
+   },
+   "batch": 1,
+   "pmap_devices": 1,
+   "call_ms": 14.982500113546848,
+   "per_chain_grad_ms": 14.982500113546848,
+   "min_ms": 14.52691713348031,
+   "value_only_ms": 9.362522047013044
+  },
+  {
+   "variant": "prod",
+   "options": {
+    "class": "PTALikelihood",
+    "reduce": "production (_reduce: geqrf+orgqr)",
+    "tri_inv": "production (_tri_inv_lower)",
+    "method": "sigma",
+    "grad_precision": "float64",
+    "orf": "hd",
+    "common": "powerlaw",
+    "n_common": 14,
+    "n_modes": 30
+   },
+   "batch": 4,
+   "pmap_devices": 1,
+   "call_ms": 38.19728083908558,
+   "per_chain_grad_ms": 9.549320209771395,
+   "min_ms": 37.764247972518206,
+   "value_only_ms": null
+  },
+  {
+   "variant": "prod",
+   "options": {
+    "class": "PTALikelihood",
+    "reduce": "production (_reduce: geqrf+orgqr)",
+    "tri_inv": "production (_tri_inv_lower)",
+    "method": "sigma",
+    "grad_precision": "float64",
+    "orf": "hd",
+    "common": "powerlaw",
+    "n_common": 14,
+    "n_modes": 30
+   },
+   "batch": 16,
+   "pmap_devices": 1,
+   "call_ms": 92.76619250886142,
+   "per_chain_grad_ms": 5.797887031803839,
+   "min_ms": 92.71720331162214,
+   "value_only_ms": null
+  },
+  {
+   "variant": "prod",
+   "options": {
+    "class": "PTALikelihood",
+    "reduce": "production (_reduce: geqrf+orgqr)",
+    "tri_inv": "production (_tri_inv_lower)",
+    "method": "sigma",
+    "grad_precision": "float64",
+    "orf": "hd",
+    "common": "powerlaw",
+    "n_common": 14,
+    "n_modes": 30
+   },
+   "batch": 64,
+   "pmap_devices": 1,
+   "call_ms": 350.1001140102744,
+   "per_chain_grad_ms": 5.470314281410538,
+   "min_ms": 349.67662300914526,
+   "value_only_ms": null
+  },
+  {
+   "variant": "hh+levels",
+   "options": {
+    "class": "FastPTALikelihood",
+    "reduce": "hh",
+    "tri_inv": "levels",
+    "method": "sigma",
+    "grad_precision": "float64",
+    "orf": "hd",
+    "common": "powerlaw",
+    "n_common": 14,
+    "n_modes": 30
+   },
+   "batch": 1,
+   "pmap_devices": 1,
+   "call_ms": 8.768178522586823,
+   "per_chain_grad_ms": 8.768178522586823,
+   "min_ms": 8.445735089480877,
+   "value_only_ms": 6.522445240989327
+  },
+  {
+   "variant": "hh+levels",
+   "options": {
+    "class": "FastPTALikelihood",
+    "reduce": "hh",
+    "tri_inv": "levels",
+    "method": "sigma",
+    "grad_precision": "float64",
+    "orf": "hd",
+    "common": "powerlaw",
+    "n_common": 14,
+    "n_modes": 30
+   },
+   "batch": 4,
+   "pmap_devices": 1,
+   "call_ms": 29.154656920582056,
+   "per_chain_grad_ms": 7.288664230145514,
+   "min_ms": 28.937342576682568,
+   "value_only_ms": null
+  },
+  {
+   "variant": "hh+levels",
+   "options": {
+    "class": "FastPTALikelihood",
+    "reduce": "hh",
+    "tri_inv": "levels",
+    "method": "sigma",
+    "grad_precision": "float64",
+    "orf": "hd",
+    "common": "powerlaw",
+    "n_common": 14,
+    "n_modes": 30
+   },
+   "batch": 16,
+   "pmap_devices": 1,
+   "call_ms": 70.53192798048258,
+   "per_chain_grad_ms": 4.408245498780161,
+   "min_ms": 70.20580908283591,
+   "value_only_ms": null
+  },
+  {
+   "variant": "hh+levels",
+   "options": {
+    "class": "FastPTALikelihood",
+    "reduce": "hh",
+    "tri_inv": "levels",
+    "method": "sigma",
+    "grad_precision": "float64",
+    "orf": "hd",
+    "common": "powerlaw",
+    "n_common": 14,
+    "n_modes": 30
+   },
+   "batch": 64,
+   "pmap_devices": 1,
+   "call_ms": 255.16468286514282,
+   "per_chain_grad_ms": 3.9869481697678566,
+   "min_ms": 254.79272427037358,
+   "value_only_ms": null
+  }
+ ]
+}
