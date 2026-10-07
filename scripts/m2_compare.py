@@ -152,7 +152,7 @@ def main():
     for name, r in runs.items():
         if r is not None:
             out["diagnostics"][name] = run_diagnostics(r)
-    for name in ["curn_vg_5f", "hd_vg_5f", "hd_g433_14f_icrs", "hd_vg_14f_icrs"]:
+    for name in ["curn_vg_5f", "hd_vg_5f", "hd_g433_14f_icrs", "hd_vg_14f_icrs", "curn_fs30"]:
         r = get(name)
         if r is not None and name not in out["diagnostics"]:
             out["diagnostics"][name] = run_diagnostics(r)
