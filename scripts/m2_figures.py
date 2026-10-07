@@ -66,12 +66,27 @@ def fig1a():
             d = d / d.max() * 0.022
             ax.fill_betweenx(y, lf[k], lf[k] + side * d, color=col, alpha=0.35, lw=0)
             ax.plot(lf[k] + side * d, y, color=col, lw=0.8)
+    # power-law (HD^gamma) posterior bands, 5-95%, as the notebook's "bayesogram"
+    def band(g, a, col):
+        rng = np.random.default_rng(1)
+        i = rng.integers(0, len(g), 4000)
+        pl = 10 ** (2 * a[i, None]) / (12 * np.pi**2) * FYR ** (g[i, None] - 3) * f[None, :] ** (-g[i, None]) / T_SPAN
+        lo, hi = np.percentile(0.5 * np.log10(pl), [5, 95], axis=0)
+        ax.fill_between(lf, lo, hi, color=col, alpha=0.12, lw=0)
+
+    try:
+        hv = load_run("hd_vg_14f")
+        band(run_draws(hv, "gw_gamma").ravel(), run_draws(hv, "gw_log10_A").ravel(), OURS)
+    except FileNotFoundError:
+        pass
+    rh = released("hd_vg_hm")
+    band(rh["gw_gamma"], rh["gw_log10_A"], REL)
     # median HD^13/3 power law of the paper (2.4e-15), as in the notebook
     spec = 2.4e-15 * (f / FYR) ** (-2.0 / 3.0)
     spec = spec**2 / 12.0 / np.pi**2 / f**3 / T_SPAN
     ax.plot(lf, 0.5 * np.log10(spec), color=INK, ls="--", lw=1.0, label=r"$A=2.4\times10^{-15}$, $\gamma=13/3$")
-    ax.plot([], [], color=OURS, lw=4, alpha=0.5, label="ours (HD free spectrum, left halves)")
-    ax.plot([], [], color=REL, lw=4, alpha=0.5, label="released core (right halves)")
+    ax.plot([], [], color=OURS, lw=4, alpha=0.5, label="ours (HD free spectrum, left halves; HD$^\\gamma$ 90% band)")
+    ax.plot([], [], color=REL, lw=4, alpha=0.5, label="released (right halves; 14f_PL_hd_crn HD band)")
     ax.set_xlim(-8.8, -7.55)
     ax.set_ylim(-8.9, -5.5)
     ax.set_xlabel(r"$\log_{10}$(frequency [Hz])")
