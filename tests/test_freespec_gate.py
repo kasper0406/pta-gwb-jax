@@ -6,7 +6,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from ptagwb.diagnostics import freespec_gate, gate_exit_code
+from ptagwb.diagnostics import GATE_DEFAULTS, freespec_gate, gate_exit_code
 
 NB, NIRN = 30, 134
 
@@ -221,3 +221,38 @@ def test_cli_evaluate_validation(case):
         assert code == 0, (g.get("input_errors"), g.get("convergence_failures", [])[:3], g.get("agreement_failures"))
     else:
         assert code == 2 and g["input_errors"], case
+
+
+# ---------------------------------------------------------------------- round-5 regressions
+
+
+BAD_VALUES = [np.float32("inf"), np.float64("inf"), np.float32("nan"), np.float64("nan"),
+              -np.float64("inf"), "3.5", None, True, np.bool_(True), [1.0]]
+
+
+@pytest.fixture(scope="module")
+def shifted_fixture():
+    x, names, ref = _synthetic(seed=0, N=300)
+    return x, names, {k: v - 2.0 for k, v in ref.items()}  # agreement would FAIL if evaluated
+
+
+@pytest.mark.parametrize("key", [*GATE_DEFAULTS, "threshold", "n_bins"])
+@pytest.mark.parametrize("bad", BAD_VALUES, ids=repr)
+def test_every_criterion_rejects_invalid_values(shifted_fixture, key, bad):
+    x, names, ref = shifted_fixture
+    kw = {key: bad}
+    g = freespec_gate(x, names, reference=ref, expected_names=names, **kw)
+    assert g["input_errors"] and gate_exit_code(g) == 2, (key, bad)
+    assert g["convergence"] == "UNAVAILABLE"
+
+
+def test_numpy_scalar_criteria_accepted_and_unknown_keys_rejected(shifted_fixture):
+    x, names, ref = shifted_fixture
+    g = freespec_gate(x, names, reference=ref, expected_names=names, agreement_z_tol=np.float32(3.5),
+                      min_minority_count=np.int64(10), threshold=np.float64(-9.0))
+    assert not g["input_errors"] and g["reproduction_agreement"] == "FAIL"
+    g = freespec_gate(x, names, reference=ref, expected_names=names, agreement_ztol=100.0)
+    assert g["input_errors"] and gate_exit_code(g) == 2
+    for probs in ((0.05, 1.5), ("0.5",), ()):
+        g = freespec_gate(x, names, reference=ref, expected_names=names, probs=probs)
+        assert g["input_errors"] and gate_exit_code(g) == 2

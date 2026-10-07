@@ -221,6 +221,42 @@ def _conservative_se(ind: np.ndarray, st: dict, n_batches: int) -> float:
     return max(se, float(np.sqrt(pj * (1 - pj) / units)))
 
 
+_INTEGER_CRITERIA = {"min_minority_count": 1, "reference_batches": 2}  # name -> minimum value
+
+
+def _is_real(v) -> bool:
+    """Real numeric scalar (Python or NumPy int/float, not bool)."""
+    return isinstance(v, (int, float, np.integer, np.floating)) and not isinstance(v, (bool, np.bool_))
+
+
+def validate_gate_criteria(overrides: dict, threshold, n_bins, probs) -> list[str]:
+    """Errors for unknown criterion keys or invalid values. Every criterion (defaults and
+    overrides) must be a finite real scalar (Python or NumPy, not bool); integer criteria must be
+    integral and >= their minimum; tolerances / ESS minimums must be positive; rhat_max > 1."""
+    errs = [f"unknown criterion {k!r}" for k in overrides if k not in GATE_DEFAULTS]
+    cfg = {**GATE_DEFAULTS, **{k: v for k, v in overrides.items() if k in GATE_DEFAULTS}}
+    for k, v in (*cfg.items(), ("threshold", threshold), ("n_bins", n_bins)):
+        if not _is_real(v) or not np.isfinite(float(v)):
+            errs.append(f"criterion {k} must be a finite real number, got {v!r} ({type(v).__name__})")
+            continue
+        v = float(v)
+        if k in _INTEGER_CRITERIA or k == "n_bins":
+            lo = _INTEGER_CRITERIA.get(k, 1)
+            if v != int(v) or v < lo:
+                errs.append(f"criterion {k} must be an integer >= {lo}, got {v!r}")
+        elif k == "rhat_max" and v <= 1.0:
+            errs.append(f"rhat_max must be > 1, got {v!r}")
+        elif k not in ("threshold", "rhat_max") and v <= 0:
+            errs.append(f"criterion {k} must be > 0, got {v!r}")
+    try:
+        pv = [float(p) for p in probs] if all(_is_real(p) for p in probs) else None
+    except TypeError:
+        pv = None
+    if not pv or not all(0.0 < p < 1.0 for p in pv):
+        errs.append(f"probs must be real numbers in (0, 1), got {probs!r}")
+    return errs
+
+
 def validate_gate_inputs(x, names, expected_names=None, reference=None, compare: bool = False,
                          prefix: str = "gw_log10_rho_", n_bins: int = 30) -> list[str]:
     """Input errors (empty list if valid): shape/name consistency, unique names, the exact
@@ -307,14 +343,17 @@ def freespec_gate(
       unavailable for near-constant indicators.
     """
     cfg = {**GATE_DEFAULTS, **overrides}
-    out = {"criteria": cfg | {"threshold": threshold, "n_bins": n_bins, "probs": list(probs)}}
-    errs = validate_gate_inputs(x, names, expected_names, reference, reference is not None, prefix, n_bins)
-    for key, val in (("threshold", threshold), *((k, v) for k, v in cfg.items() if isinstance(v, (int, float)))):
-        if not (isinstance(val, (int, float, np.floating, np.integer)) and np.isfinite(val)):
-            errs.append(f"{key} must be finite, got {val!r}")
+    out = {"criteria": {k: repr(v) for k, v in cfg.items()} | {"threshold": repr(threshold), "n_bins": repr(n_bins),
+                                                              "probs": repr(probs)}}
+    errs = validate_gate_criteria(overrides, threshold, n_bins, probs)
+    if not errs:
+        errs = validate_gate_inputs(x, names, expected_names, reference, reference is not None, prefix, n_bins)
     if errs:
         return out | {"input_errors": errs, "convergence": "UNAVAILABLE", "reproduction_agreement": "UNAVAILABLE",
                       "heuristic_warnings": []}
+    cfg = {k: (int(v) if k in _INTEGER_CRITERIA else float(v)) for k, v in cfg.items()}
+    threshold, n_bins, probs = float(threshold), int(n_bins), tuple(float(p) for p in probs)
+    out["criteria"] = cfg | {"threshold": threshold, "n_bins": n_bins, "probs": list(probs)}
     x = np.asarray(x, np.float64)
     C, N, _ = x.shape
     idx = {n: j for j, n in enumerate(names)}
