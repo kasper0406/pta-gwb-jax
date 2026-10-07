@@ -1,0 +1,88 @@
+{
+ "chains": 4,
+ "draws_per_chain": 6250,
+ "thin": 1,
+ "grads_sampling": 405272.0,
+ "grads_warmup": 64000,
+ "grads_per_draw_mean": 16.21088,
+ "t_compile": 5.576362419407815,
+ "t_warm": 162.10918008396402,
+ "t_samp": 206.45140747260302,
+ "accept_mean": 0.9502206834785181,
+ "divergences": 0,
+ "ess_bulk_common": 1205.5113249180977,
+ "ess_tail_common": 2036.9780346403675,
+ "ess_bulk_min": 957.7748837893495,
+ "ess_tail_min": 696.0226699871882,
+ "ess_bulk_min_param": "J1713+0747_red_noise_log10_A",
+ "ess_tail_min_param": "B1953+29_red_noise_gamma",
+ "ess_bulk_median": 2660.9735970883357,
+ "rhat_max": 1.007239220735199,
+ "rhat_max_param": "J1713+0747_red_noise_log10_A",
+ "rhat_common": 1.0027315826664656,
+ "ess_per_s_bulk_common": 5.8392012903960175,
+ "ess_per_kgrad_bulk_common": 2.9745734344294634,
+ "ess_per_s_tail_common": 9.866622173116854,
+ "ess_per_kgrad_tail_common": 5.026199773585067,
+ "ess_per_s_bulk_min": 4.639226709638442,
+ "ess_per_kgrad_bulk_min": 2.363289059666963,
+ "ess_per_s_tail_min": 3.3713631624407956,
+ "ess_per_kgrad_tail_min": 1.717421065326961,
+ "extra": {
+  "step_size": [
+   0.9568333558649619,
+   0.8766556522132521,
+   0.9035524078865533,
+   0.8834426258853529
+  ],
+  "avg_steps": [
+   8.0,
+   8.0,
+   8.0,
+   8.0
+  ],
+  "target_accept": 0.9,
+  "warm_grads_approx": true
+ },
+ "model": "curn",
+ "sampler": "mams",
+ "seed": 1,
+ "like": "hh",
+ "opts": {
+  "avg_steps": 8
+ },
+ "warmup": 1000,
+ "samples": 6250,
+ "wall_total": 380.487473487854,
+ "env": {
+  "git_sha": "d6f425f7fb49060993a9c74d1f587786fb6b2f0a",
+  "jax": "0.11.2",
+  "backend": "gpu",
+  "devices": [
+   "cuda:0"
+  ],
+  "XLA_FLAGS": "",
+  "host": "kworkstation",
+  "time": "2026-10-07T12:55:46"
+ },
+ "bias": {
+  "quantile_z_max_abs": 2.2408395774316032,
+  "quantile_z_worst": {
+   "param": "J0437-4715_red_noise_gamma",
+   "q": 0.5,
+   "z": -2.2408395774316032,
+   "delta": -0.1613163576978467
+  },
+  "quantile_n_abs_z_gt3": 0,
+  "quantile_n_tests": 51,
+  "common_q50_delta": -0.0023016929314891854,
+  "mean_chi2": 127.00836566778429,
+  "mean_dof": 135,
+  "mean_z_max_abs": 2.467714495620185,
+  "mean_z_worst_param": "J2234+0944_red_noise_gamma",
+  "sd_ratio_median": 0.9990621465403876,
+  "sd_ratio_min": 0.12211900334629387,
+  "sd_ratio_max": 1.0548845513935086,
+  "sd_ratio_common": 0.9997795369282393
+ }
+}

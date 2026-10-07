@@ -196,12 +196,36 @@ def _tri_inv_levels(L, leaf: int = 64, depth: int = 3):
     return inv[0][:n, :n]
 
 
+def _chol_inv_rec(S, leaf: int = 128, depth: int = 3):
+    """(L, L^-1) of an SPD S by recursive 2x2 blocking with GEMMs (``tri_inv="fused"``):
+
+        L11, L11^-1 = rec(S11);  L21 = S21 L11^-T;  L22, L22^-1 = rec(S22 - L21 L21^T)
+        L^-1 = [[L11^-1, 0], [-L22^-1 L21 L11^-1, L22^-1]]
+
+    Computes the Cholesky factor and its inverse together (the backward pass needs L^-1 anyway),
+    replacing cuSOLVER potrf (0.45 TFLOP/s at n = 1876) by GEMMs. L21 uses the explicit L11^-1
+    instead of a triangular solve (forward error ~ cond(L11) eps instead of ~eps); measured by
+    bench/check_exact.py like every variant.
+    """
+    n = S.shape[0]
+    if n <= leaf:
+        L = jnp.linalg.cholesky(S)
+        return L, jsl.solve_triangular(L, jnp.eye(n, dtype=S.dtype), lower=True)
+    h = n // 2
+    L11, L11i = _chol_inv_rec(S[:h, :h], leaf, depth)
+    L21 = _mm_lower_left(L11i, S[h:, :h].T, depth).T
+    L22, L22i = _chol_inv_rec(S[h:, h:] - L21 @ L21.T, leaf, depth)
+    X = -_mm_lower_left(L22i, _mm_lower_right(L21, L11i, depth), depth)
+    Z = jnp.zeros((h, n - h), S.dtype)
+    return jnp.block([[L11, Z], [L21, L22]]), jnp.block([[L11i, Z], [X, L22i]])
+
+
 def make_core_sigma(Ginv, k: int, tri_inv: str = "recursive", grad_precision: str = "float64"):
     """``likelihood._make_core_sigma`` with a selectable backward triangular inverse."""
     P = Ginv.shape[0]
     n = P * k
     eye_k = jnp.eye(k)
-    inv = {"recursive": _L._tri_inv_lower, "trsm": _tri_inv_trsm, "levels": _tri_inv_levels}[tri_inv]
+    inv = {"recursive": _L._tri_inv_lower, "trsm": _tri_inv_trsm, "levels": _tri_inv_levels, "fused": None}[tri_inv]
 
     def assemble(Es):
         Sig = jnp.kron(Ginv, eye_k)
@@ -210,15 +234,22 @@ def make_core_sigma(Ginv, k: int, tri_inv: str = "recursive", grad_precision: st
         blocks = blocks.at[idx, :, idx, :].set(Es)
         return Sig + blocks.reshape(n, n)
 
+    fused = tri_inv == "fused"
+
     def fwd(Es, dt):
-        L = jnp.linalg.cholesky(assemble(Es))
+        if fused:
+            L, Linv = _chol_inv_rec(assemble(Es))
+        else:
+            L, Linv = jnp.linalg.cholesky(assemble(Es)), None
         w = jsl.solve_triangular(L, dt.reshape(-1), lower=True)
-        return _L._chol_logdet(L) - w @ w, (L, w)
+        return _L._chol_logdet(L) - w @ w, (L, w, Linv)
 
     def bwd(res, g):
-        L, w = res
+        L, w, Linv = res
         u = jsl.solve_triangular(L.T, w, lower=False)
-        if grad_precision == "mixed":
+        if fused:
+            pass
+        elif grad_precision == "mixed":
             dsc = 1.0 / jnp.sqrt(jnp.sum(L * L, axis=1))
             Leq = (dsc[:, None] * L).astype(jnp.float32)
             Linv = inv(Leq).astype(jnp.float64) * dsc[None, :]

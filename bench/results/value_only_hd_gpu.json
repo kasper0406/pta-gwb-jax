@@ -1,0 +1,51 @@
+{
+ "env": {
+  "git_sha": "d6f425f7fb49060993a9c74d1f587786fb6b2f0a",
+  "jax": "0.11.2",
+  "backend": "gpu",
+  "devices": [
+   "cuda:0"
+  ],
+  "XLA_FLAGS": "",
+  "host": "kworkstation",
+  "time": "2026-10-07T12:59:35"
+ },
+ "rows": [
+  {
+   "variant": "prod",
+   "batch": 16,
+   "call_ms": 43.23019785806537,
+   "per_eval_ms": 2.7018873661290854
+  },
+  {
+   "variant": "prod",
+   "batch": 64,
+   "call_ms": 167.07794601097703,
+   "per_eval_ms": 2.610592906421516
+  },
+  {
+   "variant": "prod",
+   "batch": 256,
+   "call_ms": 660.6984809041023,
+   "per_eval_ms": 2.5808534410316497
+  },
+  {
+   "variant": "hh+levels",
+   "batch": 16,
+   "call_ms": 37.49548876658082,
+   "per_eval_ms": 2.3434680479113013
+  },
+  {
+   "variant": "hh+levels",
+   "batch": 64,
+   "call_ms": 132.69601529464126,
+   "per_eval_ms": 2.0733752389787696
+  },
+  {
+   "variant": "hh+levels",
+   "batch": 256,
+   "call_ms": 511.23502664268017,
+   "per_eval_ms": 1.9970118228229694
+  }
+ ]
+}

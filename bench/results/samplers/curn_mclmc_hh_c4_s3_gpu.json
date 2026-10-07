@@ -1,0 +1,85 @@
+{
+ "chains": 4,
+ "draws_per_chain": 5000,
+ "thin": 10,
+ "grads_sampling": 400000.0,
+ "grads_warmup": 7200,
+ "grads_per_draw_mean": 2.0,
+ "t_compile": 4.147928978782147,
+ "t_warm": 12.09656659513712,
+ "t_samp": 202.7004198115319,
+ "accept_mean": 1.0,
+ "divergences": 0,
+ "ess_bulk_common": 3855.9079593333863,
+ "ess_tail_common": 6780.594877656066,
+ "ess_bulk_min": 2189.3726058142015,
+ "ess_tail_min": 1337.4907423710627,
+ "ess_bulk_min_param": "B1855+09_red_noise_log10_A",
+ "ess_tail_min_param": "J0437-4715_red_noise_log10_A",
+ "ess_bulk_median": 8889.064897389859,
+ "rhat_max": 1.0087844000655126,
+ "rhat_max_param": "J1713+0747_red_noise_log10_A",
+ "rhat_common": 1.0032628476790173,
+ "ess_per_s_bulk_common": 19.022693504624,
+ "ess_per_kgrad_bulk_common": 9.639769898333466,
+ "ess_per_s_tail_common": 33.45131146724102,
+ "ess_per_kgrad_tail_common": 16.951487194140164,
+ "ess_per_s_bulk_min": 10.801026499352346,
+ "ess_per_kgrad_bulk_min": 5.473431514535503,
+ "ess_per_s_tail_min": 6.59836197485256,
+ "ess_per_kgrad_tail_min": 3.343726855927657,
+ "extra": {
+  "L": [
+   15.06169369484368,
+   14.4228338415194,
+   15.242990721170484,
+   15.80049814347964
+  ],
+  "step_size": [
+   1.3241150243735476,
+   1.1598519108246967,
+   1.1464506618790513,
+   1.124914223676592
+  ],
+  "unadjusted": true
+ },
+ "model": "curn",
+ "sampler": "mclmc",
+ "seed": 3,
+ "like": "hh",
+ "opts": {},
+ "warmup": 3000,
+ "samples": 50000,
+ "wall_total": 225.24094891548157,
+ "env": {
+  "git_sha": "d6f425f7fb49060993a9c74d1f587786fb6b2f0a",
+  "jax": "0.11.2",
+  "backend": "gpu",
+  "devices": [
+   "cuda:0"
+  ],
+  "XLA_FLAGS": "",
+  "host": "kworkstation",
+  "time": "2026-10-07T11:34:24"
+ },
+ "bias": {
+  "quantile_z_max_abs": 3.7790714676958226,
+  "quantile_z_worst": {
+   "param": "gw_log10_A",
+   "q": 0.05,
+   "z": 3.7790714676958226,
+   "delta": 0.014371023193286092
+  },
+  "quantile_n_abs_z_gt3": 2,
+  "quantile_n_tests": 51,
+  "common_q50_delta": 0.007225513489409252,
+  "mean_chi2": 373.21166953274775,
+  "mean_dof": 135,
+  "mean_z_max_abs": 10.512767185159445,
+  "mean_z_worst_param": "J1713+0747_red_noise_log10_A",
+  "sd_ratio_median": 0.9968849558605358,
+  "sd_ratio_min": 0.12471920290759324,
+  "sd_ratio_max": 1.081616143688256,
+  "sd_ratio_common": 0.9396021911736048
+ }
+}

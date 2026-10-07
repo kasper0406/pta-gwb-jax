@@ -1,0 +1,54 @@
+{
+ "env": {
+  "git_sha": "d6f425f7fb49060993a9c74d1f587786fb6b2f0a",
+  "jax": "0.11.2",
+  "backend": "gpu",
+  "devices": [
+   "cuda:0"
+  ],
+  "XLA_FLAGS": "",
+  "host": "kworkstation",
+  "time": "2026-10-07T12:57:32"
+ },
+ "orf": "hd",
+ "grad_precision": "float64",
+ "OPENBLAS_NUM_THREADS": "",
+ "rows": [
+  {
+   "variant": "hh+fused",
+   "batch": 1,
+   "pmap_devices": 1,
+   "call_ms": 12.479784898459911,
+   "per_chain_grad_ms": 12.479784898459911,
+   "min_ms": 12.292885221540928,
+   "value_only_ms": 10.470482520759106
+  },
+  {
+   "variant": "hh+fused",
+   "batch": 4,
+   "pmap_devices": 1,
+   "call_ms": 32.86883234977722,
+   "per_chain_grad_ms": 8.217208087444305,
+   "min_ms": 32.725113444030285,
+   "value_only_ms": null
+  },
+  {
+   "variant": "hh+fused",
+   "batch": 16,
+   "pmap_devices": 1,
+   "call_ms": 91.40135743655264,
+   "per_chain_grad_ms": 5.71258483978454,
+   "min_ms": 91.10189974308014,
+   "value_only_ms": null
+  },
+  {
+   "variant": "hh+fused",
+   "batch": 64,
+   "pmap_devices": 1,
+   "call_ms": 348.77428878098726,
+   "per_chain_grad_ms": 5.449598262202926,
+   "min_ms": 348.4343299642205,
+   "value_only_ms": null
+  }
+ ]
+}

@@ -32,3 +32,4 @@ dist/
 # performance study
 bench/cache/
 bench/traces/
+bench/runs/

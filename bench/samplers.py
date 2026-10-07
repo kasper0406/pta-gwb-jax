@@ -94,7 +94,7 @@ def _timed(c, *args):
 # ---------------------------------------------------------------------- samplers (BlackJAX)
 
 
-def run_bj_nuts(tg: Target, C, W, N, seed, block=100, target_accept=0.8, max_doublings=10):
+def run_bj_nuts(tg: Target, C, W, N, seed, block=100, target_accept=0.8, max_doublings=10, init_step=0.25):
     import blackjax
     from blackjax.adaptation.step_size import dual_averaging_adaptation
 
@@ -120,8 +120,8 @@ def run_bj_nuts(tg: Target, C, W, N, seed, block=100, target_accept=0.8, max_dou
     def warm(st, da, keys):
         return jax.lax.scan(warm_step, (st, da), keys)
 
-    # initial step size: same heuristic start as numpyro (1.0, then DA)
-    da0 = jax.vmap(da_init)(jnp.full(C, 0.25))
+    # dual averaging from init_step (0.25 default; the whitened CURN/HD step sizes end at ~0.05)
+    da0 = jax.vmap(da_init)(jnp.full(C, init_step))
     kw, ks = jax.random.split(key)
     wkeys = jax.random.split(kw, W)
     cw, t_cw = _aot(warm, states, da0, wkeys)
@@ -140,16 +140,21 @@ def run_bj_nuts(tg: Target, C, W, N, seed, block=100, target_accept=0.8, max_dou
         return jax.lax.scan(samp_step, st, keys)
 
     return _sample_blocks(tg, samp_block, states, ks, N, block, t_cw, t_warm, int(np.sum(ns_w)),
-                          extra={"step_size": np.asarray(step).tolist(), "target_accept": target_accept})
+                          extra={"step_size": np.asarray(step).tolist(), "target_accept": target_accept, "init_step": init_step})
 
 
 def _sample_blocks(tg, samp_block, states, key, N, block, t_compile_warm, t_warm, warm_grads, extra, grads_per_step=1):
     keys = jax.random.split(key, N)
+    block = min(block, N)
     cs, t_cs = _aot(samp_block, states, keys[:block])
+    if N % block:  # separate executable for the last partial block
+        ctail, t_tail = _aot(samp_block, states, keys[: N % block])
+        t_cs += t_tail
     Ws, steps, accs, divs = [], [], [], []
     t_samp = 0.0
     for i in range(0, N, block):
-        (states, (w, ns, acc, dv)), dt = _timed(cs, states, keys[i : i + block])
+        c_ = cs if i + block <= N else ctail
+        (states, (w, ns, acc, dv)), dt = _timed(c_, states, keys[i : i + block])
         t_samp += dt
         Ws.append(np.asarray(w))
         steps.append(np.asarray(ns))
@@ -183,7 +188,7 @@ def run_mclmc(tg: Target, C, W, N, seed, block=500, thin=1):
 
     def tune(st, k):
         s2, params, _nsteps = blackjax.mclmc_find_L_and_step_size(
-            mclmc_kernel=kernel, num_steps=W, state=st, rng_key=k, logdensity_fn=logd,
+            mclmc_kernel=kernel, num_steps=int(W / 0.3), state=st, rng_key=k, logdensity_fn=logd,
             frac_tune1=0.1, frac_tune2=0.1, frac_tune3=0.1, diagonal_preconditioning=False,
         )
         return s2, params
@@ -233,7 +238,7 @@ def run_mams(tg: Target, C, W, N, seed, block=200, target_accept=0.9, avg_steps=
 
     def tune(st, k):
         s2, params, _ = blackjax.adjusted_mclmc_find_L_and_step_size(
-            mclmc_kernel=kernel, logdensity_fn=logd, num_steps=W, state=st, rng_key=k, target=target_accept,
+            mclmc_kernel=kernel, logdensity_fn=logd, num_steps=int(W / 0.2), state=st, rng_key=k, target=target_accept,
             frac_tune1=0.1, frac_tune2=0.1, frac_tune3=0.0, diagonal_preconditioning=False,
             target_num_integration_steps=avg,
         )
@@ -244,7 +249,7 @@ def run_mams(tg: Target, C, W, N, seed, block=200, target_accept=0.9, avg_steps=
     (states, params), t_warm = _timed(ct, states, tkeys)
     eps = params.step_size
     avgn = params.L / params.step_size
-    warm_props = int(0.1 * W) * 2
+    warm_props = int(0.1 * int(W / 0.2)) * 2
 
     def samp_step(st, k):
         def one(k_, s_, e_, a_):
@@ -278,15 +283,18 @@ def run_chees(tg: Target, C, W, N, seed, block=100, lr=0.025, step0=0.1):
 
     def warm(k, pos):
         (st, params), info = warmup.run(k, pos, step0, optim, W, max_sampling_steps=N)
-        return st, params, info.info.num_integration_steps if hasattr(info, "info") else jnp.zeros(())
+        return st, params["step_size"], params["integration_steps_params"][0], params["inverse_mass_matrix"]
 
     cw, t_cw = _aot(warm, kw, w0)
-    (states, params, ns_w), t_warm = _timed(cw, kw, w0)
-    eps = params["step_size"]
-    nleap = params["integration_steps_params"][0]
-    imm = params["inverse_mass_matrix"]
-    kern = dynamic_hmc.build_kernel(next_random_arg_fn=params["next_random_arg_fn"],
-                                    integration_steps_fn=params["integration_steps_fn"])
+    (states, eps, nleap, imm), t_warm = _timed(cw, kw, w0)
+    # rebuild the (non-array) jitter function exactly as chees_adaptation does (Halton, jitter 1)
+    max_bits = np.ceil(np.log2(W + N))
+
+    def integration_steps_fn(i, n_leap):
+        return jnp.asarray(jnp.ceil(dynamic_hmc.halton_sequence(i, max_bits) * n_leap), dtype=int)
+
+    kern = dynamic_hmc.build_kernel(next_random_arg_fn=lambda i: i + 1, integration_steps_fn=integration_steps_fn)
+    ns_w = jnp.zeros(())
 
     def samp_step(st, k):
         def one(k_, s_):
@@ -298,10 +306,7 @@ def run_chees(tg: Target, C, W, N, seed, block=100, lr=0.025, step0=0.1):
     def samp_block(st, keys):
         return jax.lax.scan(samp_step, st, keys)
 
-    try:
-        wg = int(np.sum(np.asarray(ns_w)))
-    except Exception:  # noqa: BLE001
-        wg = -1
+    wg = -1  # ChEES warmup cost: W iterations x (jittered) leapfrog steps; not reported by BlackJAX
     return _sample_blocks(tg, samp_block, states, ks, N, block, t_cw, t_warm, wg,
                           extra={"step_size": float(eps), "mean_leapfrog": float(nleap), "lr": lr})
 

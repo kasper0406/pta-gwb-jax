@@ -31,6 +31,7 @@ VARIANTS = {
     "hh+recursive": {"reduce": "hh", "tri_inv": "recursive"},
     "prod+levels": {"reduce": "prod", "tri_inv": "levels"},
     "hh+levels": {"reduce": "hh", "tri_inv": "levels"},
+    "hh+fused": {"reduce": "hh", "tri_inv": "fused"},
 }
 
 
@@ -75,6 +76,7 @@ def compare(prod, fast, pts, batched: bool):
 
 
 def main():
+    only = sys.argv[1:]
     terms, T = get_terms()
     out = {"env": env_info(), "criteria": {"dv": 1e-9, "dg": 1e-8}, "results": {}}
     ok = True
@@ -82,6 +84,8 @@ def main():
         prod = strip_const(build_like(orf))
         pts = test_points(prod.P, n_post=8, n_prior=8)
         for vname, kw in VARIANTS.items():
+            if only and vname not in only:
+                continue
             if orf == "curn" and kw["tri_inv"] != "recursive":
                 continue
             fast = strip_const(FastPTALikelihood(terms, T, n_modes=30, n_common=14, orf=orf, **kw))
@@ -95,7 +99,7 @@ def main():
                 wp = {m: max(rows, key=lambda r: r[m])["point"] for m in ("dv", "dg")}
                 print(f"{key:35s} dv {worst['dv']:.2e} dg {worst['dg']:.2e} dgn {worst['dgn']:.2e}  {'PASS' if passed else 'FAIL'}  worst at {wp}")
     out["all_pass"] = ok
-    save_json(f"exact_{jax.default_backend()}.json", out)
+    save_json(f"exact_{jax.default_backend()}{'_' + '_'.join(only) if only else ''}.json", out)
     return 0 if ok else 1
 
 

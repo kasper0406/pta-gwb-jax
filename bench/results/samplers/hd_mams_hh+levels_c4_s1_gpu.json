@@ -1,0 +1,88 @@
+{
+ "chains": 4,
+ "draws_per_chain": 2062,
+ "thin": 1,
+ "grads_sampling": 134448.0,
+ "grads_warmup": 38400,
+ "grads_per_draw_mean": 16.300678952473326,
+ "t_compile": 41.005208442918956,
+ "t_warm": 1548.7034026449546,
+ "t_samp": 968.1177893658169,
+ "accept_mean": 0.9667932161732812,
+ "divergences": 0,
+ "ess_bulk_common": 273.4327598114045,
+ "ess_tail_common": 820.9246168572203,
+ "ess_bulk_min": 244.21117866063148,
+ "ess_tail_min": 100.3792067970993,
+ "ess_bulk_min_param": "J0645+5158_red_noise_log10_A",
+ "ess_tail_min_param": "B1855+09_red_noise_log10_A",
+ "ess_bulk_median": 796.571453356964,
+ "rhat_max": 1.0222290340148625,
+ "rhat_max_param": "J2234+0611_red_noise_log10_A",
+ "rhat_common": 1.0098370570839312,
+ "ess_per_s_bulk_common": 0.28243749140331526,
+ "ess_per_kgrad_bulk_common": 2.0337436020722097,
+ "ess_per_s_tail_common": 0.8479594382776313,
+ "ess_per_kgrad_tail_common": 6.105889391119394,
+ "ess_per_s_bulk_min": 0.2522535804456258,
+ "ess_per_kgrad_bulk_min": 1.8163987464345432,
+ "ess_per_s_tail_min": 0.10368491096817312,
+ "ess_per_kgrad_tail_min": 0.7466024544589678,
+ "extra": {
+  "step_size": [
+   0.7861427407026185,
+   0.8195648648498376,
+   0.8324127992635577,
+   0.8671094045951443
+  ],
+  "avg_steps": [
+   8.0,
+   8.0,
+   8.0,
+   8.0
+  ],
+  "target_accept": 0.9,
+  "warm_grads_approx": true
+ },
+ "model": "hd",
+ "sampler": "mams",
+ "seed": 1,
+ "like": "hh+levels",
+ "opts": {
+  "avg_steps": 8
+ },
+ "warmup": 600,
+ "samples": 2062,
+ "wall_total": 2592.148271560669,
+ "env": {
+  "git_sha": "d6f425f7fb49060993a9c74d1f587786fb6b2f0a",
+  "jax": "0.11.2",
+  "backend": "gpu",
+  "devices": [
+   "cuda:0"
+  ],
+  "XLA_FLAGS": "",
+  "host": "kworkstation",
+  "time": "2026-10-07T12:45:04"
+ },
+ "bias": {
+  "quantile_z_max_abs": 2.5243578674735727,
+  "quantile_z_worst": {
+   "param": "J1903+0327_red_noise_log10_A",
+   "q": 0.95,
+   "z": -2.5243578674735727,
+   "delta": -0.026029437542774758
+  },
+  "quantile_n_abs_z_gt3": 0,
+  "quantile_n_tests": 51,
+  "common_q50_delta": -0.009842258852406971,
+  "mean_chi2": 129.77279714863522,
+  "mean_dof": 135,
+  "mean_z_max_abs": 2.8527176284530062,
+  "mean_z_worst_param": "J1918-0642_red_noise_gamma",
+  "sd_ratio_median": 0.9990662751861615,
+  "sd_ratio_min": 0.8802704691512929,
+  "sd_ratio_max": 1.4739486120452057,
+  "sd_ratio_common": 0.9674373108669978
+ }
+}
