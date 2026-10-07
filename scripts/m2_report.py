@@ -41,10 +41,12 @@ def main():
             z = f"{v['z_q05']:+.1f}, {v['z_q50']:+.1f}, {v['z_q95']:+.1f}"
             print(f"| {e['run']} | {e['released']} | {p} | {q3(o)} | {mcse3(o)} | {q3(r)} | {mcse3(r)} | {z} | "
                   f"{v['ks']['D']:.3f} ({v['ks']['p_ess']:.2f}) |")
-    print("\n2-D (gamma, log10_A) energy distance (ours vs released; floor = two halves of the released chain):\n")
+    print("\n2-D (gamma, log10_A) energy distance, ours vs released:\n")
     for e in cmp_.get("pairs", []):
         if "energy_2d" in e:
-            print(f"* {e['run']} vs {e['released']}: {e['energy_2d']['energy']:.2e} (floor {e['energy_2d']['released_split_floor']:.2e})")
+            ed = e["energy_2d"]
+            print(f"* {e['run']} vs {e['released']}: {ed['energy']:.2e} (MC floors: our chains 1-2 vs 3-4 "
+                  f"{ed.get('ours_split_floor', float('nan')):.2e}; released halves {ed['released_split_floor']:.2e})")
     print("\n## ICRS minus enterprise positions (same model)\n")
     print("| run | param | enterprise | ICRS | shift of median | z(5,50,95) |")
     print("|---|---|---|---|---|---|")

@@ -91,14 +91,15 @@ def run_diagnostics(run: dict) -> dict:
     }
 
 
-def energy2d(ours, rel, seed=0):
+def energy2d(ours, rel, seed=0, ours_halves=None):
     rng = np.random.default_rng(seed)
     e = energy_distance(ours, rel, seed=seed)
+    own = energy_distance(*ours_halves, seed=seed) if ours_halves is not None else float("nan")
     # MC noise floor: two disjoint random halves of the released chain, thinned like ours
     idx = rng.permutation(len(rel))
     h = len(rel) // 2
     floor = energy_distance(rel[idx[:h]], rel[idx[h:]], seed=seed)
-    return {"energy": e, "released_split_floor": floor}
+    return {"energy": e, "released_split_floor": floor, "ours_split_floor": own}
 
 
 def main():
@@ -124,7 +125,10 @@ def main():
         if "gw_gamma" in pars:
             ours2 = np.column_stack([run_draws(r, "gw_gamma").ravel(), run_draws(r, "gw_log10_A").ravel()])
             rel2 = np.column_stack([rel["gw_gamma"], rel["gw_log10_A"]])
-            entry["energy_2d"] = energy2d(ours2, rel2)
+            g3, a3 = run_draws(r, "gw_gamma"), run_draws(r, "gw_log10_A")
+            h = g3.shape[0] // 2
+            halves = tuple(np.column_stack([g3[sl].ravel(), a3[sl].ravel()]) for sl in (slice(0, h), slice(h, None)))
+            entry["energy_2d"] = energy2d(ours2, rel2, ours_halves=halves)
         out["pairs"].append(entry)
         print(rn, key, {p: (round(v["z_q05"], 2), round(v["z_q50"], 2), round(v["z_q95"], 2)) for p, v in entry["params"].items()})
     for rn, ri in ICRS.items():
