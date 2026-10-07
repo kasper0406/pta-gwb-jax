@@ -38,6 +38,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--pairs", nargs="+", default=["vg14", "g433_14", "vg5"])
     ap.add_argument("--thin", type=int, default=1)
+    ap.add_argument("--batch", type=int, default=8, help="draws per batched device call")
     args = ap.parse_args()
     psrs = load_pulsars(verbose=False)
     T = get_tspan(psrs)
@@ -67,7 +68,7 @@ def main():
             C, N, D = X.shape
             t0 = time.time()
             for o, post in posts.items():
-                ll[(src, o)] = post.logL_samples(X.reshape(-1, D)).reshape(C, N)
+                ll[(src, o)] = post.logL_samples(X.reshape(-1, D), batch=args.batch).reshape(C, N)
             res[f"eval_seconds_{src}"] = time.time() - t0
             # consistency with the sampler's own logL
             own = ll[(src, src)] - run["logL"][:, :: args.thin]
@@ -83,7 +84,7 @@ def main():
         Xc = runs["curn"]["x"][:, :: max(1, args.thin * 10)]
         C, N, D = Xc.shape
         Xf = Xc.reshape(-1, D)
-        l_self = (eye.logL_samples(Xf) - posts["curn"].logL_samples(Xf)).reshape(C, N)
+        l_self = (eye.logL_samples(Xf, batch=args.batch) - posts["curn"].logL_samples(Xf, batch=args.batch)).reshape(C, N)
         res["self_check_identity_orf"] = evidence.reweight(l_self, n_boot=200)
         res["self_check_max_abs_dlogL"] = float(np.abs(l_self).max())
         out[key] = res
