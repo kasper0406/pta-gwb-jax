@@ -122,3 +122,102 @@ def test_cli_schema_matches_production_run():
     code, g = evaluate("hd_fs30", "")
     assert code == 1 and g["convergence"] == "FAIL"
     assert evaluate("no_such_run", "")[0] == 2
+
+
+# ---------------------------------------------------------------------- round-4 regressions
+
+
+def test_sparse_bin_has_nonzero_se_and_agrees():
+    """One low-power draw per chain in an otherwise zero-occupancy bin (reviewer's repro): both
+    indicators are near-constant; the sparse-count SE must be > 0 and the bin must not fail."""
+    x, names, ref = _synthetic(seed=0)
+    x[:, 0, NIRN] = -10.0
+    g = freespec_gate(x, names, reference=ref, expected_names=names)
+    a = g["bins"]["gw_log10_rho_0"]["agreement"]
+    assert a["se_ours"] > 0 and a["se_ref"] > 0 and np.isfinite(a["z"])
+    assert g["convergence"] == "PASS" and g["reproduction_agreement"] == "PASS"
+    assert gate_exit_code(g) == 0
+
+
+def test_stored_run_zero_occupancy_bins_have_nonzero_se():
+    from ptagwb.sampling import load_run
+
+    try:
+        run = load_run("hd_fs30")
+    except FileNotFoundError:
+        pytest.skip("runs/hd_fs30 not present")
+    ref = {f"gw_log10_rho_{k}": run["x"][..., run["names"].index(f"gw_log10_rho_{k}")].ravel() for k in range(NB)}
+    g = freespec_gate(run["x"], run["names"], reference=ref)
+    zero = [n for n, b in g["bins"].items() if b["occupancy"] == 0.0]
+    assert zero  # e.g. f_2, f_3 (bins 1, 2)
+    for n in zero:
+        assert g["bins"][n]["agreement"]["se_ours"] > 0 and np.isfinite(g["bins"][n]["agreement"]["z"])
+
+
+@pytest.mark.parametrize("thr", [float("nan"), float("inf"), -float("inf")])
+def test_nonfinite_threshold_is_invalid(thr):
+    x, names, ref = _synthetic(seed=0, N=300)
+    shifted = {k: v - 2.0 for k, v in ref.items()}
+    g = freespec_gate(x, names, reference=shifted, expected_names=names, threshold=thr)
+    assert g["input_errors"] and gate_exit_code(g) == 2
+
+
+def _cli():
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    try:
+        import m2_freespec_diag as cli
+
+        names = cli.expected_names()
+    except FileNotFoundError:
+        pytest.skip("NG15 release not present")
+    return cli, names
+
+
+def _fixture_run(names):
+    x, _, ref = _synthetic(seed=0, N=600)
+    model = {"orf": "hd", "common": "freespec", "n_common": 30}
+    return {"x": x, "names": list(names), "meta": {"config": {"model": model}}}, ref
+
+
+@pytest.mark.parametrize("case", ["ok", "nan_threshold", "inf_threshold", "orf_curn", "orf_missing",
+                                  "common_wrong", "n_common_wrong", "missing_x", "model_null",
+                                  "nonnumeric_x", "loader_raises", "reference_not_dict"])
+def test_cli_evaluate_validation(case):
+    cli, names = _cli()
+    run, ref = _fixture_run(names)
+    thr = -9.0
+    load_ref = lambda key: ref
+    if case == "nan_threshold":
+        thr = float("nan")
+    elif case == "inf_threshold":
+        thr = float("inf")
+    elif case == "orf_curn":
+        run["meta"]["config"]["model"]["orf"] = "curn"
+    elif case == "orf_missing":
+        del run["meta"]["config"]["model"]["orf"]
+    elif case == "common_wrong":
+        run["meta"]["config"]["model"]["common"] = "powerlaw"
+    elif case == "n_common_wrong":
+        run["meta"]["config"]["model"]["n_common"] = 14
+    elif case == "missing_x":
+        del run["x"]
+    elif case == "model_null":
+        run["meta"]["config"]["model"] = None
+    elif case == "nonnumeric_x":
+        run["x"] = np.full(run["x"].shape, "a", dtype=object)
+    elif case == "reference_not_dict":
+        load_ref = lambda key: [1, 2, 3]
+
+    def load(name):
+        if case == "loader_raises":
+            raise FileNotFoundError(name)
+        return run
+
+    code, g = cli.evaluate("fixture", "ref", thr, load=load, load_reference=load_ref)
+    if case == "ok":
+        assert code == 0, (g.get("input_errors"), g.get("convergence_failures", [])[:3], g.get("agreement_failures"))
+    else:
+        assert code == 2 and g["input_errors"], case

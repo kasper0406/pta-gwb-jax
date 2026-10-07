@@ -8,15 +8,18 @@ Verdicts, reported separately (thresholds in ``diagnostics.GATE_DEFAULTS``):
   IRN parameters) has rank-normalised split R-hat < 1.01 and bulk/tail ESS >= 400; every bin's
   occupancy indicator 1[log10_rho < -9], when not near-constant, has R-hat < 1.01 and ESS >= 400.
 * **reproduction agreement** PASS/FAIL/UNAVAILABLE: per-bin occupancy vs the released core,
-  |z| <= 3.5 with conservative standard errors (the larger of a batch-means SE, our chains as
-  units / contiguous batches of the reference, and the binomial SE from the indicator ESS); a
-  conventional threshold, not a calibrated test. The reference's own diagnostics are printed
+  |z| <= 3.5 with conservative, never-zero standard errors (the larger of a batch-means SE, our
+  chains as units / contiguous batches of the reference, and the binomial SE from the indicator
+  ESS; for near-constant indicators a Jeffreys-smoothed binomial SE with the ESS capped at the
+  number of chains / batches); a conventional threshold, not a calibrated test. UNAVAILABLE only
+  when no reference is requested (convergence-only mode). The reference's own diagnostics are printed
   and saved. Disagreement of a converged run is a finding about model / reference, not a sampler
   failure.
 * **heuristic warnings**: tail-stability contrasts and near-constant indicators. Informational
   only; not calibrated; never affect the exit status.
 
-Input contract (else exit 2): the run's model is the HD free spectrum with 30 bins; its parameter
+Input contract (else exit 2): finite --threshold; the run's stored model states explicitly
+orf = "hd", common = "freespec", n_common = 30 (no defaults); the run has numeric ``x`` and its parameter
 names equal, in order, the names derived independently from that model spec and the 67-pulsar
 GWB list of the release (par files minus ``data.EXPECTED_EXCLUDED``); names unique; all draws
 finite; if a reference is requested, it is complete (all 30 bins) and finite.
@@ -30,8 +33,10 @@ outputs/m2/freespec_gate_<run>.json when the inputs are valid.
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 
+import numpy as np
 from m2_common import ROOT, released, save_json
 
 from ptagwb.data import EXPECTED_EXCLUDED, find_par_tim
@@ -50,20 +55,48 @@ def expected_names() -> list[str]:
     return parameter_names(ModelSpec(orf="hd", common="freespec", n_common=N_BINS), psrs)
 
 
-def evaluate(run_name: str, reference_key: str, threshold: float = -9.0) -> tuple[int, dict]:
-    """(exit status, result). All loading happens here so that missing inputs map to status 2."""
+REQUIRED_MODEL = {"orf": "hd", "common": "freespec", "n_common": N_BINS}
+
+
+def evaluate(run_name: str, reference_key: str, threshold: float = -9.0,
+             load=load_run, load_reference=released) -> tuple[int, dict]:
+    """(exit status, result). All loading, extraction and conversion happens inside the validation
+    boundary, so missing or malformed inputs map to status 2 with a structured ``input_errors``.
+    ``load`` / ``load_reference`` are injectable for tests."""
+
+    def invalid(msg):
+        return 2, {"input_errors": [msg], "convergence": "UNAVAILABLE", "reproduction_agreement": "UNAVAILABLE"}
+
+    if not (isinstance(threshold, (int, float)) and math.isfinite(threshold)):
+        return invalid(f"threshold must be finite, got {threshold!r}")
     try:
-        run = load_run(run_name)
-        model = {**ModelSpec().__dict__, **run["meta"]["config"]["model"]}
-        if model["common"] != "freespec" or model["n_common"] != N_BINS:
-            return 2, {"input_errors": [f"run model is {model['common']}/{model['n_common']}, expected freespec/{N_BINS}"]}
+        run = load(run_name)
+        if not isinstance(run, dict):
+            return invalid(f"run {run_name!r}: loader returned {type(run).__name__}")
+        meta = run.get("meta")
+        model = meta.get("config", {}).get("model") if isinstance(meta, dict) else None
+        if not isinstance(model, dict):
+            return invalid(f"run {run_name!r}: no model specification in meta.config.model")
+        # the stored model must state these explicitly: no defaulting (ModelSpec's default orf is CURN)
+        for key, want in REQUIRED_MODEL.items():
+            if key not in model:
+                return invalid(f"run model lacks {key!r} (required: {want!r})")
+            if model[key] != want:
+                return invalid(f"run model {key} = {model[key]!r}, required {want!r}")
+        if "x" not in run or "names" not in run:
+            return invalid(f"run {run_name!r}: missing 'x' or 'names'")
+        x = np.asarray(run["x"], dtype=np.float64)
+        names = [str(n) for n in run["names"]]
         exp = expected_names()
         ref = None
         if reference_key:
-            ref = {k: v for k, v in released(reference_key).items() if k.startswith("gw_log10_rho_")}
-    except (FileNotFoundError, KeyError, OSError, RuntimeError, ValueError) as e:
-        return 2, {"input_errors": [f"{type(e).__name__}: {e}"]}
-    g = freespec_gate(run["x"], run["names"], n_bins=N_BINS, threshold=threshold, reference=ref, expected_names=exp)
+            r = load_reference(reference_key)
+            if not isinstance(r, dict):
+                return invalid(f"reference {reference_key!r}: loader returned {type(r).__name__}")
+            ref = {k: v for k, v in r.items() if str(k).startswith("gw_log10_rho_")}
+    except (FileNotFoundError, KeyError, OSError, RuntimeError, ValueError, TypeError, AttributeError) as e:
+        return invalid(f"{type(e).__name__}: {e}")
+    g = freespec_gate(x, names, n_bins=N_BINS, threshold=threshold, reference=ref, expected_names=exp)
     return gate_exit_code(g, require_reproduction=bool(reference_key)), g
 
 

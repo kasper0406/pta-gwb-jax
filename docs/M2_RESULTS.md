@@ -482,7 +482,10 @@ Pilots (CURN diagonal vs dense metric, HD step-size-only warmup) are described i
    **Acceptance gate** (`ptagwb.diagnostics.freespec_gate`, CLI `scripts/m2_freespec_diag.py`,
    run by `scripts/m2_rerun_fs30.sh`; thresholds in `diagnostics.GATE_DEFAULTS`). It reports
    separate verdicts:
-   * **Input validation** (else exit 2, nothing evaluated): the run's parameter names must equal,
+   * **Input validation** (else exit 2, nothing evaluated): finite threshold and criteria; the
+     stored model must state orf = "hd", common = "freespec", n_common = 30 explicitly (a missing
+     orf is rejected, not defaulted); the run must have numeric draws `x` and names, all read and
+     converted inside the validation boundary; the run's parameter names must equal,
      in order, the 164 names derived independently from the HD^free model spec and the release's
      67-pulsar list; unique names; all draws finite; all 30 bins present; if a comparison is
      requested, the reference must contain all 30 bins with finite draws. A missing run or
@@ -494,9 +497,14 @@ Pilots (CURN diagonal vs dense metric, HD step-size-only warmup) are described i
      10 draws in its minority class is "unavailable" (no R-hat/ESS/SE is invented for it) and
      reported as a warning; the bin's parameter R-hat/ESS still apply.
    * **Reproduction agreement** PASS/FAIL/UNAVAILABLE: per-bin occupancy vs the released core,
-     |z| <= 3.5 with conservative SEs (the larger of a batch-means SE, our chains as the units /
-     20 contiguous batches of the single reference sequence, and the binomial SE from the
-     indicator ESS). This is a conventional threshold, not a calibrated test. The reference's own
+     |z| <= 3.5 with conservative, never-zero SEs: the larger of a batch-means SE (our chains as
+     the units / 20 contiguous batches of the single reference sequence) and the binomial SE from
+     the indicator ESS; for a near-constant ("unavailable") indicator, a sparse-count SE instead:
+     Jeffreys-smoothed proportion p~ = (k + 1/2) / (n + 1) with the ESS capped at the number of
+     units, SE = sqrt(p~ (1 - p~) / units). A run whose chains barely visit a region therefore
+     cannot claim to disagree (or agree) precisely about its probability. UNAVAILABLE occurs only
+     when no reference is requested (convergence-only mode, `--released ''`), and the exit status
+     then depends on convergence alone. This is a conventional threshold, not a calibrated test. The reference's own
      diagnostics are recorded: after its stored burn-in the released core has max split R-hat
      1.0021 and min bulk / tail ESS 1069 / 1540 over the 30 bins. That comes from one stored
      sequence, so it supports but does not certify the reference. A converged run that disagrees
@@ -507,11 +515,15 @@ Pilots (CURN diagonal vs dense metric, HD step-size-only warmup) are described i
    * Exit status: 0 only if convergence PASS and agreement PASS ("reproduction acceptance");
      1 if either verdict fails (the output says which); 2 for missing or invalid input.
 
-   On the existing hd_fs30 draws: convergence FAIL (59 parameters, 18 bins), agreement FAIL
-   (1 bin), exit 1. `tests/test_freespec_gate.py` checks that a synthetic well-mixed bimodal set
+   On the existing hd_fs30 draws: convergence FAIL (59 parameters, 18 bins), agreement PASS
+   (with the sparse-count SE, f_3, where our chains never visit the low-power region, is no
+   longer counted as a precise disagreement), exit 1. `tests/test_freespec_gate.py` checks that a synthetic well-mixed bimodal set
    passes both verdicts, that a stuck chain fails convergence, that a shifted reference fails only
    agreement, and that the reviewer's invalid inputs (all IRN parameters removed, an empty or wrong
-   reference, a +inf draw, a missing bin, duplicate names) give exit 2. It also checks that the
+   reference, a +inf draw, a missing bin, duplicate names, a non-finite threshold, orf = "curn" or
+   missing, wrong spectrum or bin count, missing `x`, `model: null`, non-numeric draws, a failing
+   loader) give exit 2, and that one low-power draw per chain in a zero-occupancy bin gets a
+   non-zero SE and does not fail agreement. It also checks that the
    derived schema equals the production run's names and that the existing hd_fs30 fails convergence. The config's
    model / init / chain / draw fields are backend-independent (`"sampler": "nuts"` is the only
    backend implemented); if the performance study changes the sampler, keep those and the gate.

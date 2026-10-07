@@ -202,11 +202,23 @@ def _batch_means_se(ind: np.ndarray, n_batches: int) -> float:
 
 
 def _conservative_se(ind: np.ndarray, st: dict, n_batches: int) -> float:
+    """Never-zero SE of the occupancy (mean of a 0/1 indicator, (chains, n)).
+
+    * available indicator: max(batch-means SE, binomial SE with the indicator ESS);
+    * unavailable (near-constant, < min_minority_count draws in the rarer class): sparse-count
+      treatment. The ESS is taken to be at most the number of independent units u (chains for a
+      multi-chain run, ``n_batches`` contiguous batches for a single reference sequence) and the
+      proportion is Jeffreys-smoothed, p~ = (k + 1/2) / (n + 1), giving
+      SE = max(batch-means SE, sqrt(p~ (1 - p~) / u)). Deliberately conservative: a run whose
+      chains barely visit a region cannot establish its probability.
+    """
     se = _batch_means_se(ind, n_batches)
+    f = float(ind.mean())
     if st["available"]:
-        f = float(ind.mean())
-        se = max(se, float(np.sqrt(f * (1 - f) / st["ess"])))
-    return se
+        return max(se, float(np.sqrt(f * (1 - f) / st["ess"])))
+    units = ind.shape[0] if ind.shape[0] >= 2 else n_batches
+    pj = (float(ind.sum()) + 0.5) / (ind.size + 1.0)
+    return max(se, float(np.sqrt(pj * (1 - pj) / units)))
 
 
 def validate_gate_inputs(x, names, expected_names=None, reference=None, compare: bool = False,
@@ -215,7 +227,12 @@ def validate_gate_inputs(x, names, expected_names=None, reference=None, compare:
     ``expected_names`` schema if given, all expected bins present, finite draws, and, if
     ``compare``, a complete, finite, non-trivial reference for every bin."""
     errs = []
-    x = np.asarray(x, np.float64)
+    try:
+        x = np.asarray(x, np.float64)
+    except (TypeError, ValueError) as e:
+        return [f"draws are not numeric: {e}"]
+    if not isinstance(names, (list, tuple)) or not all(isinstance(n, str) for n in names):
+        return ["parameter names must be a list of strings"]
     if x.ndim != 3:
         return [f"draws must be (chains, draws, D), got shape {x.shape}"]
     C, N, D = x.shape
@@ -241,11 +258,15 @@ def validate_gate_inputs(x, names, expected_names=None, reference=None, compare:
             errs.append("reference requested but empty")
         else:
             for k in range(n_bins):
-                r = reference.get(f"{prefix}{k}")
+                r = reference.get(f"{prefix}{k}") if isinstance(reference, dict) else None
                 if r is None:
                     errs.append(f"reference lacks {prefix}{k}")
                     continue
-                r = np.asarray(r, np.float64).ravel()
+                try:
+                    r = np.asarray(r, np.float64).ravel()
+                except (TypeError, ValueError):
+                    errs.append(f"reference {prefix}{k}: not numeric")
+                    continue
                 if r.size < 100 or not np.all(np.isfinite(r)):
                     errs.append(f"reference {prefix}{k}: {r.size} draws, finite={bool(np.all(np.isfinite(r)))}")
     return errs
@@ -273,7 +294,8 @@ def freespec_gate(
     * ``convergence`` PASS/FAIL: every parameter has rank-normalised split R-hat < rhat_max and
       bulk/tail ESS >= the minimums; every bin's occupancy indicator 1[log10_rho < threshold], when
       available (not near-constant), has R-hat < rhat_max and ESS >= indicator_ess_min.
-    * ``reproduction_agreement`` PASS/FAIL/UNAVAILABLE: per bin, |occupancy - reference
+    * ``reproduction_agreement`` PASS/FAIL/UNAVAILABLE (UNAVAILABLE only without a reference;
+      sparse bins use the never-zero sparse-count SE of ``_conservative_se``): per bin, |occupancy - reference
       occupancy| / sqrt(SE_ours^2 + SE_ref^2) <= agreement_z_tol; each SE is the larger of a
       batch-means SE (our chains as units; contiguous batches of the single reference sequence)
       and the binomial SE from the indicator ESS (when available). The reference's own split-R-hat,
@@ -287,6 +309,9 @@ def freespec_gate(
     cfg = {**GATE_DEFAULTS, **overrides}
     out = {"criteria": cfg | {"threshold": threshold, "n_bins": n_bins, "probs": list(probs)}}
     errs = validate_gate_inputs(x, names, expected_names, reference, reference is not None, prefix, n_bins)
+    for key, val in (("threshold", threshold), *((k, v) for k, v in cfg.items() if isinstance(v, (int, float)))):
+        if not (isinstance(val, (int, float, np.floating, np.integer)) and np.isfinite(val)):
+            errs.append(f"{key} must be finite, got {val!r}")
     if errs:
         return out | {"input_errors": errs, "convergence": "UNAVAILABLE", "reproduction_agreement": "UNAVAILABLE",
                       "heuristic_warnings": []}
