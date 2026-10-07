@@ -1,0 +1,42 @@
+{
+ "env": {
+  "git_sha": "4b63e38da37154b8a2f135c0653f1b819f1270e0",
+  "jax": "0.11.2",
+  "backend": "cpu",
+  "devices": [
+   "cpu:0",
+   "cpu:1",
+   "cpu:2",
+   "cpu:3",
+   "cpu:4",
+   "cpu:5",
+   "cpu:6",
+   "cpu:7",
+   "cpu:8",
+   "cpu:9",
+   "cpu:10",
+   "cpu:11",
+   "cpu:12",
+   "cpu:13",
+   "cpu:14",
+   "cpu:15"
+  ],
+  "XLA_FLAGS": "--xla_force_host_platform_device_count=16",
+  "host": "kworkstation",
+  "time": "2026-10-07T08:42:11"
+ },
+ "orf": "hd",
+ "grad_precision": "float64",
+ "OPENBLAS_NUM_THREADS": "1",
+ "rows": [
+  {
+   "variant": "prod",
+   "batch": 32,
+   "pmap_devices": 16,
+   "call_ms": 1032.8612378798425,
+   "per_chain_grad_ms": 32.27691368374508,
+   "min_ms": 1007.0405160076916,
+   "value_only_ms": null
+  }
+ ]
+}

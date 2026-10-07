@@ -40,6 +40,11 @@ oracle = [
     "enterprise-extensions>=3.0.3",
     "enterprise-pulsar>=3.5.0",
 ]
+# Performance study only (bench/, src/ptagwb/perf_*.py; docs/PERF.md). Not used by production.
+perf = [
+    "blackjax>=1.7.1",
+    "flowmc>=0.6.3",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

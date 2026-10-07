@@ -1,0 +1,34 @@
+{
+ "env": {
+  "git_sha": "4b63e38da37154b8a2f135c0653f1b819f1270e0",
+  "jax": "0.11.2",
+  "backend": "cpu",
+  "devices": [
+   "cpu:0"
+  ],
+  "XLA_FLAGS": "",
+  "host": "kworkstation",
+  "time": "2026-10-07T08:41:42"
+ },
+ "orf": "hd",
+ "grad_precision": "float64",
+ "OPENBLAS_NUM_THREADS": "1",
+ "rows": [
+  {
+   "variant": "prod",
+   "batch": 1,
+   "call_ms": 55.4456515237689,
+   "per_chain_grad_ms": 55.4456515237689,
+   "min_ms": 54.11053216084838,
+   "value_only_ms": 37.61451202444732
+  },
+  {
+   "variant": "prod",
+   "batch": 4,
+   "call_ms": 230.99445505067706,
+   "per_chain_grad_ms": 57.748613762669265,
+   "min_ms": 224.10637279972434,
+   "value_only_ms": null
+  }
+ ]
+}

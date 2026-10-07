@@ -1,0 +1,90 @@
+{
+ "env": {
+  "git_sha": "4b63e38da37154b8a2f135c0653f1b819f1270e0",
+  "jax": "0.11.2",
+  "backend": "gpu",
+  "devices": [
+   "cuda:0"
+  ],
+  "XLA_FLAGS": "",
+  "host": "kworkstation",
+  "time": "2026-10-07T09:08:39"
+ },
+ "orf": "hd",
+ "grad_precision": "mixed",
+ "OPENBLAS_NUM_THREADS": "",
+ "rows": [
+  {
+   "variant": "prod",
+   "batch": 1,
+   "pmap_devices": 1,
+   "call_ms": 9.500391781330109,
+   "per_chain_grad_ms": 9.500391781330109,
+   "min_ms": 9.424732066690922,
+   "value_only_ms": 8.724309038370848
+  },
+  {
+   "variant": "prod",
+   "batch": 4,
+   "pmap_devices": 1,
+   "call_ms": 25.545319076627493,
+   "per_chain_grad_ms": 6.386329769156873,
+   "min_ms": 25.383615400642157,
+   "value_only_ms": null
+  },
+  {
+   "variant": "prod",
+   "batch": 16,
+   "pmap_devices": 1,
+   "call_ms": 53.26241720467806,
+   "per_chain_grad_ms": 3.3289010752923787,
+   "min_ms": 53.10251330956817,
+   "value_only_ms": null
+  },
+  {
+   "variant": "prod",
+   "batch": 64,
+   "pmap_devices": 1,
+   "call_ms": 197.4513940513134,
+   "per_chain_grad_ms": 3.085178032051772,
+   "min_ms": 197.3345740698278,
+   "value_only_ms": null
+  },
+  {
+   "variant": "hh+levels",
+   "batch": 1,
+   "pmap_devices": 1,
+   "call_ms": 6.963449297472835,
+   "per_chain_grad_ms": 6.963449297472835,
+   "min_ms": 6.88885897397995,
+   "value_only_ms": 6.171296816319227
+  },
+  {
+   "variant": "hh+levels",
+   "batch": 4,
+   "pmap_devices": 1,
+   "call_ms": 23.063371889293194,
+   "per_chain_grad_ms": 5.7658429723232985,
+   "min_ms": 22.945912089198828,
+   "value_only_ms": null
+  },
+  {
+   "variant": "hh+levels",
+   "batch": 16,
+   "pmap_devices": 1,
+   "call_ms": 47.077900264412165,
+   "per_chain_grad_ms": 2.9423687665257603,
+   "min_ms": 46.98966024443507,
+   "value_only_ms": null
+  },
+  {
+   "variant": "hh+levels",
+   "batch": 64,
+   "pmap_devices": 1,
+   "call_ms": 162.11568797007203,
+   "per_chain_grad_ms": 2.5330576245323755,
+   "min_ms": 161.9985676370561,
+   "value_only_ms": null
+  }
+ ]
+}

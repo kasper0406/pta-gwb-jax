@@ -28,3 +28,7 @@ dist/
 .vscode/
 .idea/
 .DS_Store
+
+# performance study
+bench/cache/
+bench/traces/

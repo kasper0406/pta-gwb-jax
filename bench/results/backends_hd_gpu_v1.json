@@ -1,0 +1,126 @@
+{
+ "env": {
+  "git_sha": "4b63e38da37154b8a2f135c0653f1b819f1270e0",
+  "jax": "0.11.2",
+  "backend": "gpu",
+  "devices": [
+   "cuda:0"
+  ],
+  "XLA_FLAGS": "",
+  "host": "kworkstation",
+  "time": "2026-10-07T08:49:32"
+ },
+ "orf": "hd",
+ "grad_precision": "float64",
+ "OPENBLAS_NUM_THREADS": "",
+ "rows": [
+  {
+   "variant": "hh+levels",
+   "batch": 1,
+   "pmap_devices": 1,
+   "call_ms": 9.843518026173115,
+   "per_chain_grad_ms": 9.843518026173115,
+   "min_ms": 9.800469037145376,
+   "value_only_ms": 6.285895826295018
+  },
+  {
+   "variant": "hh+levels",
+   "batch": 4,
+   "pmap_devices": 1,
+   "call_ms": 34.48422788642347,
+   "per_chain_grad_ms": 8.621056971605867,
+   "min_ms": 34.34903407469392,
+   "value_only_ms": null
+  },
+  {
+   "variant": "hh+levels",
+   "batch": 16,
+   "pmap_devices": 1,
+   "call_ms": 93.09228719212115,
+   "per_chain_grad_ms": 5.818267949507572,
+   "min_ms": 93.02562102675438,
+   "value_only_ms": null
+  },
+  {
+   "variant": "hh+levels",
+   "batch": 64,
+   "pmap_devices": 1,
+   "call_ms": 346.7125790193677,
+   "per_chain_grad_ms": 5.41738404717762,
+   "min_ms": 346.6960801742971,
+   "value_only_ms": null
+  },
+  {
+   "variant": "hh+recursive",
+   "batch": 1,
+   "pmap_devices": 1,
+   "call_ms": 11.835338082164526,
+   "per_chain_grad_ms": 11.835338082164526,
+   "min_ms": 11.669262778013945,
+   "value_only_ms": 6.198750576004386
+  },
+  {
+   "variant": "hh+recursive",
+   "batch": 4,
+   "pmap_devices": 1,
+   "call_ms": 35.320403054356575,
+   "per_chain_grad_ms": 8.830100763589144,
+   "min_ms": 35.09067837148905,
+   "value_only_ms": null
+  },
+  {
+   "variant": "hh+recursive",
+   "batch": 16,
+   "pmap_devices": 1,
+   "call_ms": 86.49592543952167,
+   "per_chain_grad_ms": 5.405995339970104,
+   "min_ms": 86.40277618542314,
+   "value_only_ms": null
+  },
+  {
+   "variant": "hh+recursive",
+   "batch": 64,
+   "pmap_devices": 1,
+   "call_ms": 314.68153605237603,
+   "per_chain_grad_ms": 4.9168990008183755,
+   "min_ms": 314.6090260706842,
+   "value_only_ms": null
+  },
+  {
+   "variant": "prod+levels",
+   "batch": 1,
+   "pmap_devices": 1,
+   "call_ms": 12.41269987076521,
+   "per_chain_grad_ms": 12.41269987076521,
+   "min_ms": 12.344180140644312,
+   "value_only_ms": 8.767658844590187
+  },
+  {
+   "variant": "prod+levels",
+   "batch": 4,
+   "pmap_devices": 1,
+   "call_ms": 37.19646041281521,
+   "per_chain_grad_ms": 9.299115103203803,
+   "min_ms": 36.974300630390644,
+   "value_only_ms": null
+  },
+  {
+   "variant": "prod+levels",
+   "batch": 16,
+   "pmap_devices": 1,
+   "call_ms": 99.68894510529935,
+   "per_chain_grad_ms": 6.23055906908121,
+   "min_ms": 99.59036065265536,
+   "value_only_ms": null
+  },
+  {
+   "variant": "prod+levels",
+   "batch": 64,
+   "pmap_devices": 1,
+   "call_ms": 382.2048478759825,
+   "per_chain_grad_ms": 5.971950748062227,
+   "min_ms": 382.12218787521124,
+   "value_only_ms": null
+  }
+ ]
+}
