@@ -1,6 +1,12 @@
 {
  "name": "hd_fs30_v2",
- "model": {"orf": "hd", "common": "freespec", "n_common": 30, "position": "enterprise", "grad_precision": "mixed"},
+ "model": {
+  "orf": "hd",
+  "common": "freespec",
+  "n_common": 30,
+  "position": "enterprise",
+  "grad_precision": "mixed"
+ },
  "sampler": "nuts",
  "num_chains": 8,
  "num_warmup": 500,
@@ -15,5 +21,5 @@
  "target_accept": 0.8,
  "max_tree_depth": 10,
  "chain_method": "vectorized",
- "notes": "HD free spectrum re-run after review (hd_fs30 not converged). Independent, overdispersed initialisation: every coordinate z ~ U(-4, 4) in the logistic parameterisation, i.e. each chain starts uniformly within 1.8-98.2% of every prior box (log10_rho in [-15.24, -1.26]); nothing taken from curn_fs30 or any other run (init and metric). Diagonal windowed adaptation. Acceptance gate: scripts/m2_freespec_diag.py --run hd_fs30_v2 must pass every bin (indicator R-hat < 1.01, indicator ESS > 100, between-chain occupancy p > 0.01, occupancy vs released |z| < 3) and the q05 per-chain/half-run spread must be within MCSE; plus the usual R-hat/ESS over all 164 parameters. Run with scripts/m2_rerun_fs30.sh."
+ "notes": "HD free spectrum re-run after review (hd_fs30 not converged). Independent, overdispersed initialisation: every coordinate z ~ U(-4, 4) in the unconstrained logistic parameterisation (uniform in z, not in the prior box; starts within 1.8-98.2% of every prior range); nothing taken from curn_fs30 or any other run (init and metric). Diagonal windowed adaptation as a baseline (not a funnel remedy). Acceptance: scripts/m2_freespec_diag.py --run hd_fs30_v2 must exit 0 (ptagwb.diagnostics.freespec_gate: all 164 parameters R-hat < 1.01 and bulk/tail ESS >= 400; per-bin occupancy indicator R-hat < 1.01, ESS >= 400, |z| vs released <= 3.5; tail stability |z| <= 4.5). Run with scripts/m2_rerun_fs30.sh."
 }

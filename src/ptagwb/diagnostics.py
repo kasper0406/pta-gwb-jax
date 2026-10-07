@@ -154,3 +154,163 @@ def energy_distance(a: np.ndarray, b: np.ndarray, max_n: int = 4000, seed: int =
         return np.mean(np.linalg.norm(u[:, None, :] - v[None, :, :], axis=-1))
 
     return float(2 * md(a, b) - md(a, a) - md(b, b))
+
+
+# ---------------------------------------------------------------------- acceptance gate
+
+GATE_DEFAULTS = {
+    "rhat_max": 1.01,  # GWB App. B criterion, applied to every parameter (rank-normalised split R-hat)
+    # Vehtari et al. (2021) recommend bulk and tail ESS > 400 (100 per chain for 4 chains) before
+    # trusting R-hat and quantile MCSEs; we require it for every parameter and for the occupancy
+    # indicators, independent of the number of chains.
+    "ess_bulk_min": 400.0,
+    "ess_tail_min": 400.0,
+    "indicator_ess_min": 400.0,
+    # tail-stability tolerance in units of the standard error of the difference. With 8 chains,
+    # 30 bins, 3 quantiles (~810 tests incl. half-run tests), Gaussian |z| > 4.5 gives a
+    # family-wise false-alarm rate of ~0.5% (|z| > 4 tripped on 1 of 10 synthetic well-mixed sets).
+    "z_tol": 4.5,
+    # 30 bins: Gaussian |z| > 3.5 has a ~1.4% family-wise false-alarm rate
+    "occupancy_z_tol": 3.5,
+}
+
+
+def _indicator_stats(ind: np.ndarray) -> tuple[float, float]:
+    """(R-hat, ESS) of a 0/1 indicator (chains, n); degenerate (constant) indicators get (1, N)."""
+    if np.ptp(ind) == 0:
+        return 1.0, float(ind.size)
+    return rhat(ind), ess(_split(ind))
+
+
+def _cdf_diff_test(a: np.ndarray, b: np.ndarray, q: float, z_tol: float) -> dict:
+    """Tail-stability test at a reference quantile value q: the fractions of draws <= q in two
+    disjoint subsets a, b ((chains, n) arrays) and z = (F_a - F_b) / sqrt(var_a + var_b), with
+    var = F (1 - F) / ESS of the indicator computed within each subset (floored at 1/(n ESS)).
+
+    This is a quantile-stability test expressed on the probability scale: q_p is stable across
+    subsets iff the mass below the pooled q_p is. Unlike a difference of quantile values divided
+    by quantile MCSEs, it stays well defined when q_p falls in a low-density gap between the two
+    modes of a free-spectrum marginal, where quantile values jump and their MCSEs are unreliable
+    (a synthetic, perfectly mixed bimodal set produced |z| up to 8 with the quantile-value form).
+    """
+    out = {}
+    var = []
+    for key, v in (("a", a), ("b", b)):
+        ind = (v <= q).astype(float)
+        f = float(ind.mean())
+        _, e = _indicator_stats(ind)
+        out[f"F_{key}"] = f
+        var.append(max(f * (1 - f), 1.0 / ind.size) / max(e, 1.0))
+    d = out["F_a"] - out["F_b"]
+    se = float(np.sqrt(sum(var)))
+    z = d / se if se > 0 else (0.0 if d == 0 else float("inf"))
+    return {**out, "d": d, "se": se, "z": float(z), "pass": bool(np.isfinite(z) and abs(z) <= z_tol)}
+
+
+def freespec_gate(
+    x: np.ndarray,
+    names: list[str],
+    n_bins: int = 30,
+    prefix: str = "gw_log10_rho_",
+    threshold: float = -9.0,
+    released: dict | None = None,
+    probs: tuple[float, ...] = (0.05, 0.5, 0.95),
+    **overrides,
+) -> dict:
+    """Aggregate acceptance check for a free-spectrum run. ``x``: (chains, draws, D) draws with
+    parameter ``names``; ``released``: optional {name: 1-D reference draws}.
+
+    Fails (``pass`` False) on any missing bin, missing/non-finite diagnostic, or:
+
+    1. any parameter (all D, incl. IRN) with rank-normalised split R-hat >= rhat_max, bulk ESS <
+       ess_bulk_min or tail ESS < ess_tail_min;
+    2. any bin whose occupancy indicator 1[log10_rho < threshold] has R-hat >= rhat_max or ESS <
+       indicator_ess_min, or (with ``released``) pooled occupancy differing from the released one
+       by more than occupancy_z_tol binomial-ESS standard errors;
+    3. tail instability: for each bin and p in ``probs``, with q = pooled p-quantile, compare the
+       fraction of draws <= q in chain c vs the other chains (every c) and in the first vs second
+       half of all chains; z = difference / sqrt(var_a + var_b) with binomial variances from each
+       subset's own indicator ESS (``_cdf_diff_test``); any |z| > z_tol fails. Differences of the
+       quantile values themselves are reported descriptively.
+
+    The between-chain chi^2 occupancy test is reported as supplementary only (its ESS
+    adjustment makes it weak).
+    """
+    from scipy import stats as _st
+
+    cfg = {**GATE_DEFAULTS, **overrides}
+    x = np.asarray(x, np.float64)
+    C, N, D = x.shape
+    failures: list[str] = []
+    if len(names) != D:
+        failures.append(f"names ({len(names)}) do not match D = {D}")
+    if C < 2:
+        failures.append("need >= 2 chains")
+    params = {}
+    for j, n in enumerate(names[:D]):
+        s = {"rhat": rhat(x[..., j]), "ess_bulk": ess_bulk(x[..., j]), "ess_tail": ess_tail(x[..., j])}
+        ok = (np.isfinite(list(s.values())).all() and s["rhat"] < cfg["rhat_max"]
+              and s["ess_bulk"] >= cfg["ess_bulk_min"] and s["ess_tail"] >= cfg["ess_tail_min"])
+        s["pass"] = bool(ok)
+        params[n] = s
+        if not ok:
+            failures.append(f"{n}: R-hat {s['rhat']:.4f}, bulk ESS {s['ess_bulk']:.0f}, tail ESS {s['ess_tail']:.0f}")
+    bins = {}
+    idx = {n: j for j, n in enumerate(names)}
+    h = N // 2
+    for k in range(n_bins):
+        n = f"{prefix}{k}"
+        if n not in idx:
+            failures.append(f"{n}: missing")
+            bins[n] = {"pass": False, "missing": True}
+            continue
+        v = x[..., idx[n]]
+        ind = (v < threshold).astype(float)
+        ir, ie = _indicator_stats(ind)
+        pooled = float(ind.mean())
+        b = {"occupancy_per_chain": ind.mean(axis=1).tolist(), "occupancy": pooled,
+             "indicator_rhat": ir, "indicator_ess": ie, "checks": {}}
+        b["checks"]["indicator"] = bool(np.isfinite(ir) and ir < cfg["rhat_max"] and ie >= cfg["indicator_ess_min"])
+        # supplementary between-chain chi^2 on ESS-scaled counts
+        if 0 < pooled < 1:
+            neff = max(ie / C, 1.0)
+            chi2 = float(np.sum((ind.mean(axis=1) - pooled) ** 2 * neff / (pooled * (1 - pooled))))
+            b["supplementary_chi2_p"] = float(_st.chi2(C - 1).sf(chi2))
+        if released is not None and n in released:
+            r = np.asarray(released[n], np.float64)
+            ro = float(np.mean(r < threshold))
+            _, re_ = _indicator_stats((r < threshold).astype(float)[None])
+            se_o = np.sqrt(max(pooled * (1 - pooled), 1.0 / ind.size) / max(ie, 1.0))
+            se_r = np.sqrt(max(ro * (1 - ro), 1.0 / r.size) / max(re_, 1.0))
+            z = (pooled - ro) / np.hypot(se_o, se_r)
+            b["released_occupancy"], b["occupancy_z"] = ro, float(z)
+            b["checks"]["occupancy_vs_released"] = bool(abs(z) <= cfg["occupancy_z_tol"])
+        tails = []
+        for p in probs:
+            q = float(np.quantile(v, p))
+            for c in range(C):
+                t = _cdf_diff_test(v[c : c + 1], np.delete(v, c, axis=0), q, cfg["z_tol"])
+                t["q_chain_minus_rest"] = float(np.quantile(v[c], p) - np.quantile(np.delete(v, c, axis=0), p))
+                tails.append({"test": f"chain{c}_vs_rest", "p": p, "q_pooled": q, **t})
+            t = _cdf_diff_test(v[:, :h], v[:, h:], q, cfg["z_tol"])
+            t["q_first_minus_second"] = float(np.quantile(v[:, :h], p) - np.quantile(v[:, h:], p))
+            tails.append({"test": "first_vs_second_half", "p": p, "q_pooled": q, **t})
+        b["tail_tests"] = tails
+        b["checks"]["tail_stability"] = all(t["pass"] for t in tails)
+        b["checks"]["parameter"] = params.get(n, {}).get("pass", False)
+        b["pass"] = all(b["checks"].values())
+        if not b["pass"]:
+            bad = [kk for kk, vv in b["checks"].items() if not vv]
+            worst = max((abs(t["z"]) if np.isfinite(t["z"]) else np.inf) for t in tails)
+            failures.append(f"{n}: failed {bad} (indicator R-hat {ir:.3f}, ESS {ie:.0f}, max |tail z| {worst:.1f})")
+        bins[n] = b
+    return {
+        "pass": not failures,
+        "failures": failures,
+        "n_failures": len(failures),
+        "criteria": cfg | {"threshold": threshold, "n_bins": n_bins, "probs": list(probs)},
+        "parameters": params,
+        "bins": bins,
+        "n_parameters_failing": int(sum(not s["pass"] for s in params.values())),
+        "n_bins_failing": int(sum(not b["pass"] for b in bins.values())),
+    }

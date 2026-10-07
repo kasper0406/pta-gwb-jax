@@ -23,7 +23,9 @@ likelihoods with gradients, validated against discovery, enterprise and the rele
 estimators and the optimal statistic. The power-law posteriors (HD^13/3 A = 2.45e-15, HD^gamma
 A = 6.4e-15 / gamma = 3.23), the HD vs CURN Bayes factor (bridge ~180; estimators span 178-228)
 and the OS (S/N 4.5 / 5.0, binned chi^2 = 8.1 at the released noise point) match the paper and
-the released products; a few IRN nuisance parameters miss the paper's R-hat < 1.01 criterion.
+the released products, with the Bayes-factor uncertainty provisional. No run is fully
+convergence-certified: several IRN nuisance parameters miss the paper's all-parameter R-hat < 1.01
+criterion.
 See [`docs/M2_RESULTS.md`](docs/M2_RESULTS.md). See [`docs/PLAN.md`](docs/PLAN.md) for the analysis
 settings, target numbers and milestones, [`docs/SPEC_astra.md`](docs/SPEC_astra.md) for the
 independent reproduction spec, and [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) for the

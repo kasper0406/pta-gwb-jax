@@ -1,22 +1,25 @@
-"""Free-spectrum convergence diagnostics: per-bin mode occupancy and tail-quantile stability.
+"""Free-spectrum acceptance gate (CLI for ``ptagwb.diagnostics.freespec_gate``).
 
     uv run --no-sync python scripts/m2_freespec_diag.py [--run hd_fs30] [--threshold -9]
 
-The free-spectrum marginals of partially constrained bins are bimodal: a "power present" peak
-near log10_rho ~ -7.5 and a prior-dominated low-power plateau down to the prior edge -15.5.
-Matching medians does not show that the chains weight the two regions correctly, so for each bin:
+Exit status 0 only if the run passes **every** check; 1 on any failure; 2 if the run or a
+diagnostic is missing. Checks (thresholds in ``diagnostics.GATE_DEFAULTS``):
 
-* occupancy: fraction of draws below ``--threshold`` (default -9, the lower edge of the Fig. 1a
-  histograms) per chain, pooled, and in the released core; a between-chain chi^2 test of equal
-  occupancy using effective counts (chain length scaled by the indicator's ESS / N), and the
-  split-R-hat and bulk ESS of the indicator itself;
-* tail stability: 5% / 50% / 95% quantiles per chain and per half of the run, their MCSEs, and
-  the released values.
+* all expected bins present (``--n-bins``, default 30);
+* every parameter (free-spectrum bins *and* the 134 IRN parameters): rank-normalised split R-hat
+  < 1.01, bulk ESS >= 400, tail ESS >= 400;
+* per bin, the occupancy indicator 1[log10_rho < threshold] (the "power absent" region of the
+  bimodal marginals): R-hat < 1.01 and ESS >= 400, and pooled occupancy within 3.5 binomial-ESS
+  standard errors of the released core's;
+* tail stability per bin, at the pooled 5/50/95% quantiles q: the fraction of draws <= q in each
+  chain vs the other chains, and in the first vs second half of all chains; z = difference /
+  sqrt(var_a + var_b), binomial variances from each subset's own indicator ESS (i.e. the
+  uncertainty of the difference, not a pooled MCSE); fail if any |z| > 4.5 (~0.5% family-wise
+  false-alarm rate for ~810 tests). Quantile-value differences are reported descriptively.
 
-A bin passes if the indicator R-hat < 1.01, its ESS > 100, the between-chain test has p > 0.01,
-and the pooled occupancy agrees with the released one within 3 combined binomial-ESS errors.
-Works on any run directory (sampler-agnostic: needs only ``x`` (chains, draws, D) and names).
-Writes outputs/m2/freespec_diag_<run>.json and prints a table.
+The between-chain occupancy chi^2 p-value is printed as supplementary information only.
+Sampler-agnostic: needs only ``runs/<run>/samples.npz`` (``x`` of shape (chains, draws, D)) and the
+parameter names. Writes outputs/m2/freespec_gate_<run>.json.
 """
 
 from __future__ import annotations
@@ -25,96 +28,51 @@ import argparse
 import sys
 
 import numpy as np
-from m2_common import ROOT, released, run_draws, save_json
-from scipy import stats
+from m2_common import ROOT, released, save_json
 
-from ptagwb.diagnostics import ess, ess_bulk, mcse_quantile, rhat
+from ptagwb.diagnostics import freespec_gate
 from ptagwb.sampling import load_run
 
 
-def occupancy(x: np.ndarray, thr: float) -> dict:
-    """x: (chains, n) draws of one bin."""
-    ind = (x < thr).astype(float)
-    C = ind.shape[0]
-    per_chain = ind.mean(axis=1)
-    pooled = float(ind.mean())
-    e = ess(ind) if np.ptp(ind) > 0 else float(ind.size)
-    n_eff_chain = max(e / C, 1.0)
-    # chi^2 homogeneity test on effective counts
-    if 0 < pooled < 1 and C > 1:
-        chi2 = float(np.sum((per_chain - pooled) ** 2 * n_eff_chain / (pooled * (1 - pooled))))
-        p = float(stats.chi2(C - 1).sf(chi2))
-    else:
-        chi2, p = 0.0, 1.0
-    se = float(np.sqrt(max(pooled * (1 - pooled), 1.0 / ind.size) / max(e, 1.0)))
-    return {
-        "per_chain": per_chain.tolist(),
-        "pooled": pooled,
-        "pooled_se_ess": se,
-        "indicator_ess": float(e),
-        "indicator_rhat": rhat(ind) if np.ptp(ind) > 0 else 1.0,
-        "between_chain_chi2": chi2,
-        "between_chain_p": p,
-    }
-
-
-def tails(x: np.ndarray) -> dict:
-    n = x.shape[1]
-    h = n // 2
-    out = {}
-    for p in (0.05, 0.5, 0.95):
-        k = f"q{round(100 * p):02d}"
-        out[k] = {
-            "pooled": float(np.quantile(x, p)),
-            "mcse": mcse_quantile(x, p),
-            "per_chain": np.quantile(x, p, axis=1).tolist(),
-            "first_half": float(np.quantile(x[:, :h], p)),
-            "second_half": float(np.quantile(x[:, h:], p)),
-        }
-    return out
-
-
-def main():
+def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", default="hd_fs30")
     ap.add_argument("--threshold", type=float, default=-9.0)
-    ap.add_argument("--released", default="hd_fs30")
+    ap.add_argument("--n-bins", type=int, default=30)
+    ap.add_argument("--released", default="hd_fs30", help="released chain key ('' to skip the comparison)")
     args = ap.parse_args()
-    run = load_run(args.run)
-    rel = released(args.released) if args.released else None
-    names = [n for n in run["names"] if n.startswith("gw_log10_rho_")]
-    out = {"run": args.run, "threshold": args.threshold, "draws": list(run["x"].shape[:2]), "bins": {}}
-    print(f"{args.run}: {run['x'].shape[0]} chains x {run['x'].shape[1]} draws; occupancy = P(log10_rho < {args.threshold})")
-    print("bin | per-chain occupancy | pooled +- se | released | chi2 p | ind R-hat | ind ESS | rho R-hat | bulk ESS | q05 pooled (per chain) | q05 rel | pass")
-    n_fail = 0
-    for n in names:
-        x = run_draws(run, n)
-        o = occupancy(x, args.threshold)
-        t = tails(x)
-        b = {"occupancy": o, "tails": t, "rhat": rhat(x), "ess_bulk": ess_bulk(x)}
-        if rel is not None:
-            r = rel[n]
-            ro = float(np.mean(r < args.threshold))
-            r_ess = ess((r < args.threshold).astype(float)[None]) if 0 < ro < 1 else float(len(r))
-            b["released_occupancy"] = ro
-            b["released_occupancy_se"] = float(np.sqrt(max(ro * (1 - ro), 1.0 / len(r)) / max(r_ess, 1.0)))
-            b["released_q05"] = float(np.quantile(r, 0.05))
-            z = (o["pooled"] - ro) / np.hypot(o["pooled_se_ess"], b["released_occupancy_se"])
-            b["occupancy_z"] = float(z)
-        ok = (o["indicator_rhat"] < 1.01 and o["indicator_ess"] > 100 and o["between_chain_p"] > 0.01
-              and abs(b.get("occupancy_z", 0.0)) < 3)
-        b["pass"] = bool(ok)
-        n_fail += not ok
-        out["bins"][n] = b
-        pc = " ".join(f"{v:.2f}" for v in o["per_chain"])
-        qc = " ".join(f"{v:.1f}" for v in t["q05"]["per_chain"])
-        print(f"{n.split('_')[-1]:>3} | {pc} | {o['pooled']:.3f} +- {o['pooled_se_ess']:.3f} | "
-              f"{b.get('released_occupancy', float('nan')):.3f} | {o['between_chain_p']:.2g} | "
-              f"{o['indicator_rhat']:.3f} | {o['indicator_ess']:.0f} | {b['rhat']:.3f} | {b['ess_bulk']:.0f} | "
-              f"{t['q05']['pooled']:.2f} ({qc}) | {b.get('released_q05', float('nan')):.2f} | {'ok' if ok else 'FAIL'}")
-    out["n_bins_failing"] = n_fail
-    print(f"bins failing: {n_fail} / {len(names)}")
-    save_json(out, ROOT / "outputs" / "m2" / f"freespec_diag_{args.run}.json")
+    try:
+        run = load_run(args.run)
+    except FileNotFoundError as e:
+        print(f"GATE ERROR: run {args.run!r} not found ({e})")
+        return 2
+    rel = None
+    if args.released:
+        r = released(args.released)
+        rel = {k.replace("gw_hd_log10_rho", "gw_log10_rho"): v for k, v in r.items()}
+    g = freespec_gate(run["x"], run["names"], n_bins=args.n_bins, threshold=args.threshold, released=rel)
+    C, N, D = run["x"].shape
+    print(f"{args.run}: {C} chains x {N} draws, {D} parameters; occupancy = P(log10_rho < {args.threshold})")
+    print("bin | per-chain occupancy | pooled | released | ind R-hat | ind ESS | rho R-hat | bulk/tail ESS | max|tail z| | chi2 p (suppl.) | pass")
+    for n, b in g["bins"].items():
+        if b.get("missing"):
+            print(f"{n}: MISSING")
+            continue
+        s = g["parameters"][n]
+        pc = " ".join(f"{v:.2f}" for v in b["occupancy_per_chain"])
+        tz = max((abs(t["z"]) if np.isfinite(t["z"]) else np.inf) for t in b["tail_tests"])
+        print(f"{n.split('_')[-1]:>3} | {pc} | {b['occupancy']:.3f} | {b.get('released_occupancy', float('nan')):.3f} | "
+              f"{b['indicator_rhat']:.3f} | {b['indicator_ess']:.0f} | {s['rhat']:.3f} | {s['ess_bulk']:.0f}/{s['ess_tail']:.0f} | "
+              f"{tz:.1f} | {b.get('supplementary_chi2_p', float('nan')):.2g} | {'ok' if b['pass'] else 'FAIL'}")
+    print(f"parameters failing R-hat/ESS: {g['n_parameters_failing']} / {D}; bins failing: {g['n_bins_failing']} / {args.n_bins}")
+    save_json(g, ROOT / "outputs" / "m2" / f"freespec_gate_{args.run}.json")
+    if g["pass"]:
+        print("GATE: PASS")
+        return 0
+    print(f"GATE: FAIL ({g['n_failures']} failures); first ones:")
+    for f in g["failures"][:15]:
+        print("  -", f)
+    return 1
 
 
 if __name__ == "__main__":

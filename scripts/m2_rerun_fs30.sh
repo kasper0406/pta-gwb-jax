@@ -11,5 +11,12 @@ mkdir -p runs/logs
 if ! { [ -f "runs/$NAME/meta.json" ] && grep -q '"finished"' "runs/$NAME/meta.json"; }; then
   uv run --no-sync python scripts/m2_run.py "$CONFIG" > "runs/logs/$NAME.log" 2>&1
 fi
-# mode occupancy per bin, between-chain test, tail-quantile stability (CPU only)
-JAX_PLATFORMS=cpu uv run --no-sync python scripts/m2_freespec_diag.py --run "$NAME" | tee "outputs/m2/freespec_diag_$NAME.txt"
+# Acceptance gate (CPU only): exits nonzero, and so does this script, on any failure or missing
+# diagnostic (all-parameter R-hat/ESS, per-bin occupancy indicators, tail stability).
+set +e
+JAX_PLATFORMS=cpu uv run --no-sync python scripts/m2_freespec_diag.py --run "$NAME" > "outputs/m2/freespec_gate_$NAME.txt" 2>&1
+status=$?
+set -e
+cat "outputs/m2/freespec_gate_$NAME.txt"
+if [ "$status" -ne 0 ]; then echo "hd_fs30 re-run REJECTED by the acceptance gate (exit $status)"; fi
+exit "$status"

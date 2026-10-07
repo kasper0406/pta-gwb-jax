@@ -1,9 +1,13 @@
 # M2 results: sampling, Bayes factors and optimal statistic
 
-**Status (revised after the independent review of 4b63e38): power-law posteriors, HD vs CURN
-Bayes factors and the optimal statistic are reproduced; the HD free-spectrum (Fig. 1a)
-reproduction is INCOMPLETE / PRELIMINARY** (chains not converged, Sec. 10; re-run prepared in
-`configs/m2/hd_fs30_v2.json`, not yet run). M2 is therefore not complete.
+**Status (revised after two rounds of independent review, 4b63e38 and d6e5c4c).** Scope of the
+claims: the headline power-law posteriors and the optimal statistic are reproduced, and the HD vs
+CURN Bayes factors are reproduced *provisionally* (estimator spread larger than the conditional
+bootstrap error, Sec. 6). **The HD free-spectrum (Fig. 1a) reproduction is INCOMPLETE /
+PRELIMINARY** (chains not converged, Sec. 10; re-run and an enforced acceptance gate prepared,
+not yet run). The free spectrum is not the only shortfall: **no run is fully convergence-certified**
+against the paper's all-parameter R-hat < 1.01 criterion; several IRN nuisance parameters of the
+power-law runs have R-hat 1.01-1.03 (Sec. 4, Sec. 10 item 3). M2 is therefore not complete.
 
 M2 reproduces the headline Bayesian and frequentist results of the NG15 GWB paper (Agazie et al.
 2023, arXiv:2306.16213) with our own pipeline: the M1 float64 JAX likelihood on our PINT 1.1.7
@@ -228,9 +232,10 @@ chains, with two *descriptive* references (neither is a calibrated null distribu
 * hd_vg_14f vs hd_vg_m3a: 1.24e-03 (descriptive references: our chains 1-2 vs 3-4 5.37e-04; released first vs second half 4.76e-04)
 * hd_vg_14f vs hd_vg_hm: 8.89e-04 (descriptive references: our chains 1-2 vs 3-4 5.37e-04; released first vs second half 2.76e-03)
 
-For CURN^gamma and HD^gamma vs the Fig. 1(b) chain the distance is below both references; for
-HD^gamma vs m3a (1.24e-3) and vs the product-space core (8.9e-4) it exceeds our own-chain
-reference (5.4e-4). We do not attach a significance to these numbers; a calibrated test would
+For CURN^gamma (vs m2a and vs the product-space core) the distance is below both references. For
+HD^gamma vs the Fig. 1(b) chain (4.0e-4) it lies between them (above the released-half 3.2e-4,
+below our own-chain 5.4e-4); vs m3a (1.24e-3) it exceeds both, and vs the product-space core
+(8.9e-4) it exceeds our own-chain reference but not the released-half one (2.8e-3). We do not attach a significance to these numbers; a calibrated test would
 need repeated, autocorrelation-preserving, size-matched reference splits. The 1-D quantile
 z-scores above are the quantitative comparison. Fig. 1(b) overlays the contours.
 
@@ -459,17 +464,44 @@ Pilots (CURN diagonal vs dense metric, HD step-size-only warmup) are described i
    5% quantiles -13.9 / -7.9 / -7.9 / -7.9; at f_3 no draw visits the low-power region the
    released core occupies 0.9% of the time. Matching peaks and medians (first 10 bins
    |z(50)| <= 1.6) therefore do not validate the posterior; Fig. 1a is labelled preliminary.
-   Per-bin numbers: `outputs/m2/freespec_diag_hd_fs30.json`.
+   Per-bin numbers: `outputs/m2/freespec_gate_hd_fs30.json`. Under the full acceptance gate below the
+   existing run fails 19 of 30 bins and 59 of 164 parameters (R-hat / ESS), and
+   `scripts/m2_freespec_diag.py` exits with status 1.
    The auxiliary CURN^free run shows the same behaviour (R-hat 1.15 at f_4, bulk ESS 20).
 
    **Re-run prepared, not run** (GPU reserved for the performance study): `configs/m2/hd_fs30_v2.json`
    via `scripts/m2_rerun_fs30.sh`. 8 chains, 500 warmup + 750 draws each; **independent,
-   overdispersed initialisation** (every coordinate z ~ U(-4, 4), i.e. each chain starts uniformly
-   within 1.8-98.2% of every prior box, log10 rho in [-15.24, -1.26]; nothing from curn_fs30 or any
-   other run, neither init nor metric); diagonal windowed adaptation; mixed-precision backward pass
-   as before. Acceptance gate: every bin passes `m2_freespec_diag.py` (indicator R-hat < 1.01,
-   indicator ESS > 100, between-chain occupancy p > 0.01, occupancy vs released |z| < 3, stable
-   per-chain / half-run 5% quantiles) and R-hat < 1.01 for all 164 parameters. The config's
+   overdispersed initialisation**: every coordinate z ~ U(-4, 4) in the unconstrained (logistic)
+   parameterisation, i.e. uniform in z, not uniform in the prior box; starting points lie within
+   1.8-98.2% of every prior range (log10 rho in [-15.24, -1.26]) and concentrate towards the box
+   edges. Nothing is taken from curn_fs30 or any other run (neither init nor metric). Diagonal
+   windowed adaptation is a *baseline*, not a remedy for the funnel geometry: a constant metric
+   only absorbs global linear scales, while funnels have position-dependent curvature, so a
+   reparameterisation of the IRN / free-spectrum coordinates or another algorithm may be needed.
+   Mixed-precision backward pass as before.
+
+   **Acceptance gate** (`ptagwb.diagnostics.freespec_gate`, CLI `scripts/m2_freespec_diag.py`,
+   run by `scripts/m2_rerun_fs30.sh`, which exits nonzero on any failure or missing diagnostic;
+   thresholds in `diagnostics.GATE_DEFAULTS`):
+   * all 30 bins present;
+   * every one of the 164 parameters (incl. all IRN): rank-normalised split R-hat < 1.01, bulk
+     and tail ESS >= 400 (Vehtari et al. 2021: >= 400, i.e. 100 per chain for 4 chains, before
+     R-hat and quantile MCSEs are trusted);
+   * per bin, the occupancy indicator 1[log10 rho < -9]: R-hat < 1.01, ESS >= 400, and pooled
+     occupancy within 3.5 binomial-ESS standard errors of the released core (~1.4% family-wise
+     false-alarm rate over 30 bins);
+   * tail stability per bin at the pooled 5/50/95% quantiles q: fraction of draws <= q in each
+     chain vs the other chains, and in the first vs second half; z = difference / sqrt(var_a +
+     var_b) with binomial variances from each subset's own indicator ESS (the uncertainty of the
+     difference). Fail if any |z| > 4.5 (~810 tests, ~0.5% family-wise false-alarm rate). The test
+     is done on the probability scale because quantile *values* jump when a quantile falls in the
+     low-density gap between the two modes; a perfectly mixed synthetic set gave |z| up to 8 with
+     differences of quantile values over MCSEs. Quantile-value differences are reported
+     descriptively.
+   * The between-chain occupancy chi^2 p-value is supplementary only (its ESS scaling makes it weak).
+
+   `tests/test_freespec_gate.py`: the gate passes on synthetic well-mixed bimodal draws (30 of 30
+   seeds) and fails on a stuck chain, a missing bin, a too-short run and the existing hd_fs30 draws. The config's
    model / init / chain / draw fields are backend-independent (`"sampler": "nuts"` is the only
    backend implemented); if the performance study changes the sampler, keep those and the gate.
    **Expected cost** at the measured 32.6 ms per per-chain gradient: assuming ~260 leapfrog steps

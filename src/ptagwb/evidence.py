@@ -18,7 +18,8 @@ for autocorrelation in the MCMC draws. The Kish effective sample size of the imp
 is reported for the reweighting estimators.
 
 The bootstrap error is *conditional* on the draws: it cannot account for parts of the weight
-distribution the chains never visited, so it is a lower bound on the estimator's true error.
+distribution the chains never visited: it may underestimate the uncertainty and cannot account
+for unvisited regions.
 Report it together with block-length sensitivity and the spread between estimators.
 """
 

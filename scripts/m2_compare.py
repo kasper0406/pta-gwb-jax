@@ -4,8 +4,9 @@
 
 For every (our run, released chain) pair: 5/50/95% quantiles with Monte-Carlo standard errors,
 z = (ours - released) / sqrt(mcse_ours^2 + mcse_rel^2) per quantile, two-sample KS with an
-ESS-based p-value, and for 2-D (gamma, log10_A) the energy distance with a permutation-free
-reference (energy distance between two halves of the released chain, i.e. the MC-noise floor).
+ESS-based p-value, and for 2-D (gamma, log10_A) the energy distance with two descriptive
+references (first vs second contiguous half of the released chain; our chains 1-2 vs 3-4). These
+references are not a calibrated null distribution; the distances are descriptive only.
 Diagnostics per run: max R-hat, min bulk/tail ESS over all parameters, divergences, tree depth,
 step size, wall time, gradient evaluations, ESS/s. Writes outputs/m2/compare.json.
 """
