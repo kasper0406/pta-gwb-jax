@@ -4,8 +4,9 @@
 
 For every (our run, released chain) pair: 5/50/95% quantiles with Monte-Carlo standard errors,
 z = (ours - released) / sqrt(mcse_ours^2 + mcse_rel^2) per quantile, two-sample KS with an
-ESS-based p-value, and for 2-D (gamma, log10_A) the energy distance with a permutation-free
-reference (energy distance between two halves of the released chain, i.e. the MC-noise floor).
+ESS-based p-value, and for 2-D (gamma, log10_A) the energy distance with two descriptive
+references (first vs second contiguous half of the released chain; our chains 1-2 vs 3-4). These
+references are not a calibrated null distribution; the distances are descriptive only.
 Diagnostics per run: max R-hat, min bulk/tail ESS over all parameters, divergences, tree depth,
 step size, wall time, gradient evaluations, ESS/s. Writes outputs/m2/compare.json.
 """
@@ -95,10 +96,11 @@ def energy2d(ours, rel, seed=0, ours_halves=None):
     rng = np.random.default_rng(seed)
     e = energy_distance(ours, rel, seed=seed)
     own = energy_distance(*ours_halves, seed=seed) if ours_halves is not None else float("nan")
-    # MC noise floor: two disjoint random halves of the released chain, thinned like ours
-    idx = rng.permutation(len(rel))
+    # Descriptive references only (not a calibrated null distribution): the first vs second
+    # contiguous half of the released chain (keeps its autocorrelation), and our chains 1-2 vs 3-4.
+    del rng
     h = len(rel) // 2
-    floor = energy_distance(rel[idx[:h]], rel[idx[h:]], seed=seed)
+    floor = energy_distance(rel[:h], rel[h:], seed=seed)
     return {"energy": e, "released_split_floor": floor, "ours_split_floor": own}
 
 

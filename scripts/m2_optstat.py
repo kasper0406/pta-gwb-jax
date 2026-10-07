@@ -1,5 +1,6 @@
-"""Optimal statistic from the M2 CURN chains: fixed-noise (MAP CURN), noise-marginalised, binned
-pair-covariance-aware correlations (Fig. 1c), and the released references.
+"""Optimal statistic from the M2 CURN chains: fixed-noise (at the highest-likelihood saved CURN
+draw), noise-marginalised, binned pair-covariance-aware correlations (Fig. 1c), and the released
+references.
 
     uv run --no-sync python scripts/m2_optstat.py
 
@@ -74,21 +75,21 @@ def main():
                                            "A2_mean": nm["A2"].mean(), "A2_std": nm["A2"].std(), "n": len(X)}
             draws[f"ours_snr_{tag}_{pos}"] = nm["snr"]
             draws[f"ours_A2_{tag}_{pos}"] = nm["A2"]
-        # fixed-noise OS at the maximum-likelihood draw of the chain
+        # fixed-noise OS at the highest-likelihood saved draw (not an optimised MAP)
         i = int(np.argmax(run["logL"].ravel()))
-        pmap = {k: v[i] for k, v in p.items()}
-        out[f"map_{tag}_params"] = {n: float(X[i, j]) for j, n in enumerate(run["names"]) if n.startswith("gw_")}
-        out[f"map_{tag}_logL"] = float(run["logL"].ravel()[i])
+        pbest = {k: v[i] for k, v in p.items()}
+        out[f"maxlike_draw_{tag}_params"] = {n: float(X[i, j]) for j, n in enumerate(run["names"]) if n.startswith("gw_")}
+        out[f"maxlike_draw_{tag}_logL"] = float(run["logL"].ravel()[i])
         for pos, os_ in oss.items():
-            r = os_.os(pmap)
-            out[f"ours_map_{tag}_{pos}"] = {k: r[k] for k in ("A2", "sigma", "snr")}
+            r = os_.os(pbest)
+            out[f"ours_maxlike_draw_{tag}_{pos}"] = {k: r[k] for k in ("A2", "sigma", "snr")}
             if tag == "g433":
-                C = os_.pair_covariance(pmap)
-                a2n = 10 ** (2 * float(pmap["log10_A"]))
+                C = os_.pair_covariance(pbest)
+                a2n = 10 ** (2 * float(pbest["log10_A"]))
                 b = binned_correlations(os_.xi, r["rho"], os_.orf_pairs, C, np.deg2rad(XI_BINS_DEG), a2_norm=a2n)
                 b["p_chi2_15dof"] = float(stats.chi2(15).sf(b["chi2"]))
-                out[f"ours_binned_map_{pos}"] = b
-                if pos == "enterprise":  # sensitivity of the binned chi2 to the choice of "MAP" draw
+                out[f"ours_binned_maxlike_draw_{pos}"] = b
+                if pos == "enterprise":  # sensitivity of the binned chi2 to which high-likelihood draw is used
                     top = np.argsort(run["logL"].ravel())[::-1][:20]
                     chis = []
                     for t in top:

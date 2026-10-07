@@ -1,0 +1,25 @@
+{
+ "name": "hd_fs30_v2",
+ "model": {
+  "orf": "hd",
+  "common": "freespec",
+  "n_common": 30,
+  "position": "enterprise",
+  "grad_precision": "mixed"
+ },
+ "sampler": "nuts",
+ "num_chains": 8,
+ "num_warmup": 500,
+ "num_samples": 750,
+ "block": 50,
+ "seed": 31,
+ "init": "prior",
+ "init_radius": 4.0,
+ "metric": "adapt",
+ "dense_mass": false,
+ "adapt_mass_matrix": true,
+ "target_accept": 0.8,
+ "max_tree_depth": 10,
+ "chain_method": "vectorized",
+ "notes": "HD free spectrum re-run after review (hd_fs30 not converged). Independent, overdispersed initialisation: every coordinate z ~ U(-4, 4) in the unconstrained logistic parameterisation (uniform in z, not in the prior box; starts within 1.8-98.2% of every prior range); nothing taken from curn_fs30 or any other run (init and metric). Diagonal windowed adaptation as a baseline (not a funnel remedy). Reproduction acceptance: scripts/m2_freespec_diag.py --run hd_fs30_v2 must exit 0 (ptagwb.diagnostics.freespec_gate: input schema valid; convergence PASS = all 164 parameters R-hat < 1.01 and bulk/tail ESS >= 400, available occupancy indicators R-hat < 1.01 and ESS >= 400; reproduction agreement PASS vs the released core). Run with scripts/m2_rerun_fs30.sh."
+}

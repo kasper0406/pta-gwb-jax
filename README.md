@@ -14,14 +14,19 @@ with our own JAX analysis pipeline on a single GPU.
   `discovery` sit in an optional dependency group. Tests use them to cross-check
   likelihood values. They are never imported by `src/ptagwb`.
 
-Status: **M1 (deterministic pipeline and likelihood) and M2 (sampling, Bayes factors, optimal
-statistic) done.** M1 covers the PINT ingestion into a hashed cache, fixed white noise, Fourier
-bases, ORFs, and the JAX float64 CURN / HD likelihoods with gradients, validated against
-discovery, enterprise and the released chains ([`docs/M1_VALIDATION.md`](docs/M1_VALIDATION.md)).
-M2 adds NumPyro NUTS sampling, Bayes-factor estimators and the optimal statistic, and reproduces
-the paper's headline numbers (HD^13/3 A = 2.45e-15, HD^gamma A = 6.4e-15 / gamma = 3.23, HD vs
-CURN BF ~180-230, OS S/N 4.5 / 5.0, binned chi^2 = 8.1): see
-[`docs/M2_RESULTS.md`](docs/M2_RESULTS.md). See [`docs/PLAN.md`](docs/PLAN.md) for the analysis
+Status: **M1 (deterministic pipeline and likelihood) done; M2 (sampling, Bayes factors,
+optimal statistic) largely done, but the HD free-spectrum reproduction (Fig. 1a) is
+INCOMPLETE / PRELIMINARY** (unconverged chains; a re-run is prepared). M1 covers the PINT
+ingestion into a hashed cache, fixed white noise, Fourier bases, ORFs, and the JAX float64 CURN / HD
+likelihoods with gradients, validated against discovery, enterprise and the released chains
+([`docs/M1_VALIDATION.md`](docs/M1_VALIDATION.md)). M2 adds NumPyro NUTS sampling, Bayes-factor
+estimators and the optimal statistic. The power-law posteriors (HD^13/3 A = 2.45e-15, HD^gamma
+A = 6.4e-15 / gamma = 3.23), the HD vs CURN Bayes factor (bridge ~180; estimators span 178-228)
+and the OS (S/N 4.5 / 5.0, binned chi^2 = 8.1 at the released noise point) match the paper and
+the released products, with the Bayes-factor uncertainty provisional. No run is fully
+convergence-certified: several IRN nuisance parameters miss the paper's all-parameter R-hat < 1.01
+criterion.
+See [`docs/M2_RESULTS.md`](docs/M2_RESULTS.md). See [`docs/PLAN.md`](docs/PLAN.md) for the analysis
 settings, target numbers and milestones, [`docs/SPEC_astra.md`](docs/SPEC_astra.md) for the
 independent reproduction spec, and [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) for the
 verified versions.
