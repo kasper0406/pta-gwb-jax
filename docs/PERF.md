@@ -13,29 +13,30 @@ after JIT, float64.
 
 ## Summary
 
-* **Profile (HD, 1 chain, 14.3 ms value+grad, GPU busy 98%)**: 1876-dim Cholesky 4.9 ms
-  (cuSOLVER, 0.44 TFLOP/s), backward triangular inverse 5.2 ms (production recursion, 32 serial
-  leaf trsm + dense GEMMs), per-pulsar QR stage 3.5 ms for only 0.14 GF (batched cuSOLVER QR at
-  ~15 GFLOP/s + Q formation). ~6.9 GF at 0.48 TFLOP/s = 25% of the measured 1.9 TFLOP/s DGEMM
-  peak. Not launch-bound.
-* **CPU vs GPU**: CPU best 40 ms per HD gradient (16 BLAS threads), batching/pmap/multi-process
-  do not beat ~26 ms; GPU 14.4 ms single, **5.5-5.8 ms per chain at B = 16-64**. Even the
-  OpenBLAS ceiling (16 single-thread processes) is ~2x below the GPU batched path.
-* **Exact likelihood speedups** (bit-level agreement: value 5.8e-11 abs = ulp of the
-  parameter-dependent logL, gradient 1e-13 rel, at corners/posterior/prior draws, single and
-  vmapped): structured Householder for the per-pulsar stage (3.5 -> 1.0 ms) + level-batched
-  triangular inverse (5.2 -> 1.9 ms). HD **14.4 -> 8.5 ms** (B = 1), 9.4 -> 7.2 (B = 4),
-  5.8 -> 4.4 (B = 16); CURN **3.6 -> 1.07 ms**, 0.70 -> 0.31 at B = 16.
-* **Samplers** (same metric/init/likelihood): BlackJAX NUTS gives 2x the ESS/s of NumPyro NUTS on
-  CURN (1.5x ESS per gradient from a better-adapted step size, plus lower overhead) and on HD
-  1.8x / 2.7x / 2.3x the M2 production ESS/s (common / worst bulk / worst tail). MAMS matches or slightly
-  beats it on CURN, loses on HD (and its tuner costs 26 min on HD); ChEES/MEADS do not pay at the FP64-bound
-  batched gradient cost; unadjusted MCLMC is 3x faster but **biased** (0.43 sd on an IRN mean,
-  0.15 sd on the common amplitude).
-* **Recommendation**: GPU x exact `hh + levels` likelihood x BlackJAX NUTS (4 chains, CURN dense
-  metric, continuous step-size DA): an HD^13/3 run at M2-equal ESS in **~25-35 min instead of
-  ~61 min**. The remaining large lever is an IRN reparameterisation (worst-parameter ESS is set by
-  rare funnel excursions for every exact sampler).
+(Revised after review round 1: a CPU-compiler bug in the fast CURN gradient was found and fixed,
+the baselines were re-measured against the production class, and the sampler recommendation was
+re-tested with a matched, repeated HD comparison, which overturned the first-round claim.)
+
+* **Profile (HD, 1 chain, 14.3-14.7 ms value+grad, GPU busy 98%)**: 1876-dim Cholesky 4.9 ms
+  (cuSOLVER, 0.44 TFLOP/s), backward triangular inverse 5.2 ms (production recursion: dense
+  products, 4.4 GF, plus 32 serial leaf trsm), per-pulsar QR stage 3.5 ms for 0.14 GF. 6.97 GF at
+  ~0.48 TFLOP/s = 25% of the measured 1.9 TFLOP/s DGEMM peak. Not launch-bound.
+* **CPU vs GPU**: CPU best 40 ms per HD gradient (16 BLAS threads), no better than ~26 ms with
+  multi-process; GPU 15.0 ms single, 5.5-5.8 ms per chain at B = 16-64.
+* **Exact likelihood speedups** (opt-in `FastPTALikelihood`): structured Householder reduction
+  (3.5 -> 1.0 ms) + level-batched triangular inverse (5.2 -> 1.9 ms). HD 15.0 -> 8.8 ms (B = 1),
+  9.5 -> 7.3 (B = 4), 5.8 -> 4.4 (B = 16); CURN 3.6 -> 1.02 ms. Agreement within measured tolerances
+  (value <= 1e-9 abs / gradient <= 1e-8 rel, or within 10x production's own permutation floor for
+  the ill-conditioned monopole/dipole ORFs) over {power law, free spectrum} x {14, 30} x {CURN, HD,
+  dipole, monopole}, CPU and GPU, single and vmapped, incl. corners and bound profiles.
+* **Samplers**: on CURN BlackJAX NUTS showed ~2x the ESS/s of NumPyro NUTS, but this is lockstep
+  loss plus step-size landing, not implementation (matched fixed-step control: 1.84 vs 1.82 ms per
+  executed step). **Matched HD runs (same likelihood, metric, init, warmup, 2 seeds each): no
+  difference** (ESS/s common 0.152-0.167 for both). MAMS/ChEES/MEADS do not beat NUTS on HD or are
+  unreliable; unadjusted MCLMC is biased (J1713+0747 IRN mean z = 6-10; common amplitude +0.15 sd).
+* **Candidate configuration**: fast likelihood x existing NumPyro NUTS recipe; projected HD^13/3
+  run at M2-equal ESS ~47 min instead of ~61 (1.3x, from the per-gradient speedup). Untested next
+  lever: a shared step size across vectorised chains (lockstep loss 10-30% measured).
 
 ## 1. Profile: where the HD value+gradient time goes
 
@@ -72,11 +73,13 @@ runtime) at an HD^13/3 posterior draw, production code:
 `bench/bench_backends.py`: value+grad at B distinct posterior draws, vmapped (`B = 1` un-vmapped).
 "per chain" = call time / B, i.e. the per-chain-gradient cost a vectorised sampler pays.
 
-**HD (production code), ms per chain-gradient**
+**HD (production code), ms per chain-gradient** (CPU rows: first round, run with
+`FastPTALikelihood(reduce="prod", tri_inv="recursive")`, i.e. the production numerics and code
+path under the subclass; GPU row re-measured with the production class)
 
 | backend / threads | B = 1 | B = 4 | B = 16 | B = 64 |
 |---|---|---|---|---|
-| GPU (RTX 5090) | 14.4 | 9.4 | 5.8 | 5.5 |
+| GPU (RTX 5090) | 15.0 | 9.5 | 5.8 | 5.5 |
 | CPU, XLA defaults (OpenBLAS 32 threads incl. SMT) | 81.0 | 67.7 | | |
 | CPU, `OPENBLAS_NUM_THREADS=16` | **39.6** | 41.5 | | |
 | CPU, 16 threads + `--xla_cpu_multi_thread_eigen=true` | 40.2 | 40.8 | | |
@@ -102,8 +105,9 @@ runtime) at an HD^13/3 posterior draw, production code:
 ## 3. Exact likelihood speedups
 
 New opt-in class `ptagwb.perf_likelihood.FastPTALikelihood(terms, T, reduce=..., tri_inv=...)`,
-a subclass of the production likelihood with identical maths, identical analytic VJPs and the
-same square-root (Householder) numerics. Two changes:
+a subclass of the production likelihood with identical maths, the same analytic VJP formulas (the
+reducer's VJP skips terms with symbolic-zero cotangents, see the blocker below) and the same
+square-root (Householder) numerics. Two changes:
 
 1. **`reduce="hh"`: structured Householder for the per-pulsar square-root stage.** Production
    needs T (R of [Y; I], Y = R_F Phi^1/2), Q1^T R_F and Q1^T c and gets them from a batched QR
@@ -124,26 +128,46 @@ same square-root (Householder) numerics. Two changes:
 
 **Exactness.** Criterion: value (without the parameter-independent constant) <= 1e-9 absolute and
 every gradient component <= 1e-8 relative to max(|g|, 1), compiled, single and vmapped -- or,
-where production's *own* rounding floor is already larger, within 10x that floor. The floor is
-measured as production vs production with the 67 pulsars permuted (a mathematically exact
-identity that changes every rounding). Why constant-free: the full logL is about +7.97e6 (ULP
-9.3e-10), so a 1e-9 criterion on it would be at the rounding granularity; the parameter-dependent
-part is ~1e5-4e5 (ULP 1.5e-11-5.8e-11).
+where production's *own* reproducibility floor is already larger, within 10x that floor. The floor
+is production vs three exact identities of itself that change the rounding: the 67 pulsars
+permuted, split_fraction 0.45 / 0.55 instead of 0.5 (Gamma = lam0 I + Gamma' is an exact split),
+and the vmapped (batched cuSOLVER) evaluation instead of the single one. Why constant-free: the full
+logL is about +7.97e6 (ULP 9.3e-10), so a 1e-9 criterion on it would sit at the rounding
+granularity; the parameter-dependent part is ~1e5-4e5 (ULP 1.5e-11-5.8e-11).
 
 `bench/check_exact.py` (all 67 NG15 pulsars, enterprise positions; `bench/results/exact_ng15_cpu.json`,
 `exact_ng15_gpu.json`): {power law, free spectrum} x {14, 30} common modes x {CURN, HD, dipole,
 monopole}, at 3 interior draws, IRN corners x common corners (power law: (-18|-11) x (0|7) plus the
 reviewer point (-11.1, 6.9)) and free-spectrum bound profiles (all -15.5, all -1.0, alternating
-both ways, all -1.1, all -7), single and vmapped. `hh + levels`, XLA:CPU:
+both ways, all -1.1, all -7), single and vmapped; `hh + levels`; worst over points, single and
+vmapped:
 
-@@EXACT_TABLE@@
+| configuration | CPU dv / dg (prod floor dv / dg) | GPU dv / dg (prod floor dv / dg) |
+|---|---|---|
+| powerlaw14/curn | 5.8e-11 / 1.8e-13 (1.7e-10 / 1.6e-13) | 5.8e-11 / 1.1e-13 (1.2e-10 / 5.0e-15) |
+| powerlaw14/hd | 1.2e-10 / 1.1e-13 (1.7e-10 / 1.6e-13) | 5.8e-11 / 9.2e-14 (5.8e-11 / 1.1e-13) |
+| powerlaw14/dipole | 1.1e-09 / 3.5e-11 (1.6e-06 / 1.1e-09) | 8.5e-06 / 7.4e-09 (8.5e-06 / 7.4e-09) |
+| powerlaw14/monopole | 2.3e-10 / 1.5e-13 (3.8e-06 / 2.5e-09) | 1.7e-05 / 1.4e-08 (1.7e-05 / 1.4e-08) |
+| powerlaw30/curn | 5.8e-11 / 1.3e-13 (1.2e-10 / 1.1e-13) | 5.8e-11 / 9.0e-14 (5.8e-11 / 3.4e-14) |
+| powerlaw30/hd | 1.2e-10 / 9.1e-14 (1.7e-10 / 1.1e-13) | 1.2e-10 / 1.3e-13 (1.2e-10 / 1.3e-13) |
+| powerlaw30/dipole | 5.2e-10 / 5.0e-12 (9.2e-07 / 1.1e-09) | 1.1e-05 / 9.9e-09 (1.1e-05 / 9.9e-09) |
+| powerlaw30/monopole | 2.3e-10 / 2.9e-13 (4.1e-06 / 2.8e-09) | 1.8e-05 / 2.4e-08 (1.8e-05 / 2.4e-08) |
+| freespec14/curn | 1.2e-10 / 4.1e-12 (1.2e-10 / 7.6e-13) | 1.2e-10 / 9.4e-12 (1.2e-10 / 4.8e-15) |
+| freespec14/hd | 1.2e-10 / 1.2e-11 (1.2e-10 / 1.5e-11) | 1.2e-10 / 1.2e-11 (1.2e-10 / 1.4e-11) |
+| freespec14/dipole | 2.3e-08 / 1.5e-10 (3.5e-07 / 2.9e-09) | 2.2e-06 / 5.6e-09 (2.2e-06 / 5.6e-09) |
+| freespec14/monopole | 1.2e-10 / 1.3e-12 (1.7e-06 / 1.2e-08) | 8.5e-06 / 4.5e-08 (8.5e-06 / 4.5e-08) |
+| freespec30/curn | 1.0e-09 / 8.8e-11 (1.2e-10 / 8.7e-12) | 6.4e-10 / 1.5e-10 (5.8e-11 / 3.0e-15) |
+| freespec30/hd | 1.6e-09 / 7.9e-11 (9.3e-10 / 8.9e-11) | 6.4e-10 / 3.3e-11 (7.6e-10 / 8.2e-11) |
+| freespec30/dipole | 8.6e-09 / 9.1e-11 (3.4e-07 / 5.5e-09) | 5.2e-06 / 3.1e-08 (5.2e-06 / 3.0e-08) |
+| freespec30/monopole | 5.8e-11 / 2.5e-12 (5.8e-07 / 2.2e-08) | 1.7e-05 / 9.6e-08 (1.7e-05 / 1.4e-07) |
 
-All 32 configurations (16 x CPU/GPU) agree within the tolerance. Where dv exceeds 1e-9 (HD
-free spectrum 30: 1.6e-9; dipole up to 2.3e-8) it is ~30 ULP of a 3.6e5 parameter-dependent value
-(relative 5e-15), and production's own permutation floor is of the same order or larger (the
-monopole/dipole ORFs are regularised with diag_eps = 1e-5, which makes production itself
-reproducible only to ~1e-6 in the value and ~1e-8 in the gradient). We call this agreement within
-measured tolerances, not bitwise equality.
+All 32 configurations (16 x CPU/GPU) agree within this tolerance. For CURN and HD the differences
+are 1e-10 to 1.6e-9 in the value (at most ~30 ULP of a 3.6e5 parameter-dependent value, relative
+5e-15) and <= 1.5e-10 in the gradient. For the monopole and dipole ORFs (regularised with
+diag_eps = 1e-5, so Gamma' is nearly singular) production itself is reproducible only to ~1e-6
+(CPU) / ~2e-5 (GPU) in the value and ~1e-8-1e-7 in the gradient; on the GPU the fast-vs-production
+difference *equals* production's vmapped-vs-single difference (both come from the batched Cholesky
+kernel). We call this agreement within measured tolerances, not bitwise equality.
 
 **Blocker found in review and fixed: compiled CURN gradient ~1e281 on XLA:CPU.** With the fast
 reducer, compiled CURN gradients (free spectrum, 30-mode power law) came out as garbage
@@ -332,16 +356,45 @@ blocks of 50 draws until common bulk ESS >= 400 and *max* R-hat (all 135 paramet
 1000 (seed 1) / 800 (seed 2, GPU budget) draws per chain; the per-block trace gives the time to each
 target. "Time to target" includes compilation and warmup.
 
-@@HD_MATCHED_TABLE@@
+| sampler | seed | final step sizes (4 chains) | warmup [min] (grads) | compile [s] | grads/draw | lockstep eff. | ms / executed step | draws/chain | ESS common / min bulk / min tail | R-hat common / max | ESS/s common | ESS/kgrad common | **time to ESS_common >= 400 & R-hat_common < 1.01, incl. compile + warmup [min]** | ... & max R-hat < 1.01 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| BlackJAX NUTS | 1 | 0.0501, 0.0442, 0.0444, 0.0467 | 8.7 (44k) | 37 | 86 | 0.71 | 28.8 | 1000 | 566 / 384 / 217 | 1.007 / 1.014 | 0.164 | 1.65 | 52.4 (750 draws) | not reached |
+| BlackJAX NUTS | 2 | 0.0485, 0.0434, 0.0480, 0.0442 | 8.8 (44k) | 37 | 86 | 0.71 | 28.7 | 800 | 440 / 440 / 604 | 1.011 / 1.011 | 0.158 | 1.59 | not reached in 800 draws (56 min) | not reached |
+| NumPyro NUTS | 1 | 0.0289, 0.0476, 0.0303, 0.0397 | 8.3 (44k) | 38 | 113 | 0.89 | 28.8 | 850 | 519 / 473 / 235 | 1.008 / 1.010 | 0.167 | 1.35 | 36.4 (450 draws) | 60.8 |
+| NumPyro NUTS | 2 | 0.0520, 0.0371, 0.0649, 0.0409 | 9.4 (45k) | 38 | 94 | 0.74 | 28.7 | 800 | 443 / 443 / 117 | 1.004 / 1.019 | 0.152 | 1.48 | 55.5 (750 draws) | not reached |
 
-@@HD_MATCHED_TEXT@@
+For reference, the M2 production HD^13/3 run (NumPyro `MCMC`, *production* likelihood, 150 warmup
+iterations from step 1.0, 4 x 500 draws): ESS/s common 0.181, ESS/kgrad common 1.93, common bulk
+ESS 435 with common R-hat <= 1.005 after 21 min warmup + 40 min sampling (its timers include
+compilation). No divergences in any matched run.
+
+What the matched runs show:
+
+* **No NumPyro vs BlackJAX difference on HD.** ESS/s common 0.164 / 0.158 (BlackJAX) vs 0.167 /
+  0.152 (NumPyro); time per executed leapfrog step identical (28.7-28.8 ms, i.e. 7.2 ms per chain
+  gradient at B = 4). Time to ESS_common >= 400 with R-hat_common < 1.01: BlackJAX 52 min / not
+  reached in 56 min; NumPyro 36 / 56 min. Max R-hat < 1.01 over all 135 parameters was reached in
+  one run (NumPyro seed 1, 61 min). The first-round "2x" was an unmatched comparison and does not
+  survive.
+* **The cost driver is where the per-chain step sizes land relative to a tree-depth boundary.**
+  In all four runs the adapted per-chain step sizes (0.029-0.065) straddle the depth-6/7 boundary
+  near 0.045-0.05 (63 vs 127 leapfrog steps), so the vectorised call waits for the depth-7 chains:
+  lockstep efficiency 0.71-0.89. The unmatched first-round BlackJAX HD run (150 DA iterations from
+  step 0.25) happened to land all chains at 0.050-0.053 (depth 6, lockstep 0.99) and reached ESS/s
+  0.33 -- the same sampler, 2x faster, by luck of the adaptation.
+* **The proposed warmup recipe (100 iterations from the CURN-tuned step) is not supported**: it
+  measured 8.3-9.4 min (44-45k gradients) of warmup, not the 3-5 min projected earlier, and it
+  did not land the chains in the cheaper depth band.
+* Bias checks against M2 (51 quantile tests, 135 means, raw-mean MCSE): quantile max |z| 2.1-3.2
+  (one |z| > 3 in 4 x 51 tests), mean max |z| 2.6-3.6, sum z^2 / 135 = 1.09-1.37: no discrepancy
+  detected.
 
 ### HD^13/3, first-round exploratory runs (unmatched: different likelihood, run length, seed than M2)
 
 | sampler (chains) | likelihood | ESS/s common | ESS/s min bulk | ESS/s min tail | ESS/kgrad common | ESS/kgrad min bulk | ESS/kgrad min tail | grads/draw | warmup | sampling | max R-hat |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | NumPyro NUTS, **M2 production run** (4) | production | 0.181 | 0.104 | 0.202 | 1.93 | 1.11 | 2.15 | 113 | 21 min | 40 min / 500 draws | 1.021 |
-| **BlackJAX NUTS** (4) | hh + levels | **0.334** | **0.283** | **0.460** | 2.42 | 2.05 | 3.33 | 63 | 12 min (from step 0.25) | 9 min / 300 draws | 1.042 |
+| BlackJAX NUTS (4) | hh + levels | 0.334 | 0.283 | 0.460 | 2.42 | 2.05 | 3.33 | 63 | 12 min (from step 0.25) | 9 min / 300 draws | 1.042 |
 | BlackJAX NUTS (16), *projected* | hh + levels | (0.53) | (0.45) | (0.73) | (2.42) | (2.05) | (3.33) | 63 | ? | | measured run aborted (budget), see below |
 | MAMS, avg 8 (4) | hh + levels | 0.282 | 0.252 | 0.104 | 2.03 | 1.82 | 0.75 | 16 | 26 min | 16 min / 2062 draws | 1.022 |
 | ChEES-HMC (16), short pilot | hh + levels | (0.50) | (0.35) | (0.22) | 2.21 | 1.55 | 0.99 | 4.4 | 2 min | 1.5 min / 300 draws | **1.42: not converged** |
@@ -349,11 +402,13 @@ target. "Time to target" includes compilation and warmup.
 HD bias checks (vs M2 hd_g433_14f): quantile max |z| 2.6 (BlackJAX NUTS), 2.5 (MAMS), 3.1 with one
 |z| > 3 in 51 tests (ChEES, unconverged); mean max |z| 3.0 / 3.0 / 2.8, sum z^2 / 135 = 1.04 / 0.99 / 0.70. The HD runs are short (one seed), so
 their ESS/s carry ~+-30% (bulk) to ~+-100% (worst tail) uncertainty judging from the CURN
-seed-to-seed spread.
+seed-to-seed spread. These runs also used the first-round timing harness. They are superseded by the
+matched comparison above (the 0.334 BlackJAX row is the lucky depth-6 landing discussed there).
 
 The 16-chain NUTS row is a projection: per-chain-gradient cost 4.38 ms at B = 16 vs 7.18 ms at
 B = 4 (Sec. 3) times the lockstep efficiency estimated by resampling the measured HD tree sizes
-(99% of trees have 63 leapfrog steps; efficiency 0.99 for 4 chains, 0.955 for 16, 0.84 for 64).
+(99% of trees have 63 leapfrog steps in that run; efficiency 0.99 for 4 chains, 0.955 for 16, 0.84
+for 64) -- which, given the step-size landing variance seen in the matched runs, is optimistic.
 A measured 16-chain HD run (100 warmup from step 0.05 + 150 draws) was **aborted after 52 min**
 without finishing, against ~30 min projected; it was stopped to stay inside the GPU budget, so
 16-chain NUTS on HD (most likely its warmup, where one chain with a 1023-step tree stalls all 16)
@@ -370,55 +425,48 @@ is unverified and should be piloted before use.
   deprioritised. Both are worth revisiting only for the product-space BF question (M2 open
   issue 2).
 
-## 5. Recommendation
+## 5. Recommendation (candidate configuration, not adopted)
 
-**Production configuration: GPU x `FastPTALikelihood(reduce="hh", tri_inv="levels")` (exact,
-float64) x BlackJAX NUTS, 4 vectorised chains, fixed dense metric from the CURN run (whitened
-coordinates), one continuous dual-averaging step-size warmup started from the CURN-tuned step
-size.** Everything else in the M2 recipe stays (CURN run first for init + metric, target accept
-0.8, max tree depth 10).
+**Candidate: GPU x `FastPTALikelihood(reduce="hh", tri_inv="levels")` (exact within measured
+tolerances, float64, opt-in) x the existing NumPyro NUTS production recipe (4 vectorised chains,
+fixed dense CURN metric, 150-iteration step-size warmup).** `FastPTALikelihood` stays opt-in; the
+production likelihood and driver are unchanged.
 
-| | M2 production (measured) | recommended (measured HD run, extrapolated to equal ESS) |
-|---|---|---|
-| per-chain gradient (B = 4) | 9.4 ms | 7.2 ms (exact, bit-level agreement) |
-| leapfrog steps / draw | 113 | 63 |
-| ESS/s common / min bulk / min tail | 0.18 / 0.10 / 0.20 | 0.33 / 0.28 / 0.46 |
-| sampling time to the M2 HD ESS (common bulk 435, min bulk 250) | 40 min | **~22 min** (435 / 0.334 s^-1) |
-| warmup | 21 min (incl. compile) | 12 min measured from step 0.25; ~3-5 min expected from the CURN step size (0.054 vs HD 0.051 in whitened units; 100 DA iterations x 1.8 s), not measured |
-| **HD^13/3 run at equal ESS** | **~61 min** | **~25-35 min (1.8-2.4x)** |
+* The likelihood is the only *measured, robust* gain: 1.31x per chain-gradient at B = 4
+  (9.5 -> 7.3 ms), 1.71x at B = 1, 2.4-3.5x for CURN, with agreement within measured tolerances
+  over the 4 x 4 configuration matrix on CPU and GPU.
+* Switching sampler is not supported by the matched HD evidence (no BlackJAX advantage;
+  implementation overhead ~1%). MAMS/ChEES/MEADS lose on HD or are unreliable; unadjusted MCLMC is
+  biased.
+* The shortened warmup recipe is not supported (Sec. 4, matched HD).
 
-Why not the others: MAMS has the best common-parameter ESS/grad on CURN but its BlackJAX tuner
-costs 26 min on HD and its worst-parameter ESS is erratic; on HD it was below NUTS on every
-metric. ChEES/MEADS only pay with many chains, and at B = 16-64 the HD gradient is already
-FP64-flop bound (4.0-4.4 ms per chain, only 1.6-1.8x cheaper than B = 4), which does not make up
-for ChEES' short adapted trajectories and slow many-chain convergence (R-hat 1.10 on CURN with 64
-chains, 1.42 on the HD pilot); MEADS failed on 1 of 3 CURN seeds. Unadjusted MCLMC is biased
-(0.43 sd on an IRN mean, 0.15 sd on the common amplitude). CPU is 3-7x slower than the GPU and
-also below it at the LAPACK ceiling.
+**Expected HD^13/3 wall time at M2-equal ESS (projection).** M2 production: 21 min warmup +
+40 min sampling = 61 min. With the fast likelihood and the same recipe, if ESS per gradient and
+lockstep behaviour stay as in M2, both phases scale with the per-gradient cost: ~16 + 31 =
+**~47 min (1.3x)**. The matched fast-likelihood runs (different, 100-iteration warmup) measured
+36-56 min to ESS_common >= 400 and R-hat_common < 1.01 including compile and warmup (one run
+did not reach it within 56 min), consistent with ~45-55 min and with large run-to-run variance
+from the step-size landing.
 
-Further options, in order of expected gain:
+**Cheapest untested lever: one shared step size for the vectorised chains.** In every vectorised
+NUTS run, chains whose adapted step size falls below the depth-6/7 boundary cost the whole batch
+an extra tree doubling: lockstep efficiency 0.71-0.89 on HD, 0.73-0.75 for NumPyro on CURN. Adapting
+a single step size on the chain-averaged acceptance (or setting all chains to the median adapted
+value after warmup; still a fixed-parameter, exact sampler) would remove this 10-30% loss, and the
+cost discontinuity at the depth boundary suggests choosing the target acceptance so that the step
+lands just above it. This needs a pilot before use. Beyond that, the largest lever remains an IRN
+reparameterisation (worst-parameter ESS is set by rare funnel excursions for every exact sampler).
 
-1. **IRN reparameterisation** (funnel-aware / non-centred). Every exact sampler's worst-parameter
-   ESS is set by rare funnel excursions (J0610-2100, J0437-4715, B1855+09, J2145-0750), and the
-   J2145-0750 low-amplitude tail is not established by any short run. This is the largest
-   remaining lever and a correctness issue for tail quantiles, independent of speed.
-2. `grad_precision="mixed"` on top of `hh + levels`: 5.8 vs 7.2 ms at B = 4 (2.9 vs 4.4 at
-   B = 16). Exact posterior for NUTS (deterministic gradient, float64 energies), but an
-   approximate gradient; opt-in only.
-3. 16 vectorised NUTS chains: projected 1.6x more ESS/s (0.53 / 0.45 / 0.73), but the measured
-   16-chain run stalled (Sec. 4); pilot first.
+**What it enables (GPU):**
 
-**What it enables** (GPU, at the recommended config):
-
-* Full HD^13/3 posterior runs (e.g. one per sky-scrambled or phase-shifted ORF, re-sampled
-  from scratch at M2-level ESS): ~30 min each, **~40-55 per day** (M2 production: ~24 per day).
-* Null-distribution Bayes factors by **reweighting** the 6,000 CURN draws (as M2's reweighting
-  estimator): value-only HD logL costs 2.0 ms per draw batched (production 2.6 ms;
-  `bench/results/value_only_hd_gpu.json`), i.e. ~12 s per scrambled realisation, **~7,000 per
-  day** (production ~5,500), valid where the scrambled-HD/CURN weights keep enough ESS.
-* Optimal-statistic phase-shift / sky-scramble nulls need no new likelihood evaluations (seconds
-  per realisation over 6,000 draws, M2 Sec. 9): ~10^4+ per day either way.
-
+* Full HD^13/3 re-runs (e.g. one per sky-scrambled or phase-shifted ORF) at M2-level ESS:
+  ~47 min each, **~30 per day** (M2 production ~24 per day).
+* Null-distribution Bayes factors by **reweighting** the 6,000 CURN draws: value-only HD logL
+  2.0 ms per draw batched (production 2.6 ms; `bench/results/value_only_hd_gpu.json`), ~12 s per
+  scrambled realisation, **~7,000 per day** (production ~5,500), valid where the weights keep enough
+  ESS.
+* Optimal-statistic phase-shift / sky-scramble nulls need no new likelihood evaluations: seconds per
+  realisation either way.
 
 ## 6. Reproduction
 

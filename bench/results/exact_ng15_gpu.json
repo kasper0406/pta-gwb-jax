@@ -1,0 +1,135 @@
+{
+ "env": {
+  "git_sha": "9051265d2a343ab96dce0035e827e10325aa3fb5",
+  "dirty": true,
+  "dirty_hash": "ba56d19e9311c570",
+  "jax": "0.11.2",
+  "backend": "gpu",
+  "devices": [
+   "cuda:0"
+  ],
+  "XLA_FLAGS": "",
+  "host": "kworkstation",
+  "time": "2026-10-07T19:25:16"
+ },
+ "criteria": {
+  "dv": 1e-09,
+  "dg": 1e-08,
+  "floor_factor": 10
+ },
+ "results": {
+  "powerlaw14/curn/hh+levels": {
+   "dv": 5.820766091346741e-11,
+   "dg": 1.1368683772161603e-13,
+   "floor_dv": 1.1641532182693481e-10,
+   "floor_dg": 5.001172503509735e-15,
+   "within_tolerance": true
+  },
+  "powerlaw14/hd/hh+levels": {
+   "dv": 5.820766091346741e-11,
+   "dg": 9.202323809214182e-14,
+   "floor_dv": 5.820766091346741e-11,
+   "floor_dg": 1.1368683772161603e-13,
+   "within_tolerance": true
+  },
+  "powerlaw14/dipole/hh+levels": {
+   "dv": 8.5378997027874e-06,
+   "dg": 7.384105596569426e-09,
+   "floor_dv": 8.537957910448313e-06,
+   "floor_dg": 7.3844651169918965e-09,
+   "within_tolerance": true
+  },
+  "powerlaw14/monopole/hh+levels": {
+   "dv": 1.7074926290661097e-05,
+   "dg": 1.3631785670400707e-08,
+   "floor_dv": 1.7074926290661097e-05,
+   "floor_dg": 1.3631863491020209e-08,
+   "within_tolerance": true
+  },
+  "powerlaw30/curn/hh+levels": {
+   "dv": 5.820766091346741e-11,
+   "dg": 9.035967399431411e-14,
+   "floor_dv": 5.820766091346741e-11,
+   "floor_dg": 3.428669048755789e-14,
+   "within_tolerance": true
+  },
+  "powerlaw30/hd/hh+levels": {
+   "dv": 1.1641532182693481e-10,
+   "dg": 1.3187947197699523e-13,
+   "floor_dv": 1.1641532182693481e-10,
+   "floor_dg": 1.3187947197699523e-13,
+   "within_tolerance": true
+  },
+  "powerlaw30/dipole/hh+levels": {
+   "dv": 1.0636111255735159e-05,
+   "dg": 9.85464834441711e-09,
+   "floor_dv": 1.0636169463396072e-05,
+   "floor_dg": 9.854439502240003e-09,
+   "within_tolerance": true
+  },
+  "powerlaw30/monopole/hh+levels": {
+   "dv": 1.8049846403300762e-05,
+   "dg": 2.445172433101699e-08,
+   "floor_dv": 1.8049846403300762e-05,
+   "floor_dg": 2.4451685497211568e-08,
+   "within_tolerance": true
+  },
+  "freespec14/curn/hh+levels": {
+   "dv": 1.1641532182693481e-10,
+   "dg": 9.403506109013557e-12,
+   "floor_dv": 1.1641532182693481e-10,
+   "floor_dg": 4.841546181189208e-15,
+   "within_tolerance": true
+  },
+  "freespec14/hd/hh+levels": {
+   "dv": 1.1641532182693481e-10,
+   "dg": 1.2084118611221714e-11,
+   "floor_dv": 1.1641532182693481e-10,
+   "floor_dg": 1.4011798665780617e-11,
+   "within_tolerance": true
+  },
+  "freespec14/dipole/hh+levels": {
+   "dv": 2.198154106736183e-06,
+   "dg": 5.642305571700505e-09,
+   "floor_dv": 2.1980376914143562e-06,
+   "floor_dg": 5.642291078085908e-09,
+   "within_tolerance": true
+  },
+  "freespec14/monopole/hh+levels": {
+   "dv": 8.507282473146915e-06,
+   "dg": 4.546554712244499e-08,
+   "floor_dv": 8.507282473146915e-06,
+   "floor_dg": 4.546554212081387e-08,
+   "within_tolerance": true
+  },
+  "freespec30/curn/hh+levels": {
+   "dv": 6.402842700481415e-10,
+   "dg": 1.5063271463500172e-10,
+   "floor_dv": 5.820766091346741e-11,
+   "floor_dg": 2.976587217132496e-15,
+   "within_tolerance": true
+  },
+  "freespec30/hd/hh+levels": {
+   "dv": 6.402842700481415e-10,
+   "dg": 3.327466080449426e-11,
+   "floor_dv": 7.566995918750763e-10,
+   "floor_dg": 8.237097115504355e-11,
+   "within_tolerance": true
+  },
+  "freespec30/dipole/hh+levels": {
+   "dv": 5.207955837249756e-06,
+   "dg": 3.0573189661630434e-08,
+   "floor_dv": 5.207606591284275e-06,
+   "floor_dg": 3.04957712698034e-08,
+   "within_tolerance": true
+  },
+  "freespec30/monopole/hh+levels": {
+   "dv": 1.6808509826660156e-05,
+   "dg": 9.647169241233655e-08,
+   "floor_dv": 1.6808509826660156e-05,
+   "floor_dg": 1.3973769119601798e-07,
+   "within_tolerance": true
+  }
+ },
+ "all_within_tolerance": true
+}

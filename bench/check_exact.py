@@ -7,8 +7,8 @@ single and vmapped (compiled). Reported per configuration:
 
     dv   = max |logL_variant - logL_prod|, both without the parameter-independent constant
     dg   = max_i |g_i - g_i^prod| / max(|g_i^prod|, 1)
-    floor_dv, floor_dg = the same for production vs production with the pulsars permuted
-           (a mathematically exact identity; production's own rounding floor)
+    floor_dv, floor_dg = the same for production vs exact identities of production (pulsars
+           permuted; split_fraction 0.45 / 0.55; vmapped vs single kernels): its reproducibility floor
 
 Criterion (as the test): dv <= 1e-9 and dg <= 1e-8, or within 10x the production floor where
 that floor already exceeds them (monopole / dipole). Run on the GPU and with JAX_PLATFORMS=cpu.

@@ -1,8 +1,10 @@
 """Performance variants (``ptagwb.perf_likelihood``, docs/PERF.md) must reproduce the production
 likelihood: value (without the parameter-independent constant) to <= 1e-9 absolute and every
 gradient component to <= 1e-8 relative (to max(|g|, 1)), single and vmapped, compiled -- or, where
-production's own rounding floor (same likelihood with the pulsars permuted) is larger than that
-(monopole / dipole: Gamma regularised with diag_eps = 1e-5, floor up to ~1e-8), within 10x it.
+production's own reproducibility floor is larger than that (``noise_floor``: production vs exact
+identities of itself -- pulsars permuted, a different split_fraction, vmapped vs single kernels;
+monopole / dipole ORFs, regularised with diag_eps = 1e-5, reach ~1e-5 in the value on the GPU),
+within 10x that floor.
 
 Matrix: common spectrum {power law, free spectrum} x {14, 30} common modes x ORF {curn, hd,
 dipole, monopole}; points: interior draws, IRN/common prior corners, free-spectrum bound profiles
@@ -92,22 +94,37 @@ def _orf(name, terms):
 
 
 def noise_floor(terms, T, kw_fn, pts, perm_seed=1):
-    """Production's own rounding floor for this configuration: |logL| and gradient differences
-    between the production likelihood and the production likelihood with the pulsars permuted
-    (a mathematically exact identity that changes every rounding). Worst over pts."""
+    """Production's own reproducibility for this configuration: the worst |logL| and gradient
+    differences between the production likelihood and three exact identities of it that change
+    the rounding -- (a) the pulsars permuted, (b) split_fraction 0.45 / 0.55 instead of 0.5
+    (Gamma = lam0 I + Gamma' is an exact split), (c) the vmapped evaluation (batched cuSOLVER
+    kernels) instead of the single one. Worst over pts."""
     perm = np.random.default_rng(perm_seed).permutation(len(terms))
     inv = np.argsort(perm)
     tp = [terms[i] for i in perm]
-    A, B = _strip(PTALikelihood(terms, T, **kw_fn(terms))), _strip(PTALikelihood(tp, T, **kw_fn(tp)))
+    A = _strip(PTALikelihood(terms, T, **kw_fn(terms)))
+    others = [(_strip(PTALikelihood(tp, T, **kw_fn(tp))), True)]
+    if not isinstance(kw_fn(terms)["orf"], str):  # correlated ORF: split_fraction is used
+        others += [(_strip(PTALikelihood(terms, T, split_fraction=f, **kw_fn(terms))), False) for f in (0.45, 0.55)]
+    stacked = {k: jnp.stack([jnp.asarray(p[k], dtype=jnp.float64) for p in pts]) for k in pts[0]}
+    vb, gb = jax.jit(jax.vmap(jax.value_and_grad(A._logL)))(stacked)
     fv = fg = 0.0
-    for p in pts:
+    for i, p in enumerate(pts):
         v0, g0 = A.value_and_grad(p)
-        pp = {k: (np.asarray(v)[perm] if k.startswith("rn_") else v) for k, v in p.items()}
-        v1, g1 = B.value_and_grad(pp)
-        g1 = {k: (np.asarray(v)[inv] if k.startswith("rn_") else v) for k, v in g1.items()}
-        a, b = _flat(g0), _flat(g1)
-        fv = max(fv, abs(float(v1) - float(v0)))
-        fg = max(fg, float(np.max(np.abs(a - b) / np.maximum(np.abs(a), 1.0))))
+        a = _flat(g0)
+        cands = [(vb[i], {k: gb[k][i] for k in gb})]
+        for L, permuted in others:
+            if permuted:
+                pp = {k: (np.asarray(v)[perm] if k.startswith("rn_") else v) for k, v in p.items()}
+                v1, g1 = L.value_and_grad(pp)
+                g1 = {k: (np.asarray(v)[inv] if k.startswith("rn_") else v) for k, v in g1.items()}
+            else:
+                v1, g1 = L.value_and_grad(p)
+            cands.append((v1, g1))
+        for v1, g1 in cands:
+            b = _flat(g1)
+            fv = max(fv, abs(float(v1) - float(v0)))
+            fg = max(fg, float(np.max(np.abs(a - b) / np.maximum(np.abs(a), 1.0))))
     return fv, fg
 
 
@@ -162,9 +179,8 @@ def test_method_b_rejected(pta):
 
 
 def _assert_matrix(res, tol_v=1e-9, tol_g=1e-8, floor_factor=10.0):
-    """Criterion: dv <= 1e-9 and dg <= 1e-8, or, where production's own rounding floor (pulsar
-    permutation) already exceeds that (ill-conditioned monopole/dipole ORFs with diag_eps 1e-5),
-    within 10x that floor."""
+    """Criterion: dv <= 1e-9 and dg <= 1e-8, or, where production's own reproducibility floor
+    (``noise_floor``) already exceeds that (ill-conditioned monopole/dipole ORFs), within 10x it."""
     bad = {k: v for k, v in res.items()
            if not (v[0] <= max(tol_v, floor_factor * v[2]) and v[1] <= max(tol_g, floor_factor * v[3]))}
     assert not bad, bad
