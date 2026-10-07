@@ -144,7 +144,7 @@ def main():
             for par in ("log10_A", "gamma"):
                 n = f"{psr}_red_noise_{par}"
                 c = compare_param(run_draws(r, n), rel[n])
-                out["irn"].append({"run": rn, "released": key, "param": n, **c})
+                out["irn"].append({"run": rn, "released_chain": key, "param": n, **c})
     for name, r in runs.items():
         if r is not None:
             out["diagnostics"][name] = run_diagnostics(r)
