@@ -124,18 +124,19 @@ def main():
                 t0 = time.time()
                 for o, post in posts.items():
                     if o == src and args.own_from_chain:
-                        # the run's own model: the sampler stored log L for every draw; verify it on a
-                        # random subset (below) instead of recomputing all (HD costs ~1 s/draw on CPU)
+                        # the run's own model: the sampler stored log L for every draw (verified on
+                        # a random subset below) instead of recomputing all (HD ~1 s/draw on CPU)
                         ll[(src, o)] = run["logL"][:, :: args.thin].copy()
-                        idx = np.random.default_rng(0).choice(C * N, size=min(64, C * N), replace=False)
-                        chk = post.logL_samples(X.reshape(-1, D)[idx], batch=args.batch)
-                        res[f"max_abs_logL_subset_check_{src}"] = float(np.abs(chk - ll[(src, o)].ravel()[idx]).max())
-                        if not res[f"max_abs_logL_subset_check_{src}"] < 1e-5:
-                            raise RuntimeError(f"{key}/{src}: stored chain logL does not match the evaluation model")
                     else:
                         ll[(src, o)] = post.logL_samples(X.reshape(-1, D), batch=args.batch).reshape(C, N)
                 res[f"eval_seconds_{src}"] = time.time() - t0
-            # consistency with the sampler's own logL: fail on any mismatch
+            # the evaluation model must reproduce the stored chain logL (random subset, always)
+            idx = np.random.default_rng(0).choice(C * N, size=min(64, C * N), replace=False)
+            chk = posts[src].logL_samples(X.reshape(-1, D)[idx], batch=args.batch)
+            res[f"max_abs_logL_subset_check_{src}"] = float(np.abs(chk - run["logL"][:, :: args.thin].ravel()[idx]).max())
+            if not res[f"max_abs_logL_subset_check_{src}"] < 1e-5:
+                raise RuntimeError(f"{key}/{src}: stored chain logL does not match the evaluation model")
+            # consistency of the (possibly cached) arrays with the sampler's own logL: fail on mismatch
             own = ll[(src, src)] - run["logL"][:, :: args.thin]
             res[f"max_abs_logL_recompute_diff_{src}"] = float(np.abs(own).max())
             if not np.abs(own).max() < 1e-5:
@@ -207,7 +208,8 @@ def main():
                     "std_dlogL_curn": float(np.std(lc)),
                 }
         out[key] = res
-        print(key, {k: (v["bf"], v.get("bf_sd", v.get("ln_bf_sd")), v.get("kish_ess")) for k, v in res.items() if isinstance(v, dict)})
+        print(key, {k: (v["bf"], v.get("bf_sd", v.get("ln_bf_sd")), v.get("kish_ess"))
+                    for k, v in res.items() if isinstance(v, dict) and "bf" in v})
     save_json(out, ROOT / "outputs" / "m2" / "bayes_factors.json")
 
 

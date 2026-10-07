@@ -1,5 +1,10 @@
 # M2 results: sampling, Bayes factors and optimal statistic
 
+**Status (revised after the independent review of 4b63e38): power-law posteriors, HD vs CURN
+Bayes factors and the optimal statistic are reproduced; the HD free-spectrum (Fig. 1a)
+reproduction is INCOMPLETE / PRELIMINARY** (chains not converged, Sec. 10; re-run prepared in
+`configs/m2/hd_fs30_v2.json`, not yet run). M2 is therefore not complete.
+
 M2 reproduces the headline Bayesian and frequentist results of the NG15 GWB paper (Agazie et al.
 2023, arXiv:2306.16213) with our own pipeline: the M1 float64 JAX likelihood on our PINT 1.1.7
 arrays, NumPyro NUTS, our own Bayes-factor estimators and our own optimal statistic (OS). Every
@@ -16,10 +21,12 @@ Reproduce (outputs go to the git-ignored `runs/` and `outputs/m2/`):
 nohup scripts/m2_production.sh > runs/production.log 2>&1 &           # all NUTS runs, sequential
 uv run --no-sync python scripts/m2_compare.py                           # vs released chains, diagnostics
 uv run --no-sync python scripts/m2_bayes.py --systematics               # HD vs CURN Bayes factors
+uv run --no-sync python scripts/m2_freespec_diag.py --run hd_fs30       # free-spectrum mode occupancy
 uv run --no-sync python scripts/m2_optstat.py                           # OS, noise marginalisation, Fig. 1c
 uv run --no-sync python scripts/m2_figures.py                           # docs/figures/m2_*.png
 uv run --no-sync python scripts/m2_report.py > outputs/m2/tables.md     # the tables below
 PTAGWB_REQUIRE_ORACLES=1 uv run --no-sync pytest                        # 92 tests incl. OS oracle
+scripts/m2_rerun_fs30.sh                                                # prepared HD^free re-run (not run yet)
 ```
 
 ## 1. Summary
@@ -33,27 +40,31 @@ uncertainty; numbers with z use z = (ours - released) / sqrt(MCSE_ours^2 + MCSE_
 |---|---|---|---|---|---|
 | HD^13/3 A [1e-15] | 2.4 (+0.7/-0.6) | 2.404 [1.815, 3.069] (Fig. 1b chain) | 2.445 [1.820, 3.106]; log10 A -14.612 [-14.740, -14.508], MC (0.004, 0.004, 0.003) | 2.372 [1.782, 3.092]; log10 A -14.625 [-14.749, -14.510] | agrees: z(5,50,95) = (+0.2, +1.7, +1.8) vs Fig. 1b chain; (-2.1, +0.1, -0.6) vs the tutorial core; KS D = 0.046 |
 | HD^gamma A [1e-15] | 6.4 (+4.2/-2.7) | 6.385 [3.700, 10.559] | 6.445 [3.739, 10.486]; log10 A -14.191 [-14.427, -13.979] | 6.32 [3.64, 10.09]; log10 A -14.199 [-14.439, -13.996] | agrees: z = (+0.3, +0.7, -0.4) |
-| HD^gamma gamma | 3.2 +- 0.6 | 3.248 [2.660, 3.840] | 3.226 [2.679, 3.854] | 3.255 [2.676, 3.846] | agrees: z = (+1.0, -1.7, +0.4); 2-D energy distance at the MC floor (Sec. 5) |
+| HD^gamma gamma | 3.2 +- 0.6 | 3.248 [2.660, 3.840] | 3.226 [2.679, 3.854] | 3.255 [2.676, 3.846] | agrees: z = (+1.0, -1.7, +0.4) |
 | CURN^13/3 log10 A | not quoted | -14.563 [-14.675, -14.480] (tutorial CURN^13/3-vs-HD^13/3 core, CURN samples) | -14.563 [-14.670, -14.474] | n/a (no positions) | agrees: z = (+0.7, -0.0, +1.4) |
 | CURN^gamma log10 A | not quoted (contours only) | -14.171 [-14.392, -13.977] (m2a) | -14.170 [-14.387, -13.966] | n/a | agrees: z = (+0.7, +0.1, +1.9) |
 | CURN^gamma gamma | not quoted | 3.351 [2.797, 3.877] (m2a) | 3.344 [2.784, 3.878] | n/a | agrees: z = (-0.9, -0.6, +0.1) |
-| HD^free (30 modes), Fig. 1a | excess power in bins 1-8 | released core (Fig. 1a) | bins f_1-f_3 and f_8 (log10 rho): -6.57, -6.82, -7.16, -7.58 vs released -6.57, -6.81, -7.15, -7.59; first 10 bins |z(50)| <= 1.6, KS D <= 0.047 (Fig. 1a) | not run | agrees for the medians/peaks; weak mixing in the bimodal bins (f_1, f_4, f_5, f_8: R-hat up to 1.08, bulk ESS 31-170) |
-| BF HD^gamma / CURN^gamma, 14 modes | ~200; Fig. 2: 226 +- 70 (tutorial: hypermodel 202 +- 3, TI 198 +- 45) | - | **178 +- 6** (bridge); reweighting 183 +- 9, reverse reweighting 228 +- 13 | 172 (ln BF -0.0125 +- 0.0005 vs enterprise positions) | agrees within the paper's +-70. Our estimator spread (178-228) exceeds the bootstrap errors: quote 178 (+50/-6) |
-| BF HD^13/3 / CURN^13/3, 14 modes | "similar" | - | **212 +- 8** (bridge); reweighting 225 +- 9, reverse 214 +- 20 | 236 vs 239 on the same draws (ln BF -0.011) | agrees ("similar") |
-| BF HD^gamma / CURN^gamma, 5 modes | ~1000; Fig. 2: 965 | - | **894 +- 30** (bridge); reweighting 834 +- 28, reverse 1081 +- 64 | not computed | agrees within the estimator spread (834-1081) |
-| BF self-check (CURN via the correlated-ORF path with Gamma = I) | 1 | - | 1 - 1.1e-11 (max abs dlogL 1.7e-8) | - | exact |
+| HD^free (30 modes), Fig. 1a: **INCOMPLETE / PRELIMINARY** | excess power in bins 1-8 | released core (Fig. 1a) | bins f_1-f_3 and f_8 (log10 rho): -6.57, -6.82, -7.16, -7.58 vs released -6.57, -6.81, -7.15, -7.59; first 10 bins |z(50)| <= 1.6, KS D <= 0.047 (Fig. 1a) | not run | **not converged**: 36 parameters with R-hat > 1.01 (max 1.08), min bulk / tail ESS 31 / 19; 10 of 30 bins fail the mode-occupancy gate (e.g. f_8: chains spend 14/0/0/0% below -9 vs 6.0% released). Peaks/medians look similar but this does not validate the posterior |
+| BF HD^gamma / CURN^gamma, 14 modes | ~200; Fig. 2: 226 +- 70 (tutorial: hypermodel 202 +- 3, TI 198 +- 45) | - | **178** (bridge; conditional bootstrap sd 6.6, 3.5-8.7 over block lengths 1-300); reweighting 183, reverse reweighting 228 | 172 (ln BF -0.0125 +- 0.0005 vs enterprise positions) | compatible with 226 +- 70. Provisional: the spread between estimators (178-228) exceeds the bootstrap error and is itself not a calibrated interval (Sec. 6) |
+| BF HD^13/3 / CURN^13/3, 14 modes | "similar" | - | **212** (bridge; conditional bootstrap sd 7.6, up to 9.5 over block lengths); reweighting 225, reverse 214 | 236 vs 239 on the same draws (ln BF -0.011) | consistent with "similar" |
+| BF HD^gamma / CURN^gamma, 5 modes | ~1000; Fig. 2: 965 | - | **894** (bridge; conditional bootstrap sd 29, up to 34 over block lengths); reweighting 834, reverse 1081 | not computed | comparable to 965 (the paper quotes no error for the 5-mode value; no agreement claim) |
+| BF self-check (CURN via the correlated-ORF path with Gamma = I) | 1 | - | 1 - 1e-11 (max abs dlogL 9e-10) | - | exact |
 | OS S/N, noise-marginalised, gamma = 13/3 | 4 +- 1 | 4.49 +- 1.02 (20,000 released draws) | 4.52 +- 1.03 (6,000 draws) | 4.51 +- 1.03 | agrees |
 | OS S/N, noise-marginalised, varied gamma | 5 +- 1 | 4.98 +- 1.10 | 5.04 +- 1.10 | 5.03 +- 1.10 | agrees |
 | OS mean A^2 (13/3, noise-marg.) | 6.8(9)e-30 (App. G) | 6.81e-30 +- 0.87e-30 | 6.79e-30 +- 0.88e-30 | 6.78e-30 | agrees |
 | OS at the released ML noise vector (13/3) | - | A^2 = 6.7037e-30 +- 1.2324e-30, S/N 5.439 (notebook output) | 6.7032e-30 +- 1.2324e-30, S/N 5.439 (our PINT arrays) | 6.7059e-30, S/N 5.441 | agrees to 6e-5 (A^2) / 2e-6 (sigma) |
 | Binned HD chi^2 (15 bins), at the released ML vector | 8.1 (p = 0.92 for chi^2_15) | - | 8.10 (p = 0.920); same with the released pair covariance | 8.03 | exact |
-| Binned HD chi^2, at the MAP draw of *our* CURN^13/3 chain | - | - | 9.99 (p = 0.82); over the 20 highest-logL draws: median 10.1, range 6.4-30.2 | 9.52 | consistent; chi^2 is sensitive to the noise point (Sec. 7) |
+| Binned HD chi^2, at the highest-likelihood saved draw of *our* CURN^13/3 chain | - | - | 9.99 (p = 0.82); over the 20 highest-logL draws: median 10.1, range 6.4-30.2 | 9.52 | consistent; chi^2 is sensitive to the noise point (Sec. 7) |
 | Pair covariance (2211 x 2211) at the released ML vector | - | `os_covariance_matix_between_rhos.npy` | max deviation 1.3e-4 (our arrays), 1.3e-5 (feathers), in correlation units | - | agrees |
 
-Headline: every parameter-estimation target is reproduced within Monte-Carlo error; the HD vs
-CURN Bayes factor (178, estimator range 178-228) and the 5-mode one (894, range 834-1081) are
-inside the paper's quoted uncertainties; the OS reproduces the released ML numbers and chi^2 = 8.1
-exactly and the noise-marginalised S/N distributions to 0.03-0.06.
+Headline: the power-law parameter-estimation targets (HD and CURN, fixed and varied gamma) are
+reproduced within Monte-Carlo error of the quantiles, although several IRN nuisance parameters
+miss the paper's all-parameter R-hat < 1.01 criterion (1.01-1.03; Sec. 4). The **HD free
+spectrum is not converged and its comparison is preliminary** (Sec. 10). The HD vs CURN Bayes
+factor (bridge 178; estimators 178-228) is compatible with the paper's 226 +- 70, with a
+provisional uncertainty (Sec. 6); the 5-mode value (894; estimators 834-1081) is comparable to the
+paper's 965, for which no error is quoted. The OS reproduces the released ML numbers and
+chi^2 = 8.1 exactly and the noise-marginalised S/N distributions to 0.03-0.06.
 
 ## 2. Priors: the two open prerequisites
 
@@ -156,15 +167,20 @@ intermediate commits touched only post-processing scripts and docs.
 * **No divergences** in any sampling phase; no draw hit the maximum tree depth except
   2 draws of the auxiliary curn_fs30 run.
 * **R-hat.** In the power-law runs all common parameters have R-hat <= 1.005, except log10 A in
-  the HD^13/3 ICRS run (1.014, bulk ESS 258); the free-spectrum runs are discussed in Sec. 10.
+  the HD^13/3 ICRS run (1.014, bulk ESS 258); the free-spectrum runs are not converged (Sec. 10).
   The worst parameter of each power-law run is an IRN amplitude with a funnel-shaped marginal (J2145-0750, J0437-4715, J1944+0907,
-  J1713+0747, J1911+1347): R-hat 1.009-1.032. The paper's criterion (Gelman-Rubin < 1.01) is met
-  for the common parameters but not for every IRN nuisance parameter in the HD runs (4 x 500
-  draws); see Sec. 10.
+  J1713+0747, J1911+1347): R-hat 1.009-1.032. **The paper's criterion (R-hat < 1.01 for all
+  parameters, GWB App. B) is not met by our power-law runs**: it holds for the common parameters
+  (except HD^13/3 ICRS) but several IRN nuisance parameters have R-hat 1.01-1.03 in every run
+  except curn_vg_5f (max 1.009); see Sec. 10.
 * **ESS.** Common-parameter bulk ESS 258-3800; the HD^13/3 ICRS run is the weakest (258). The
   quantile MCSEs in the tables propagate this directly.
 * hd_g433_14f warmup (21 min) is inflated by GPU contention: a duplicate driver process ran for
   30 s at its start and two Bayes-factor evaluations ran concurrently (see `runs/production.log`).
+* Since the review of 4b63e38, the post-processing (`m2_bayes.py`, `m2_optstat.py`,
+  `m2_compare.py`) was re-run on the CPU from the same saved draws; the Bayes-factor log
+  likelihoods are cached in `outputs/m2/bf_loglikes_*.npz`. The ICRS / feather systematics are
+  carried over from the 4b63e38 GPU run (unchanged code path).
 
 ## 5. Parameter estimation vs the released chains
 
@@ -202,10 +218,21 @@ both samples and are indicative only.
 | hd_fs30 | hd_fs30 | gw_log10_rho_8 | -11.665 [-15.077, -8.243] | +-(0.058, 0.110, 0.056) | -11.674 [-15.121, -8.226] | +-(0.011, 0.037, 0.018) | +0.8, +0.1, -0.3 | 0.020 (0.94) |
 | hd_fs30 | hd_fs30 | gw_log10_rho_9 | -11.284 [-15.047, -7.823] | +-(0.103, 0.187, 0.047) | -11.194 [-15.087, -7.784] | +-(0.015, 0.033, 0.012) | +0.4, -0.5, -0.8 | 0.030 (0.63) |
 
-**2-D (gamma, log10 A).** curn_vg_14f vs curn_vg_m2a: 1.23e-04 (MC floors: our chains 1-2 vs 3-4 1.66e-03; released halves 8.74e-05); curn_vg_14f vs curn_vg_hm: 2.21e-04 (MC floors: our chains 1-2 vs 3-4 1.66e-03; released halves 9.69e-05); hd_vg_14f vs hd_vg: 4.02e-04 (MC floors: our chains 1-2 vs 3-4 5.37e-04; released halves 1.48e-04); hd_vg_14f vs hd_vg_m3a: 1.24e-03 (MC floors: our chains 1-2 vs 3-4 5.37e-04; released halves 1.40e-04); hd_vg_14f vs hd_vg_hm: 8.89e-04 (MC floors: our chains 1-2 vs 3-4 5.37e-04; released halves 4.20e-04);
-In every case the ours-vs-released energy distance is at or below the MC floor of our own
-chains (chains 1-2 vs 3-4), i.e. the 2-D posteriors agree within our Monte-Carlo noise.
-Fig. 1(b) overlays the contours.
+**2-D (gamma, log10 A), descriptive only.** Energy distances between our draws and the released
+chains, with two *descriptive* references (neither is a calibrated null distribution): our chains
+1-2 vs 3-4, and the first vs second contiguous half of the released chain.
+
+* curn_vg_14f vs curn_vg_m2a: 1.23e-04 (descriptive references: our chains 1-2 vs 3-4 1.66e-03; released first vs second half 7.59e-04)
+* curn_vg_14f vs curn_vg_hm: 2.21e-04 (descriptive references: our chains 1-2 vs 3-4 1.66e-03; released first vs second half 6.79e-04)
+* hd_vg_14f vs hd_vg: 4.02e-04 (descriptive references: our chains 1-2 vs 3-4 5.37e-04; released first vs second half 3.16e-04)
+* hd_vg_14f vs hd_vg_m3a: 1.24e-03 (descriptive references: our chains 1-2 vs 3-4 5.37e-04; released first vs second half 4.76e-04)
+* hd_vg_14f vs hd_vg_hm: 8.89e-04 (descriptive references: our chains 1-2 vs 3-4 5.37e-04; released first vs second half 2.76e-03)
+
+For CURN^gamma and HD^gamma vs the Fig. 1(b) chain the distance is below both references; for
+HD^gamma vs m3a (1.24e-3) and vs the product-space core (8.9e-4) it exceeds our own-chain
+reference (5.4e-4). We do not attach a significance to these numbers; a calibrated test would
+need repeated, autocorrelation-preserving, size-matched reference splits. The 1-D quantile
+z-scores above are the quantitative comparison. Fig. 1(b) overlays the contours.
 
 **IRN spot checks** (six pulsars spanning detected IRN, upper limits and funnel shapes; ours vs
 m2a for CURN^gamma and vs m3a for HD^gamma): all 72 quantiles agree, |z| <= 2.4, KS D <= 0.035.
@@ -260,9 +287,14 @@ at posterior draws (`ptagwb.evidence`, `scripts/m2_bayes.py`):
 * **Bridge sampling** with the Meng & Wong optimal bridge, using both sample sets
   (effective sample sizes in the bridge weights); our headline estimator.
 
-All in log space (log-sum-exp). Errors: moving-block bootstrap within chains, block = 2x the
-integrated autocorrelation time of the weights (2000/2000/500 replicates), so autocorrelation is
-accounted for. Tests on an analytic Gaussian toy with AR(1)-correlated exact posterior draws
+All in log space (log-sum-exp). Errors: moving-block bootstrap within chains. The default block
+length is 2x the integrated autocorrelation time of the quantity being averaged: the importance
+weights for the two reweighting estimators, and the two bridge integrands
+e^l / (s1 r + s2 e^l) (CURN draws) and 1 / (s1 r + s2 e^l) (HD draws) at the solution for the
+bridge (until 4b63e38 the bridge used the log likelihood ratio, inconsistent with the docs; its
+bootstrap sd changes from 6.5 to 6.6). These errors are **conditional on the draws**: a bootstrap
+of the visited trajectories cannot account for weight-distribution tails the chains never
+reached. Tests on an analytic Gaussian toy with AR(1)-correlated exact posterior draws
 recover the closed-form BF within 4 sd and show calibrated bootstrap errors
 (`tests/test_evidence.py`).
 
@@ -270,37 +302,73 @@ recover the closed-form BF within 4 sd and show calibrated bootstrap errors
 |---|---|---|---|---|---|---|
 | vg14 | reweight | 183.0 | 9.4 | 173.8-192.6 | 467 / 6000 | 5 |
 | vg14 | reverse_reweight | 227.7 | 12.6 | 215.3-239.4 | 371 / 2000 | 5 |
-| vg14 | bridge | 178.3 | 6.5 | 171.9-185.1 | - / 8000 | [28, 9] |
+| vg14 | bridge | 178.3 | 6.6 | 172.3-185.4 | - / 8000 | [19, 8] |
 | vg14 | self_check_identity_orf | 1.0 | 0.0 | 1.0-1.0 | 600 / 600 | 3 |
 | g433_14 | reweight | 224.9 | 8.9 | 216.9-233.6 | 989 / 6000 | 7 |
 | g433_14 | reverse_reweight | 213.7 | 19.5 | 195.7-234.1 | 326 / 2000 | 10 |
-| g433_14 | bridge | 212.0 | 7.9 | 203.5-219.8 | - / 8000 | [20, 10] |
-| g433_14 | self_check_identity_orf | 1.0 | 0.0 | 1.0-1.0 | 600 / 600 | 3 |
+| g433_14 | bridge | 212.0 | 7.6 | 204.6-219.7 | - / 8000 | [16, 10] |
+| g433_14 | self_check_identity_orf | 1.0 | 0.0 | 1.0-1.0 | 600 / 600 | 2 |
 | vg5 | reweight | 833.8 | 28.2 | 807.6-864.6 | 1119 / 6000 | 6 |
 | vg5 | reverse_reweight | 1081.4 | 63.6 | 1017.6-1144.2 | 483 / 2000 | 8 |
-| vg5 | bridge | 894.4 | 29.7 | 865.4-928.0 | - / 8000 | [24, 10] |
-| vg5 | self_check_identity_orf | 1.0 | 0.0 | 1.0-1.0 | 600 / 600 | 3 |
+| vg5 | bridge | 894.4 | 28.8 | 869.5-924.5 | - / 8000 | [16, 11] |
+| vg5 | self_check_identity_orf | 1.0 | 0.0 | 1.0-1.0 | 600 / 600 | 2 |
 
 Checks:
 * **BF(model vs itself) = 1**: reweighting the CURN chain with the CURN likelihood evaluated
-  through the *correlated-ORF* code path with Gamma = I gives BF = 1 - 1e-11 (max |dlogL| ~ 2e-8)
+  through the *correlated-ORF* code path with Gamma = I gives BF = 1 - 1e-11 (max |dlogL| 9e-10)
   for all three setups.
-* Recomputed log L at the chain draws equals the sampler's own value to 1e-9.
+* `scripts/m2_bayes.py` now refuses inconsistent pairs: both runs must have identical parameter
+  names, prior bounds and model metadata (gamma treatment, positions, n_common, n_modes, common
+  spectrum, prior overrides, likelihood convention) and differ only in the ORF; the evaluation
+  model must reproduce the stored chain log L on a random 64-draw subset of each run (max
+  deviation 9e-10), otherwise it stops.
 * **Front end**: replacing our PINT 1.1.7 arrays by the released feathers (analysis-time
   PINT 0.9.1; importance ratio from our CURN posterior, 1,200 draws) changes ln BF by
   +0.026 +- 0.003 (varied gamma) and +0.019 +- 0.003 (13/3), i.e. ~2-3%. Positions: -1% (Sec. 5).
 
-Interpretation. The three estimators disagree by more than their bootstrap errors in the
-varied-gamma setups (14 modes: 183 / 228 / 178; 5 modes: 834 / 1081 / 894); for 13/3 they agree
-(225 / 214 / 212). The pattern (forward reweighting low, reverse high) is the usual finite-sample
-behaviour when the HD posterior's tails are under-represented in the CURN draws and vice versa,
-so the bootstrap errors understate the true uncertainty; the bridge estimate is the most
-reliable. Our result: **BF(HD^gamma/CURN^gamma, 14 modes) = 178, with an estimator range
-178-228**, vs the paper's ~200 (Fig. 2: 226 +- 70; tutorial hypermodel 202 +- 3, tutorial TI
-198 +- 45); **5 modes: 894 (range 834-1081)** vs ~1000 (Fig. 2: 965); HD^13/3 vs CURN^13/3: 212
-(range 212-225), "similar" in the paper. All agree within the paper's quoted uncertainty. A
-product-space or thermodynamic-integration cross-check was not run (cost; the bridge already uses
-both posteriors).
+Block-length sensitivity of the conditional bootstrap sd (BF units):
+
+| setup | block | reweight | reverse | bridge |
+|---|---|---|---|---|
+| vg14 | 1 | 8.1 | 10.8 | 3.5 |
+| vg14 | 10 | 10.4 | 14.0 | 6.7 |
+| vg14 | 30 | 11.2 | 16.3 | 7.7 |
+| vg14 | 100 | 11.1 | 17.8 | 8.7 |
+| vg14 | 300 | 10.8 | 10.2 | 5.6 |
+| g433_14 | 1 | 6.1 | 10.4 | 3.9 |
+| g433_14 | 10 | 9.5 | 20.1 | 6.9 |
+| g433_14 | 30 | 11.3 | 21.9 | 9.5 |
+| g433_14 | 100 | 10.0 | 17.7 | 7.9 |
+| g433_14 | 300 | 8.3 | 12.6 | 5.8 |
+| vg5 | 1 | 22.7 | 43.0 | 15.6 |
+| vg5 | 10 | 29.9 | 66.6 | 26.8 |
+| vg5 | 30 | 34.0 | 71.9 | 33.6 |
+| vg5 | 100 | 35.6 | 65.9 | 30.0 |
+| vg5 | 300 | 29.6 | 46.3 | 24.3 |
+
+Convergence of the averaged quantities (split R-hat / bulk ESS over the 4 chains of each run):
+
+* vg14: bridge integrand at CURN draws R-hat 1.003 / ESS 489, at HD draws 1.011 / 482; log LR at CURN draws 1.003 / 489, at HD draws 1.011 / 482
+* g433_14: bridge integrand at CURN draws R-hat 1.004 / ESS 644, at HD draws 1.006 / 417; log LR at CURN draws 1.005 / 644, at HD draws 1.006 / 417
+* vg5: bridge integrand at CURN draws R-hat 1.002 / ESS 601, at HD draws 1.009 / 412; log LR at CURN draws 1.003 / 601, at HD draws 1.009 / 412
+
+The log likelihood ratio at the HD draws of the 14-mode varied-gamma pair has R-hat 1.011, i.e.
+at the edge of convergence; all other integrands have R-hat <= 1.009 and bulk ESS >= 412.
+Bridge integrands are bounded (max/mean <= 3.6), unlike the reweighting weights.
+
+Interpretation. For varied gamma the three estimators disagree by more than their conditional
+bootstrap errors (14 modes: 183 / 228 / 178; 5 modes: 834 / 1081 / 894); for 13/3 they agree
+(225 / 214 / 212). Forward reweighting low and reverse reweighting high is the usual signature of
+finite samples that under-represent each other's tails. We take the bridge estimate as the
+provisional value, because its integrands are bounded and it uses both posteriors, but this is
+not proof of convergence: **BF(HD^gamma/CURN^gamma, 14 modes) = 178 (conditional bootstrap sd
+6.6-8.7), with the three estimators spanning 178-228**. Neither the bootstrap sd nor that range is
+a calibrated confidence interval. The value is compatible with the paper's ~200 (Fig. 2:
+226 +- 70; tutorial hypermodel 202 +- 3, tutorial TI 198 +- 45). HD^13/3 vs CURN^13/3: 212
+(estimators 212-225), "similar" in the paper. 5 modes: 894 (estimators 834-1081) vs the paper's
+965, quoted without an error bar, so we make no agreement claim beyond "comparable". A
+product-space or thermodynamic-integration run (or longer HD chains) would calibrate this; not
+run.
 
 ## 7. Optimal statistic
 
@@ -329,7 +397,7 @@ Validation (`tests/test_optstat.py`, `tests/test_oracle_optstat.py`):
 Noise-marginalised S/N over all 6,000 draws of our CURN chains (Fig. 4): **4.52 +- 1.03**
 (gamma = 13/3) and **5.04 +- 1.10** (varied gamma), vs 4.49 +- 1.02 and 4.98 +- 1.10 from the
 released per-draw correlations (20,000 draws) and "4 +- 1" / "5 +- 1" in the paper. The
-fixed-noise OS at the maximum-likelihood draw of our CURN^13/3 chain (log10 A_CURN = -14.693) is
+fixed-noise OS at the highest-likelihood saved draw of our CURN^13/3 chain (log10 A_CURN = -14.693) is
 A^2 = 5.78e-30 +- 1.10e-30, S/N 5.27 (the released ML vector, which has 6.3 lower log L on our
 arrays, gives S/N 5.44). ICRS positions change the S/N by < 0.01.
 
@@ -337,20 +405,25 @@ arrays, gives S/N 5.44). ICRS positions change the S/N by < 0.01.
 152, 73, 208, 158, 146, 147, 152, 139, 153, 148, 147, 145, identical to the release), the
 Allen & Romano pair-covariance-aware estimator per bin, and the binned covariance B_jk. At the
 released ML vector we reproduce **chi^2 = 8.10** (p = 0.92, chi^2 with 15 dof), as in the paper
-(8.03 with ICRS positions). At the maximum-likelihood draw of our own chain chi^2 = 9.99
+(8.03 with ICRS positions). At the highest-likelihood saved draw of our own chain chi^2 = 9.99
 (p = 0.82). chi^2 is strongly sensitive to the noise point: over the 20 highest-likelihood draws of
-our chain it ranges 6.4-30.2 (median 10.1), so "MAP CURN^13/3" is not a sharp specification; the
-paper's conclusion (consistent with HD, p > 0.3) holds for most but not all of these draws.
+our chain it ranges 6.4-30.2 (median 10.1). The paper evaluates chi^2 at a single
+maximum-a-posteriori noise point; a highest-likelihood saved draw is not an optimised MAP, and
+the spread among nearby draws reflects how precisely such a point is located, so the value depends
+on that choice. The paper's conclusion (consistent with HD, p > 0.3) holds for most but not all
+of these draws. Locating the actual MAP would need an optimisation with reproducibility checks
+(not done).
 
 ## 8. Figures
 
-* `docs/figures/m2_fig1a_freespec.png`: HD free spectrum (ours left halves, released right
-  halves, with the notebook's [-9, -4] truncation), HD^gamma 90% bands, and the paper's
-  A = 2.4e-15 gamma = 13/3 line.
+* `docs/figures/m2_fig1a_freespec.png`: **PRELIMINARY (unconverged chains, Sec. 10)**. HD free
+  spectrum (ours left halves, released right halves, with the notebook's [-9, -4] truncation,
+  which hides exactly the low-power region whose weight is not converged), HD^gamma 90% bands, and
+  the paper's A = 2.4e-15 gamma = 13/3 line.
 * `docs/figures/m2_fig1b_gamma_A.png`: HD^gamma (gamma, log10 A) 1/2/3-sigma contours and
   marginals, plus HD^13/3 amplitude marginals (dashed).
-* `docs/figures/m2_fig1c_correlations.png`: binned correlations at our MAP draw and at the
-  released ML vector.
+* `docs/figures/m2_fig1c_correlations.png`: binned correlations at the highest-likelihood saved
+  draw of our CURN^13/3 chain and at the released ML vector.
 * `docs/figures/m2_fig4_os_snr.png`: noise-marginalised OS S/N distributions.
 
 Colours: ours = blue, released = orange throughout.
@@ -374,26 +447,54 @@ Pilots (CURN diagonal vs dense metric, HD step-size-only warmup) are described i
 
 ## 10. Deviations and open issues
 
-1. **HD^free.** The free-spectrum marginals of bins that are partly
-   signal and partly prior-dominated (f_1, f_4, f_5, f_8) are bimodal ("power present / absent");
-   NUTS crosses between the modes slowly. hd_fs30 (4 x 250 draws, the budget allowed) has R-hat up to
-   1.08 (rho at f_1, bulk ESS 31) and lower-tail quantile MCSEs of 0.1-1.5 dex in those bins. The
-   peaks and medians agree with the released core (first 10 bins |z(50)| <= 1.6) and the
-   well-measured bins f_2, f_3 agree to 0.01 dex, but the lower tails in Fig. 1a are not
-   converged at the level of the released 490,000-sample core. The auxiliary CURN^free run shows
-   the same behaviour (R-hat 1.15 at f_4, bulk ESS 20).
-2. **Bayes-factor uncertainty.** The bootstrap errors are only Monte-Carlo errors given the
-   draws and understate the estimator spread for varied gamma (Sec. 6). A product-space NUTS
-   (or TI) run would pin down whether the true value is nearer 180 or 230. Not run (cost).
-3. **R-hat of a few IRN nuisance parameters** in the 4 x 500-draw HD runs is 1.02-1.03 (funnel
-   marginals); common-parameter R-hats are <= 1.005 (HD^13/3 ICRS: 1.014) and their bulk ESS >= 258. Longer HD chains
-   would fix this at ~40 min per 500 extra draws per run.
+1. **HD^free: INCOMPLETE / PRELIMINARY.** The marginals of bins that are partly signal and
+   partly prior-dominated are bimodal ("power present" near log10 rho ~ -7.5 vs a low-power
+   plateau down to the prior edge -15.5), and NUTS crosses between the two regions slowly.
+   hd_fs30 (4 x 250 draws; initialised from draws of the unconverged curn_fs30 run, whose metric
+   it also borrowed) has 36 of 164 parameters with R-hat > 1.01 (max 1.082, rho at f_1), minimum
+   bulk / tail ESS 31 / 19. The mode-occupancy diagnostic (`scripts/m2_freespec_diag.py`;
+   fraction of draws below log10 rho = -9 per chain, between-chain chi^2 on ESS-scaled counts,
+   indicator R-hat/ESS, comparison with the released core) fails 10 of 30 bins: e.g. at f_8 the
+   four chains spend 14 / 0 / 0 / 0% below -9 (pooled 3.5 +- 4.7%, released 6.0%) with per-chain
+   5% quantiles -13.9 / -7.9 / -7.9 / -7.9; at f_3 no draw visits the low-power region the
+   released core occupies 0.9% of the time. Matching peaks and medians (first 10 bins
+   |z(50)| <= 1.6) therefore do not validate the posterior; Fig. 1a is labelled preliminary.
+   Per-bin numbers: `outputs/m2/freespec_diag_hd_fs30.json`.
+   The auxiliary CURN^free run shows the same behaviour (R-hat 1.15 at f_4, bulk ESS 20).
+
+   **Re-run prepared, not run** (GPU reserved for the performance study): `configs/m2/hd_fs30_v2.json`
+   via `scripts/m2_rerun_fs30.sh`. 8 chains, 500 warmup + 750 draws each; **independent,
+   overdispersed initialisation** (every coordinate z ~ U(-4, 4), i.e. each chain starts uniformly
+   within 1.8-98.2% of every prior box, log10 rho in [-15.24, -1.26]; nothing from curn_fs30 or any
+   other run, neither init nor metric); diagonal windowed adaptation; mixed-precision backward pass
+   as before. Acceptance gate: every bin passes `m2_freespec_diag.py` (indicator R-hat < 1.01,
+   indicator ESS > 100, between-chain occupancy p > 0.01, occupancy vs released |z| < 3, stable
+   per-chain / half-run 5% quantiles) and R-hat < 1.01 for all 164 parameters. The config's
+   model / init / chain / draw fields are backend-independent (`"sampler": "nuts"` is the only
+   backend implemented); if the performance study changes the sampler, keep those and the gate.
+   **Expected cost** at the measured 32.6 ms per per-chain gradient: assuming ~260 leapfrog steps
+   per warmup iteration and ~210 per draw (curn_fs30 with diagonal adaptation from prior draws),
+   8 x (500 x 260 + 750 x 210) = 2.3 M gradients = **~21 h** serial-equivalent, ~13 h if the 8-way
+   batch reaches the benchmarked 20.9 ms per chain. Caveat: at the indicator ESS per draw seen so
+   far in the worst bins (~0.02-0.05), 6,000 draws give an indicator ESS of only ~100-300, so the
+   gate may still fail with plain NUTS; a mode-jumping move (e.g. parallel tempering or a
+   per-bin independence proposal between the two regions) would be the next step.
+2. **Bayes-factor uncertainty is provisional.** The bootstrap errors are conditional on the draws
+   (sensitive to block length: 3.5-8.7 for the 14-mode bridge) and smaller than the spread between
+   estimators for varied gamma; neither is a calibrated interval (Sec. 6). A product-space NUTS
+   (or TI) run would settle whether the value is nearer 180 or 230. Not run (cost).
+3. **Paper's all-parameter R-hat criterion not met.** GWB App. B requires R-hat < 1.01; in our
+   power-law runs several IRN nuisance parameters (funnel-shaped marginals) have R-hat 1.01-1.03
+   (max per run: 1.029, 1.012, 1.021, 1.021, 1.032, 1.024, 1.025; curn_vg_5f 1.009 passes), and
+   HD^13/3 ICRS log10 A has 1.014. Other common-parameter R-hats are <= 1.005 with bulk ESS >= 435.
+   Longer HD chains (~40 min per 500 extra draws per run) should fix this; not done.
 4. **Funnel geometry limits NUTS efficiency** (ESS per gradient ~1-4e-3 for the common
    parameters). A reparameterisation of the IRN (e.g. non-centred in log-power at the most
    sensitive frequency) might help; not explored.
 5. **Mixed-precision gradients** were used only for HD^free (exact energies, theoretically
    unbiased, toy-tested); its acceptance rate (0.93) is comparable to the float64 runs.
-6. **"MAP CURN^13/3"** is ill-defined at the level that matters for the binned chi^2 (Sec. 7).
+6. **Fixed-noise OS point.** We use the highest-likelihood saved draw, not an optimised MAP; the
+   binned chi^2 varies from 6.4 to 30 among the 20 highest-likelihood draws (Sec. 7).
 7. **CURN^free prior** remains inferred only (Sec. 2); no CURN^free result is claimed.
 8. hd_fs30 was reduced to 100 warmup + 250 draws per chain after measuring the free-spectrum cost
    on curn_fs30 (committed config change before its launch); the driver was restarted once to
