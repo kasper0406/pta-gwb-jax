@@ -160,51 +160,95 @@ def energy_distance(a: np.ndarray, b: np.ndarray, max_n: int = 4000, seed: int =
 
 GATE_DEFAULTS = {
     "rhat_max": 1.01,  # GWB App. B criterion, applied to every parameter (rank-normalised split R-hat)
-    # Vehtari et al. (2021) recommend bulk and tail ESS > 400 (100 per chain for 4 chains) before
-    # trusting R-hat and quantile MCSEs; we require it for every parameter and for the occupancy
-    # indicators, independent of the number of chains.
+    # Vehtari et al. (2021) recommend bulk and tail ESS > 400 before trusting R-hat and quantile
+    # MCSEs; required for every parameter and for every available occupancy indicator.
     "ess_bulk_min": 400.0,
     "ess_tail_min": 400.0,
     "indicator_ess_min": 400.0,
-    # tail-stability tolerance in units of the standard error of the difference. With 8 chains,
-    # 30 bins, 3 quantiles (~810 tests incl. half-run tests), Gaussian |z| > 4.5 gives a
-    # family-wise false-alarm rate of ~0.5% (|z| > 4 tripped on 1 of 10 synthetic well-mixed sets).
-    "z_tol": 4.5,
-    # 30 bins: Gaussian |z| > 3.5 has a ~1.4% family-wise false-alarm rate
-    "occupancy_z_tol": 3.5,
+    # an occupancy indicator with fewer than this many draws in its minority class is treated as
+    # near-constant: its R-hat / ESS / SE are reported as unavailable, never as precise.
+    "min_minority_count": 10,
+    # reproduction agreement: |difference in occupancy| / SE (chain-as-unit batch means for our run,
+    # contiguous batch means for the single-sequence reference) above this tolerance disagrees.
+    # A conventional threshold, not a calibrated test.
+    "agreement_z_tol": 3.5,
+    "reference_batches": 20,
+    # heuristic tail-stability warnings only (not part of any verdict; not calibrated)
+    "heuristic_z_tol": 4.5,
 }
 
 
-def _indicator_stats(ind: np.ndarray) -> tuple[float, float]:
-    """(R-hat, ESS) of a 0/1 indicator (chains, n); degenerate (constant) indicators get (1, N)."""
-    if np.ptp(ind) == 0:
-        return 1.0, float(ind.size)
-    return rhat(ind), ess(_split(ind))
+class GateInputError(ValueError):
+    """Missing or invalid input for the acceptance gate (CLI exit status 2)."""
 
 
-def _cdf_diff_test(a: np.ndarray, b: np.ndarray, q: float, z_tol: float) -> dict:
-    """Tail-stability test at a reference quantile value q: the fractions of draws <= q in two
-    disjoint subsets a, b ((chains, n) arrays) and z = (F_a - F_b) / sqrt(var_a + var_b), with
-    var = F (1 - F) / ESS of the indicator computed within each subset (floored at 1/(n ESS)).
+def _indicator_stats(ind: np.ndarray, min_minority: int) -> dict:
+    """R-hat / ESS of a 0/1 indicator (chains, n), or ``available: False`` when (near-)constant."""
+    k = int(ind.sum())
+    if min(k, ind.size - k) < min_minority:
+        return {"available": False, "rhat": None, "ess": None}
+    return {"available": True, "rhat": rhat(ind), "ess": ess(_split(ind))}
 
-    This is a quantile-stability test expressed on the probability scale: q_p is stable across
-    subsets iff the mass below the pooled q_p is. Unlike a difference of quantile values divided
-    by quantile MCSEs, it stays well defined when q_p falls in a low-density gap between the two
-    modes of a free-spectrum marginal, where quantile values jump and their MCSEs are unreliable
-    (a synthetic, perfectly mixed bimodal set produced |z| up to 8 with the quantile-value form).
-    """
-    out = {}
-    var = []
-    for key, v in (("a", a), ("b", b)):
-        ind = (v <= q).astype(float)
+
+def _batch_means_se(ind: np.ndarray, n_batches: int) -> float:
+    """SE of the mean of a 0/1 indicator from batch means. ``ind``: (chains, n). With >= 2 chains
+    each chain is one batch (the chain as the unit); a single sequence is cut into ``n_batches``
+    contiguous batches."""
+    if ind.shape[0] >= 2:
+        m = ind.mean(axis=1)
+    else:
+        m = np.array([b.mean() for b in np.array_split(ind[0], n_batches)])
+    return float(m.std(ddof=1) / np.sqrt(len(m)))
+
+
+def _conservative_se(ind: np.ndarray, st: dict, n_batches: int) -> float:
+    se = _batch_means_se(ind, n_batches)
+    if st["available"]:
         f = float(ind.mean())
-        _, e = _indicator_stats(ind)
-        out[f"F_{key}"] = f
-        var.append(max(f * (1 - f), 1.0 / ind.size) / max(e, 1.0))
-    d = out["F_a"] - out["F_b"]
-    se = float(np.sqrt(sum(var)))
-    z = d / se if se > 0 else (0.0 if d == 0 else float("inf"))
-    return {**out, "d": d, "se": se, "z": float(z), "pass": bool(np.isfinite(z) and abs(z) <= z_tol)}
+        se = max(se, float(np.sqrt(f * (1 - f) / st["ess"])))
+    return se
+
+
+def validate_gate_inputs(x, names, expected_names=None, reference=None, compare: bool = False,
+                         prefix: str = "gw_log10_rho_", n_bins: int = 30) -> list[str]:
+    """Input errors (empty list if valid): shape/name consistency, unique names, the exact
+    ``expected_names`` schema if given, all expected bins present, finite draws, and, if
+    ``compare``, a complete, finite, non-trivial reference for every bin."""
+    errs = []
+    x = np.asarray(x, np.float64)
+    if x.ndim != 3:
+        return [f"draws must be (chains, draws, D), got shape {x.shape}"]
+    C, N, D = x.shape
+    if len(names) != D:
+        errs.append(f"{len(names)} names for D = {D} parameters")
+    if len(set(names)) != len(names):
+        errs.append("parameter names are not unique")
+    if expected_names is not None and list(names) != list(expected_names):
+        missing = sorted(set(expected_names) - set(names))
+        extra = sorted(set(names) - set(expected_names))
+        errs.append(f"parameter schema mismatch: {len(names)} given, {len(expected_names)} expected; "
+                    f"missing {missing[:5]}{'...' if len(missing) > 5 else ''}, extra {extra[:5]}"
+                    f"{' (order differs)' if not missing and not extra else ''}")
+    for k in range(n_bins):
+        if f"{prefix}{k}" not in names:
+            errs.append(f"{prefix}{k}: missing")
+    if C < 2 or N < 4:
+        errs.append(f"need >= 2 chains and >= 4 draws, got {C} x {N}")
+    if not np.all(np.isfinite(x)):
+        errs.append(f"{int(np.sum(~np.isfinite(x)))} non-finite draws")
+    if compare:
+        if not reference:
+            errs.append("reference requested but empty")
+        else:
+            for k in range(n_bins):
+                r = reference.get(f"{prefix}{k}")
+                if r is None:
+                    errs.append(f"reference lacks {prefix}{k}")
+                    continue
+                r = np.asarray(r, np.float64).ravel()
+                if r.size < 100 or not np.all(np.isfinite(r)):
+                    errs.append(f"reference {prefix}{k}: {r.size} draws, finite={bool(np.all(np.isfinite(r)))}")
+    return errs
 
 
 def freespec_gate(
@@ -213,104 +257,133 @@ def freespec_gate(
     n_bins: int = 30,
     prefix: str = "gw_log10_rho_",
     threshold: float = -9.0,
-    released: dict | None = None,
+    reference: dict | None = None,
+    expected_names: list[str] | None = None,
     probs: tuple[float, ...] = (0.05, 0.5, 0.95),
     **overrides,
 ) -> dict:
-    """Aggregate acceptance check for a free-spectrum run. ``x``: (chains, draws, D) draws with
-    parameter ``names``; ``released``: optional {name: 1-D reference draws}.
+    """Acceptance check for a free-spectrum run, with separate verdicts.
 
-    Fails (``pass`` False) on any missing bin, missing/non-finite diagnostic, or:
+    ``x``: (chains, draws, D); ``names``: parameter names; ``expected_names``: the required
+    schema (exact list); ``reference``: optional {bin name: 1-D reference draws} (e.g. the released
+    core) for the reproduction comparison.
 
-    1. any parameter (all D, incl. IRN) with rank-normalised split R-hat >= rhat_max, bulk ESS <
-       ess_bulk_min or tail ESS < ess_tail_min;
-    2. any bin whose occupancy indicator 1[log10_rho < threshold] has R-hat >= rhat_max or ESS <
-       indicator_ess_min, or (with ``released``) pooled occupancy differing from the released one
-       by more than occupancy_z_tol binomial-ESS standard errors;
-    3. tail instability: for each bin and p in ``probs``, with q = pooled p-quantile, compare the
-       fraction of draws <= q in chain c vs the other chains (every c) and in the first vs second
-       half of all chains; z = difference / sqrt(var_a + var_b) with binomial variances from each
-       subset's own indicator ESS (``_cdf_diff_test``); any |z| > z_tol fails. Differences of the
-       quantile values themselves are reported descriptively.
+    Returns ``input_errors`` (non-empty -> nothing else is evaluated; CLI exit 2), and
 
-    The between-chain chi^2 occupancy test is reported as supplementary only (its ESS
-    adjustment makes it weak).
+    * ``convergence`` PASS/FAIL: every parameter has rank-normalised split R-hat < rhat_max and
+      bulk/tail ESS >= the minimums; every bin's occupancy indicator 1[log10_rho < threshold], when
+      available (not near-constant), has R-hat < rhat_max and ESS >= indicator_ess_min.
+    * ``reproduction_agreement`` PASS/FAIL/UNAVAILABLE: per bin, |occupancy - reference
+      occupancy| / sqrt(SE_ours^2 + SE_ref^2) <= agreement_z_tol; each SE is the larger of a
+      batch-means SE (our chains as units; contiguous batches of the single reference sequence)
+      and the binomial SE from the indicator ESS (when available). The reference's own split-R-hat,
+      ESS and occupancy-indicator diagnostics are recorded. A disagreement is a finding about the
+      model / reference, not a sampler failure.
+    * ``heuristic_warnings``: tail-stability contrasts (fraction of draws <= the pooled 5/50/95%
+      quantile in each chain vs the rest and first vs second half, scaled by binomial SEs from the
+      subsets' indicator ESS). Not calibrated under autocorrelation; never part of a verdict;
+      unavailable for near-constant indicators.
     """
-    from scipy import stats as _st
-
     cfg = {**GATE_DEFAULTS, **overrides}
+    out = {"criteria": cfg | {"threshold": threshold, "n_bins": n_bins, "probs": list(probs)}}
+    errs = validate_gate_inputs(x, names, expected_names, reference, reference is not None, prefix, n_bins)
+    if errs:
+        return out | {"input_errors": errs, "convergence": "UNAVAILABLE", "reproduction_agreement": "UNAVAILABLE",
+                      "heuristic_warnings": []}
     x = np.asarray(x, np.float64)
-    C, N, D = x.shape
-    failures: list[str] = []
-    if len(names) != D:
-        failures.append(f"names ({len(names)}) do not match D = {D}")
-    if C < 2:
-        failures.append("need >= 2 chains")
-    params = {}
-    for j, n in enumerate(names[:D]):
-        s = {"rhat": rhat(x[..., j]), "ess_bulk": ess_bulk(x[..., j]), "ess_tail": ess_tail(x[..., j])}
-        ok = (np.isfinite(list(s.values())).all() and s["rhat"] < cfg["rhat_max"]
-              and s["ess_bulk"] >= cfg["ess_bulk_min"] and s["ess_tail"] >= cfg["ess_tail_min"])
-        s["pass"] = bool(ok)
-        params[n] = s
-        if not ok:
-            failures.append(f"{n}: R-hat {s['rhat']:.4f}, bulk ESS {s['ess_bulk']:.0f}, tail ESS {s['ess_tail']:.0f}")
-    bins = {}
+    C, N, _ = x.shape
     idx = {n: j for j, n in enumerate(names)}
+    conv_fail, agree_fail, warnings = [], [], []
+    params = {}
+    for j, n in enumerate(names):
+        s = {"rhat": rhat(x[..., j]), "ess_bulk": ess_bulk(x[..., j]), "ess_tail": ess_tail(x[..., j])}
+        s["pass"] = bool(np.isfinite(list(s.values())).all() and s["rhat"] < cfg["rhat_max"]
+                         and s["ess_bulk"] >= cfg["ess_bulk_min"] and s["ess_tail"] >= cfg["ess_tail_min"])
+        params[n] = s
+        if not s["pass"]:
+            conv_fail.append(f"{n}: R-hat {s['rhat']:.4f}, bulk ESS {s['ess_bulk']:.0f}, tail ESS {s['ess_tail']:.0f}")
+    bins, ref_diag = {}, {}
     h = N // 2
     for k in range(n_bins):
         n = f"{prefix}{k}"
-        if n not in idx:
-            failures.append(f"{n}: missing")
-            bins[n] = {"pass": False, "missing": True}
-            continue
         v = x[..., idx[n]]
         ind = (v < threshold).astype(float)
-        ir, ie = _indicator_stats(ind)
-        pooled = float(ind.mean())
-        b = {"occupancy_per_chain": ind.mean(axis=1).tolist(), "occupancy": pooled,
-             "indicator_rhat": ir, "indicator_ess": ie, "checks": {}}
-        b["checks"]["indicator"] = bool(np.isfinite(ir) and ir < cfg["rhat_max"] and ie >= cfg["indicator_ess_min"])
-        # supplementary between-chain chi^2 on ESS-scaled counts
-        if 0 < pooled < 1:
-            neff = max(ie / C, 1.0)
-            chi2 = float(np.sum((ind.mean(axis=1) - pooled) ** 2 * neff / (pooled * (1 - pooled))))
-            b["supplementary_chi2_p"] = float(_st.chi2(C - 1).sf(chi2))
-        if released is not None and n in released:
-            r = np.asarray(released[n], np.float64)
-            ro = float(np.mean(r < threshold))
-            _, re_ = _indicator_stats((r < threshold).astype(float)[None])
-            se_o = np.sqrt(max(pooled * (1 - pooled), 1.0 / ind.size) / max(ie, 1.0))
-            se_r = np.sqrt(max(ro * (1 - ro), 1.0 / r.size) / max(re_, 1.0))
-            z = (pooled - ro) / np.hypot(se_o, se_r)
-            b["released_occupancy"], b["occupancy_z"] = ro, float(z)
-            b["checks"]["occupancy_vs_released"] = bool(abs(z) <= cfg["occupancy_z_tol"])
+        st = _indicator_stats(ind, cfg["min_minority_count"])
+        b = {"occupancy_per_chain": ind.mean(axis=1).tolist(), "occupancy": float(ind.mean()), "indicator": st,
+             "parameter_pass": params[n]["pass"]}
+        b["indicator_pass"] = (not st["available"]) or bool(st["rhat"] < cfg["rhat_max"] and st["ess"] >= cfg["indicator_ess_min"])
+        if not st["available"]:
+            warnings.append(f"{n}: occupancy indicator near-constant (occupancy {b['occupancy']:.4f}); its diagnostics are unavailable")
+        if not b["indicator_pass"]:
+            conv_fail.append(f"{n}: occupancy indicator R-hat {st['rhat']:.3f}, ESS {st['ess']:.0f}")
+        if reference is not None:
+            r = np.asarray(reference[n], np.float64).ravel()
+            rind = (r < threshold).astype(float)[None]
+            rst = _indicator_stats(rind, cfg["min_minority_count"])
+            r2 = r[None]
+            ref_diag[n] = {"n": int(r.size), "split_rhat": rhat(r2), "ess_bulk": ess_bulk(r2), "ess_tail": ess_tail(r2),
+                           "occupancy": float(rind.mean()), "indicator": rst}
+            # conservative: the larger of the batch-means SE and the binomial SE from the indicator
+            # ESS (the batch-means estimate from 8 chains is itself noisy)
+            se_o = _conservative_se(ind, st, cfg["reference_batches"])
+            se_r = _conservative_se(rind, rst, cfg["reference_batches"])
+            d = b["occupancy"] - float(rind.mean())
+            se = float(np.hypot(se_o, se_r))
+            z = 0.0 if d == 0 else (d / se if se > 0 else float("inf"))
+            b["agreement"] = {"reference_occupancy": float(rind.mean()), "diff": d, "se_ours": se_o, "se_ref": se_r,
+                              "z": float(z), "pass": bool(abs(z) <= cfg["agreement_z_tol"])}
+            if not b["agreement"]["pass"]:
+                agree_fail.append(f"{n}: occupancy {b['occupancy']:.3f} vs reference {rind.mean():.3f} (z {z:.1f})")
         tails = []
+        pooled_ok = st["available"]
         for p in probs:
             q = float(np.quantile(v, p))
-            for c in range(C):
-                t = _cdf_diff_test(v[c : c + 1], np.delete(v, c, axis=0), q, cfg["z_tol"])
-                t["q_chain_minus_rest"] = float(np.quantile(v[c], p) - np.quantile(np.delete(v, c, axis=0), p))
-                tails.append({"test": f"chain{c}_vs_rest", "p": p, "q_pooled": q, **t})
-            t = _cdf_diff_test(v[:, :h], v[:, h:], q, cfg["z_tol"])
-            t["q_first_minus_second"] = float(np.quantile(v[:, :h], p) - np.quantile(v[:, h:], p))
-            tails.append({"test": "first_vs_second_half", "p": p, "q_pooled": q, **t})
-        b["tail_tests"] = tails
-        b["checks"]["tail_stability"] = all(t["pass"] for t in tails)
-        b["checks"]["parameter"] = params.get(n, {}).get("pass", False)
-        b["pass"] = all(b["checks"].values())
-        if not b["pass"]:
-            bad = [kk for kk, vv in b["checks"].items() if not vv]
-            worst = max((abs(t["z"]) if np.isfinite(t["z"]) else np.inf) for t in tails)
-            failures.append(f"{n}: failed {bad} (indicator R-hat {ir:.3f}, ESS {ie:.0f}, max |tail z| {worst:.1f})")
+            pairs = [(f"chain{c}_vs_rest", v[c : c + 1], np.delete(v, c, axis=0)) for c in range(C)]
+            pairs.append(("first_vs_second_half", v[:, :h], v[:, h:]))
+            for label, a, bb in pairs:
+                ia, ib = (a <= q).astype(float), (bb <= q).astype(float)
+                sa = _indicator_stats(ia, cfg["min_minority_count"])
+                sb = _indicator_stats(ib, cfg["min_minority_count"])
+                t = {"test": label, "p": p, "F_a": float(ia.mean()), "F_b": float(ib.mean())}
+                if not (pooled_ok and sa["available"] and sb["available"]):
+                    t["z"] = None  # unavailable
+                else:
+                    var = [max(f * (1 - f), 1e-12) / e for f, e in ((t["F_a"], sa["ess"]), (t["F_b"], sb["ess"]))]
+                    t["z"] = float((t["F_a"] - t["F_b"]) / np.sqrt(sum(var)))
+                    if abs(t["z"]) > cfg["heuristic_z_tol"]:
+                        warnings.append(f"{n}: tail-stability heuristic {label} at p={p}: z {t['z']:.1f}")
+                tails.append(t)
+        b["tail_heuristics"] = tails
         bins[n] = b
-    return {
-        "pass": not failures,
-        "failures": failures,
-        "n_failures": len(failures),
-        "criteria": cfg | {"threshold": threshold, "n_bins": n_bins, "probs": list(probs)},
+    convergence = "PASS" if not conv_fail else "FAIL"
+    agreement = "UNAVAILABLE" if reference is None else ("PASS" if not agree_fail else "FAIL")
+    return out | {
+        "input_errors": [],
+        "convergence": convergence,
+        "reproduction_agreement": agreement,
+        "reproduction_acceptance": convergence == "PASS" and agreement == "PASS",
+        "convergence_failures": conv_fail,
+        "agreement_failures": agree_fail,
+        "heuristic_warnings": warnings,
         "parameters": params,
         "bins": bins,
+        "reference_diagnostics": ref_diag,
         "n_parameters_failing": int(sum(not s["pass"] for s in params.values())),
-        "n_bins_failing": int(sum(not b["pass"] for b in bins.values())),
+        "n_bins_failing_convergence": int(sum(not (bb["parameter_pass"] and bb["indicator_pass"]) for bb in bins.values())),
+        "n_bins_disagreeing": len(agree_fail),
     }
+
+
+def gate_exit_code(result: dict, require_reproduction: bool = True) -> int:
+    """0: pass; 1: diagnostic failure (convergence FAIL, or reproduction FAIL when required);
+    2: missing/invalid input, or reproduction UNAVAILABLE when required."""
+    if result.get("input_errors"):
+        return 2
+    if result["convergence"] != "PASS":
+        return 1
+    if require_reproduction:
+        if result["reproduction_agreement"] == "UNAVAILABLE":
+            return 2
+        if result["reproduction_agreement"] != "PASS":
+            return 1
+    return 0

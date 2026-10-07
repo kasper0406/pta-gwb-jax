@@ -464,9 +464,8 @@ Pilots (CURN diagonal vs dense metric, HD step-size-only warmup) are described i
    5% quantiles -13.9 / -7.9 / -7.9 / -7.9; at f_3 no draw visits the low-power region the
    released core occupies 0.9% of the time. Matching peaks and medians (first 10 bins
    |z(50)| <= 1.6) therefore do not validate the posterior; Fig. 1a is labelled preliminary.
-   Per-bin numbers: `outputs/m2/freespec_gate_hd_fs30.json`. Under the full acceptance gate below the
-   existing run fails 19 of 30 bins and 59 of 164 parameters (R-hat / ESS), and
-   `scripts/m2_freespec_diag.py` exits with status 1.
+   Per-bin numbers: `outputs/m2/freespec_gate_hd_fs30.json`. The acceptance gate below rejects the
+   existing run (convergence FAIL: 59 of 164 parameters, 18 of 30 bins; exit status 1).
    The auxiliary CURN^free run shows the same behaviour (R-hat 1.15 at f_4, bulk ESS 20).
 
    **Re-run prepared, not run** (GPU reserved for the performance study): `configs/m2/hd_fs30_v2.json`
@@ -481,27 +480,39 @@ Pilots (CURN diagonal vs dense metric, HD step-size-only warmup) are described i
    Mixed-precision backward pass as before.
 
    **Acceptance gate** (`ptagwb.diagnostics.freespec_gate`, CLI `scripts/m2_freespec_diag.py`,
-   run by `scripts/m2_rerun_fs30.sh`, which exits nonzero on any failure or missing diagnostic;
-   thresholds in `diagnostics.GATE_DEFAULTS`):
-   * all 30 bins present;
-   * every one of the 164 parameters (incl. all IRN): rank-normalised split R-hat < 1.01, bulk
-     and tail ESS >= 400 (Vehtari et al. 2021: >= 400, i.e. 100 per chain for 4 chains, before
-     R-hat and quantile MCSEs are trusted);
-   * per bin, the occupancy indicator 1[log10 rho < -9]: R-hat < 1.01, ESS >= 400, and pooled
-     occupancy within 3.5 binomial-ESS standard errors of the released core (~1.4% family-wise
-     false-alarm rate over 30 bins);
-   * tail stability per bin at the pooled 5/50/95% quantiles q: fraction of draws <= q in each
-     chain vs the other chains, and in the first vs second half; z = difference / sqrt(var_a +
-     var_b) with binomial variances from each subset's own indicator ESS (the uncertainty of the
-     difference). Fail if any |z| > 4.5 (~810 tests, ~0.5% family-wise false-alarm rate). The test
-     is done on the probability scale because quantile *values* jump when a quantile falls in the
-     low-density gap between the two modes; a perfectly mixed synthetic set gave |z| up to 8 with
-     differences of quantile values over MCSEs. Quantile-value differences are reported
-     descriptively.
-   * The between-chain occupancy chi^2 p-value is supplementary only (its ESS scaling makes it weak).
+   run by `scripts/m2_rerun_fs30.sh`; thresholds in `diagnostics.GATE_DEFAULTS`). It reports
+   separate verdicts:
+   * **Input validation** (else exit 2, nothing evaluated): the run's parameter names must equal,
+     in order, the 164 names derived independently from the HD^free model spec and the release's
+     67-pulsar list; unique names; all draws finite; all 30 bins present; if a comparison is
+     requested, the reference must contain all 30 bins with finite draws. A missing run or
+     reference is also exit 2.
+   * **Convergence** PASS/FAIL: every one of the 164 parameters (incl. all IRN) has
+     rank-normalised split R-hat < 1.01 and bulk and tail ESS >= 400 (Vehtari et al. 2021
+     recommend >= 400 before R-hat and quantile MCSEs are trusted); every bin's occupancy
+     indicator 1[log10 rho < -9] has R-hat < 1.01 and ESS >= 400. An indicator with fewer than
+     10 draws in its minority class is "unavailable" (no R-hat/ESS/SE is invented for it) and
+     reported as a warning; the bin's parameter R-hat/ESS still apply.
+   * **Reproduction agreement** PASS/FAIL/UNAVAILABLE: per-bin occupancy vs the released core,
+     |z| <= 3.5 with conservative SEs (the larger of a batch-means SE, our chains as the units /
+     20 contiguous batches of the single reference sequence, and the binomial SE from the
+     indicator ESS). This is a conventional threshold, not a calibrated test. The reference's own
+     diagnostics are recorded: after its stored burn-in the released core has max split R-hat
+     1.0021 and min bulk / tail ESS 1069 / 1540 over the 30 bins. That comes from one stored
+     sequence, so it supports but does not certify the reference. A converged run that disagrees
+     with the reference is a finding about the model or reference, not a sampler failure.
+   * **Heuristic warnings** (informational only, never part of a verdict, not calibrated):
+     tail-stability contrasts of the fraction of draws <= the pooled 5/50/95% quantiles (each
+     chain vs the rest, first vs second half), and near-constant indicators.
+   * Exit status: 0 only if convergence PASS and agreement PASS ("reproduction acceptance");
+     1 if either verdict fails (the output says which); 2 for missing or invalid input.
 
-   `tests/test_freespec_gate.py`: the gate passes on synthetic well-mixed bimodal draws (30 of 30
-   seeds) and fails on a stuck chain, a missing bin, a too-short run and the existing hd_fs30 draws. The config's
+   On the existing hd_fs30 draws: convergence FAIL (59 parameters, 18 bins), agreement FAIL
+   (1 bin), exit 1. `tests/test_freespec_gate.py` checks that a synthetic well-mixed bimodal set
+   passes both verdicts, that a stuck chain fails convergence, that a shifted reference fails only
+   agreement, and that the reviewer's invalid inputs (all IRN parameters removed, an empty or wrong
+   reference, a +inf draw, a missing bin, duplicate names) give exit 2. It also checks that the
+   derived schema equals the production run's names and that the existing hd_fs30 fails convergence. The config's
    model / init / chain / draw fields are backend-independent (`"sampler": "nuts"` is the only
    backend implemented); if the performance study changes the sampler, keep those and the gate.
    **Expected cost** at the measured 32.6 ms per per-chain gradient: assuming ~260 leapfrog steps

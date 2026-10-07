@@ -11,8 +11,9 @@ mkdir -p runs/logs
 if ! { [ -f "runs/$NAME/meta.json" ] && grep -q '"finished"' "runs/$NAME/meta.json"; }; then
   uv run --no-sync python scripts/m2_run.py "$CONFIG" > "runs/logs/$NAME.log" 2>&1
 fi
-# Acceptance gate (CPU only): exits nonzero, and so does this script, on any failure or missing
-# diagnostic (all-parameter R-hat/ESS, per-bin occupancy indicators, tail stability).
+# Reproduction acceptance (CPU only) = convergence PASS and reproduction agreement PASS vs the
+# released core. Exit 1 = a verdict failed (the output says which), 2 = missing/invalid input;
+# this script exits with the same status. Heuristic warnings never affect it.
 set +e
 JAX_PLATFORMS=cpu uv run --no-sync python scripts/m2_freespec_diag.py --run "$NAME" > "outputs/m2/freespec_gate_$NAME.txt" 2>&1
 status=$?

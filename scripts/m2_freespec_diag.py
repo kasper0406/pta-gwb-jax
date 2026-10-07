@@ -1,25 +1,30 @@
-"""Free-spectrum acceptance gate (CLI for ``ptagwb.diagnostics.freespec_gate``).
+"""Free-spectrum acceptance gate for M2 (CLI for ``ptagwb.diagnostics.freespec_gate``).
 
-    uv run --no-sync python scripts/m2_freespec_diag.py [--run hd_fs30] [--threshold -9]
+    uv run --no-sync python scripts/m2_freespec_diag.py [--run hd_fs30] [--released hd_fs30 | --released '']
 
-Exit status 0 only if the run passes **every** check; 1 on any failure; 2 if the run or a
-diagnostic is missing. Checks (thresholds in ``diagnostics.GATE_DEFAULTS``):
+Verdicts, reported separately (thresholds in ``diagnostics.GATE_DEFAULTS``):
 
-* all expected bins present (``--n-bins``, default 30);
-* every parameter (free-spectrum bins *and* the 134 IRN parameters): rank-normalised split R-hat
-  < 1.01, bulk ESS >= 400, tail ESS >= 400;
-* per bin, the occupancy indicator 1[log10_rho < threshold] (the "power absent" region of the
-  bimodal marginals): R-hat < 1.01 and ESS >= 400, and pooled occupancy within 3.5 binomial-ESS
-  standard errors of the released core's;
-* tail stability per bin, at the pooled 5/50/95% quantiles q: the fraction of draws <= q in each
-  chain vs the other chains, and in the first vs second half of all chains; z = difference /
-  sqrt(var_a + var_b), binomial variances from each subset's own indicator ESS (i.e. the
-  uncertainty of the difference, not a pooled MCSE); fail if any |z| > 4.5 (~0.5% family-wise
-  false-alarm rate for ~810 tests). Quantile-value differences are reported descriptively.
+* **convergence** PASS/FAIL: every one of the 164 parameters (30 free-spectrum bins and the 134
+  IRN parameters) has rank-normalised split R-hat < 1.01 and bulk/tail ESS >= 400; every bin's
+  occupancy indicator 1[log10_rho < -9], when not near-constant, has R-hat < 1.01 and ESS >= 400.
+* **reproduction agreement** PASS/FAIL/UNAVAILABLE: per-bin occupancy vs the released core,
+  |z| <= 3.5 with conservative standard errors (the larger of a batch-means SE, our chains as
+  units / contiguous batches of the reference, and the binomial SE from the indicator ESS); a
+  conventional threshold, not a calibrated test. The reference's own diagnostics are printed
+  and saved. Disagreement of a converged run is a finding about model / reference, not a sampler
+  failure.
+* **heuristic warnings**: tail-stability contrasts and near-constant indicators. Informational
+  only; not calibrated; never affect the exit status.
 
-The between-chain occupancy chi^2 p-value is printed as supplementary information only.
-Sampler-agnostic: needs only ``runs/<run>/samples.npz`` (``x`` of shape (chains, draws, D)) and the
-parameter names. Writes outputs/m2/freespec_gate_<run>.json.
+Input contract (else exit 2): the run's model is the HD free spectrum with 30 bins; its parameter
+names equal, in order, the names derived independently from that model spec and the 67-pulsar
+GWB list of the release (par files minus ``data.EXPECTED_EXCLUDED``); names unique; all draws
+finite; if a reference is requested, it is complete (all 30 bins) and finite.
+
+Exit status: 0 = convergence PASS and agreement PASS (reproduction acceptance; with
+``--released ''`` only convergence is required); 1 = diagnostic failure (which verdict failed is
+printed); 2 = missing or invalid input (run, bins, reference). Writes
+outputs/m2/freespec_gate_<run>.json when the inputs are valid.
 """
 
 from __future__ import annotations
@@ -27,52 +32,77 @@ from __future__ import annotations
 import argparse
 import sys
 
-import numpy as np
 from m2_common import ROOT, released, save_json
 
-from ptagwb.diagnostics import freespec_gate
-from ptagwb.sampling import load_run
+from ptagwb.data import EXPECTED_EXCLUDED, find_par_tim
+from ptagwb.diagnostics import freespec_gate, gate_exit_code
+from ptagwb.sampling import ModelSpec, load_run, parameter_names
+
+N_BINS = 30
+
+
+def expected_names() -> list[str]:
+    """The M2 HD^free schema, derived from the model spec and the release's pulsar list (not from
+    the run being checked)."""
+    psrs = sorted(n for n in find_par_tim() if n not in EXPECTED_EXCLUDED)
+    if len(psrs) != 67:
+        raise RuntimeError(f"expected 67 GWB pulsars, found {len(psrs)}")
+    return parameter_names(ModelSpec(orf="hd", common="freespec", n_common=N_BINS), psrs)
+
+
+def evaluate(run_name: str, reference_key: str, threshold: float = -9.0) -> tuple[int, dict]:
+    """(exit status, result). All loading happens here so that missing inputs map to status 2."""
+    try:
+        run = load_run(run_name)
+        model = {**ModelSpec().__dict__, **run["meta"]["config"]["model"]}
+        if model["common"] != "freespec" or model["n_common"] != N_BINS:
+            return 2, {"input_errors": [f"run model is {model['common']}/{model['n_common']}, expected freespec/{N_BINS}"]}
+        exp = expected_names()
+        ref = None
+        if reference_key:
+            ref = {k: v for k, v in released(reference_key).items() if k.startswith("gw_log10_rho_")}
+    except (FileNotFoundError, KeyError, OSError, RuntimeError, ValueError) as e:
+        return 2, {"input_errors": [f"{type(e).__name__}: {e}"]}
+    g = freespec_gate(run["x"], run["names"], n_bins=N_BINS, threshold=threshold, reference=ref, expected_names=exp)
+    return gate_exit_code(g, require_reproduction=bool(reference_key)), g
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", default="hd_fs30")
     ap.add_argument("--threshold", type=float, default=-9.0)
-    ap.add_argument("--n-bins", type=int, default=30)
-    ap.add_argument("--released", default="hd_fs30", help="released chain key ('' to skip the comparison)")
+    ap.add_argument("--released", default="hd_fs30", help="released reference key ('' = convergence only)")
     args = ap.parse_args()
-    try:
-        run = load_run(args.run)
-    except FileNotFoundError as e:
-        print(f"GATE ERROR: run {args.run!r} not found ({e})")
+    code, g = evaluate(args.run, args.released, args.threshold)
+    if g.get("input_errors"):
+        print("GATE: INVALID INPUT (exit 2)")
+        for e in g["input_errors"][:20]:
+            print("  -", e)
         return 2
-    rel = None
-    if args.released:
-        r = released(args.released)
-        rel = {k.replace("gw_hd_log10_rho", "gw_log10_rho"): v for k, v in r.items()}
-    g = freespec_gate(run["x"], run["names"], n_bins=args.n_bins, threshold=args.threshold, released=rel)
-    C, N, D = run["x"].shape
-    print(f"{args.run}: {C} chains x {N} draws, {D} parameters; occupancy = P(log10_rho < {args.threshold})")
-    print("bin | per-chain occupancy | pooled | released | ind R-hat | ind ESS | rho R-hat | bulk/tail ESS | max|tail z| | chi2 p (suppl.) | pass")
+    print(f"{args.run}: occupancy = P(log10_rho < {args.threshold})")
+    print("bin | per-chain occupancy | pooled | ref | ind R-hat | ind ESS | rho R-hat | bulk/tail ESS | agree z | conv")
     for n, b in g["bins"].items():
-        if b.get("missing"):
-            print(f"{n}: MISSING")
-            continue
-        s = g["parameters"][n]
+        s, st = g["parameters"][n], b["indicator"]
         pc = " ".join(f"{v:.2f}" for v in b["occupancy_per_chain"])
-        tz = max((abs(t["z"]) if np.isfinite(t["z"]) else np.inf) for t in b["tail_tests"])
-        print(f"{n.split('_')[-1]:>3} | {pc} | {b['occupancy']:.3f} | {b.get('released_occupancy', float('nan')):.3f} | "
-              f"{b['indicator_rhat']:.3f} | {b['indicator_ess']:.0f} | {s['rhat']:.3f} | {s['ess_bulk']:.0f}/{s['ess_tail']:.0f} | "
-              f"{tz:.1f} | {b.get('supplementary_chi2_p', float('nan')):.2g} | {'ok' if b['pass'] else 'FAIL'}")
-    print(f"parameters failing R-hat/ESS: {g['n_parameters_failing']} / {D}; bins failing: {g['n_bins_failing']} / {args.n_bins}")
-    save_json(g, ROOT / "outputs" / "m2" / f"freespec_gate_{args.run}.json")
-    if g["pass"]:
-        print("GATE: PASS")
-        return 0
-    print(f"GATE: FAIL ({g['n_failures']} failures); first ones:")
-    for f in g["failures"][:15]:
+        ir = f"{st['rhat']:.3f}" if st["available"] else "n/a"
+        ie = f"{st['ess']:.0f}" if st["available"] else "n/a"
+        ag = b.get("agreement", {})
+        print(f"{n.split('_')[-1]:>3} | {pc} | {b['occupancy']:.3f} | {ag.get('reference_occupancy', float('nan')):.3f} | "
+              f"{ir} | {ie} | {s['rhat']:.3f} | {s['ess_bulk']:.0f}/{s['ess_tail']:.0f} | {ag.get('z', float('nan')):.1f} | "
+              f"{'ok' if b['parameter_pass'] and b['indicator_pass'] else 'FAIL'}")
+    if g["reference_diagnostics"]:
+        rd = g["reference_diagnostics"].values()
+        print(f"reference ({args.released}): max split R-hat {max(r['split_rhat'] for r in rd):.4f}, "
+              f"min bulk/tail ESS {min(r['ess_bulk'] for r in rd):.0f}/{min(r['ess_tail'] for r in rd):.0f}")
+    print(f"CONVERGENCE: {g['convergence']} ({g['n_parameters_failing']} parameters, "
+          f"{g['n_bins_failing_convergence']} bins failing)")
+    print(f"REPRODUCTION AGREEMENT: {g['reproduction_agreement']} ({g['n_bins_disagreeing']} bins disagreeing)")
+    print(f"HEURISTIC WARNINGS (informational, not calibrated): {len(g['heuristic_warnings'])}")
+    for f in (g["convergence_failures"] + g["agreement_failures"])[:15]:
         print("  -", f)
-    return 1
+    save_json(g, ROOT / "outputs" / "m2" / f"freespec_gate_{args.run}.json")
+    print(f"GATE exit status {code} ({'PASS' if code == 0 else 'FAIL'})")
+    return code
 
 
 if __name__ == "__main__":
