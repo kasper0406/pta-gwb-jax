@@ -20,19 +20,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import jax
 import jax.numpy as jnp
 import numpy as np
-from common import env_info, get_terms, save_json, timeit
+from common import env_info, like_options, make_like, save_json, timeit
 
-from ptagwb.perf_likelihood import FastPTALikelihood
 from ptagwb.sampling import load_run
 
 
 def make(orf, variant, grad_precision="float64"):
-    terms, T = get_terms()
-    parts = variant.split("+")
-    kw = {"reduce": parts[0]}
-    if len(parts) > 1:
-        kw["tri_inv"] = parts[1]
-    return FastPTALikelihood(terms, T, n_modes=30, n_common=14, orf=orf, grad_precision=grad_precision, **kw)
+    return make_like(orf, variant, grad_precision)
 
 
 def points(P, B, seed=0):
@@ -76,7 +70,7 @@ def main():
             else:
                 t = timeit(like.value_and_grad_batched, p, n=max(5, args.n // max(1, B // 8)))
                 tv = None
-            row = {"variant": v, "batch": B, "pmap_devices": jax.local_device_count() if args.pmap else 1, "call_ms": t["median_ms"], "per_chain_grad_ms": t["median_ms"] / B,
+            row = {"variant": v, "options": like_options(like), "batch": B, "pmap_devices": jax.local_device_count() if args.pmap else 1, "call_ms": t["median_ms"], "per_chain_grad_ms": t["median_ms"] / B,
                    "min_ms": t["min_ms"], "value_only_ms": tv["median_ms"] if tv else None}
             out["rows"].append(row)
             print(f"{args.orf} {v:16s} B={B:3d}  call {t['median_ms']:9.2f} ms  per-chain-grad {t['median_ms'] / B:8.3f} ms"

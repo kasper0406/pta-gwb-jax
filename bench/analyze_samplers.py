@@ -6,9 +6,13 @@ Bias checks (per run, against runs/curn_g433_14f or runs/hd_g433_14f):
 * quantiles q05/q50/q95 of the common amplitude and 16 IRN parameters (8 pulsars x {log10_A,
   gamma}, including the funnel-shaped ones named in docs/M2_RESULTS.md):
   z = (q_run - q_ref) / sqrt(MCSE_run^2 + MCSE_ref^2) (Vehtari et al. 2021 quantile MCSE);
-* all-parameter mean test: z_j = (mean_run - mean_ref) / sqrt(var_j/ESS_run + var_j/ESS_ref),
-  chi2 = sum_j z_j^2 over all D parameters (~ chi2_D with correlated components; reported with
-  max |z_j|), and the median / extreme posterior-sd ratios (variance bias of unadjusted samplers).
+* all-parameter mean comparison: z_j = (mean_run - mean_ref) / sqrt(MCSE_run^2 + MCSE_ref^2)
+  with the MCSE of the raw (untransformed) mean, var / ESS_mean, ESS_mean = autocorrelation ESS
+  of the raw split chains (Vehtari et al. 2021); reported as max |z_j| and the *descriptive*
+  sum_j z_j^2 / D (the z_j are correlated, so this is not a calibrated chi^2_D test), plus the
+  median / extreme posterior-sd ratios (variance bias of unadjusted samplers).
+"No discrepancy detected" means no |z| > 3; it is not a proof of agreement, in particular for
+tails no run visited.
 
     uv run --no-sync python bench/analyze_samplers.py [glob ...]
 """
@@ -56,7 +60,7 @@ def bias(model: str, X: np.ndarray, names: list[str]) -> dict:
     zm, sdr = np.empty(D), np.empty(D)
     for j in range(D):
         a, b = X[:, :, j], Xr[:, :, j]
-        ea, eb = dg.ess_bulk(a), dg.ess_bulk(b)
+        ea, eb = dg.ess(dg._split(a)), dg.ess(dg._split(b))  # raw-mean ESS (not rank-normalised)
         va, vb = a.var(), b.var()
         zm[j] = (a.mean() - b.mean()) / np.sqrt(va / ea + vb / eb)
         sdr[j] = np.sqrt(va / vb)
@@ -68,7 +72,7 @@ def bias(model: str, X: np.ndarray, names: list[str]) -> dict:
         "quantile_n_abs_z_gt3": int(np.sum(np.abs(zs) > 3)),
         "quantile_n_tests": len(zs),
         "common_q50_delta": float(np.quantile(X[:, :, jc], 0.5) - np.quantile(Xr[:, :, jc], 0.5)),
-        "mean_chi2": float(np.sum(zm**2)),
+        "mean_sumz2": float(np.sum(zm**2)),  # descriptive only (correlated z_j)
         "mean_dof": D,
         "mean_z_max_abs": float(np.max(np.abs(zm))),
         "mean_z_worst_param": names[int(np.argmax(np.abs(zm)))],
@@ -87,9 +91,10 @@ def main():
         s = json.loads(Path(f).read_text())
         tag = Path(f).stem
         npz = BENCH / "runs" / f"{tag}.npz"
-        if npz.exists() and "bias" not in s:
+        if npz.exists() and (s.get("bias") or {}).get("version") != 2:
             with np.load(npz) as d:
                 s["bias"] = bias(s["model"], d["x"].astype(np.float64), [str(n) for n in d["names"]])
+                s["bias"]["version"] = 2
             Path(f).write_text(json.dumps(s, indent=1, default=float))
         key = (s["model"], s["sampler"], s.get("like"), s["chains"], json.dumps(s.get("opts", {}), sort_keys=True),
                s["warmup"], s["samples"], s.get("group", ""))
@@ -115,12 +120,12 @@ def main():
         d = g[m]
         return f"{d['mean'] * scale:.3g}" + (f" ± {d['sd'] * scale:.2g}" if d["sd"] is not None else "")
 
-    print("| model | sampler | chains | opts | seeds | ESS/s common bulk | ESS/s min bulk | ESS/s min tail | ESS/kgrad common | ESS/kgrad min bulk | ESS/kgrad min tail | max R-hat | grads/draw | |z|max quantile (n>3/N) | mean chi2/D | sd ratio med [min,max] |")
+    print("| model | sampler | chains | opts | seeds | ESS/s common bulk | ESS/s min bulk | ESS/s min tail | ESS/kgrad common | ESS/kgrad min bulk | ESS/kgrad min tail | max R-hat | grads/draw | |z|max quantile (n>3/N) | mean z: sum z^2/D (max abs z), descriptive | sd ratio med [min,max] |")
     print("|" + "---|" * 16)
     for g in out:
         b = g.get("bias", [])
         bz = ", ".join(f"{x['quantile_z_max_abs']:.1f} ({x['quantile_n_abs_z_gt3']}/{x['quantile_n_tests']})" for x in b)
-        bc = ", ".join(f"{x['mean_chi2']:.0f}/{x['mean_dof']}" for x in b)
+        bc = ", ".join(f"{x['mean_sumz2'] / x['mean_dof']:.2f} (max {x['mean_z_max_abs']:.1f})" for x in b)
         bs = ", ".join(f"{x['sd_ratio_median']:.2f} [{x['sd_ratio_min']:.2f},{x['sd_ratio_max']:.2f}]" for x in b)
         print(f"| {g['model']} | {g['sampler']} | {g['chains']} | {g['opts'] or ''} | {g['n_seeds']} | {f(g, 'ess_per_s_bulk_common')} | "
               f"{f(g, 'ess_per_s_bulk_min')} | {f(g, 'ess_per_s_tail_min')} | {f(g, 'ess_per_kgrad_bulk_common')} | "

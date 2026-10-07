@@ -39,6 +39,7 @@ import jax
 import jax.numpy as jnp
 import jax.scipy.linalg as jsl
 import numpy as np
+from jax.custom_derivatives import SymbolicZero
 
 from . import likelihood as _L
 from .config import enable_x64
@@ -114,17 +115,47 @@ def _reduce_fwd_hh(RA, c, s_perp, r):
     return q, ld, E, d
 
 
+def _reduce_bwd_sz(res, cts):
+    """``likelihood._reduce_bwd`` with symbolic-zero cotangents skipped (``symbolic_zeros=True``).
+
+    Same terms, same order, minus the ones whose cotangent is a symbolic zero::
+
+        rb = -qb d^2 + ldb diag(E) - rowsum((E Eb) * E) - d * (E db)
+
+    Why: for CURN (and any caller that ignores E, d) Eb and db are zero. The production rule
+    instantiates them, and XLA:CPU (jaxlib 0.11.2) then fuses ``reduce(dot(E, broadcast(0)) * E)``
+    into a YNNPACK library fusion (``__ynn_fusion``) that returns garbage (|g| ~ 1e100-1e281;
+    reproduced with the structured-Householder forward, disappears with
+    ``--xla_cpu_experimental_ynn_fusion_type=``; GPU unaffected). Skipping the zero terms removes
+    the dot (and n^3 wasted flops) instead of relying on the compiler.
+    """
+    E, d, RA, c, s_perp = res
+    qb, ldb, Eb, db = cts
+    rb = jnp.zeros_like(d)
+    if not isinstance(qb, SymbolicZero):
+        rb = rb - qb * d * d
+    if not isinstance(ldb, SymbolicZero):
+        rb = rb + ldb * jnp.diagonal(E)
+    if not isinstance(Eb, SymbolicZero):
+        Eb = 0.5 * (Eb + Eb.T)
+        rb = rb - jnp.sum((E @ Eb) * E, axis=1)
+    if not isinstance(db, SymbolicZero):
+        rb = rb - d * (E @ db)
+    return jnp.zeros_like(RA), jnp.zeros_like(c), jnp.zeros_like(s_perp), rb
+
+
 def _make_reduce(impl):
     @jax.custom_vjp
     def red(RA, c, s_perp, r):
         return impl(RA, c, s_perp, r)
 
-    def fwd(RA, c, s_perp, r):
+    def fwd(RA, c, s_perp, r):  # symbolic_zeros=True: primals arrive as CustomVJPPrimal
+        RA, c, s_perp, r = RA.value, c.value, s_perp.value, r.value
         out = impl(RA, c, s_perp, r)
         _, _, E, d = out
         return out, (E, d, RA, c, s_perp)
 
-    red.defvjp(fwd, _L._reduce_bwd)
+    red.defvjp(fwd, _reduce_bwd_sz, symbolic_zeros=True)
     return red
 
 
@@ -279,6 +310,8 @@ class FastPTALikelihood(_L.PTALikelihood):
     def __init__(self, terms, T, *, reduce: str = "hh", tri_inv: str = "levels", **kw):
         if reduce not in REDUCERS:
             raise ValueError(f"unknown reduce {reduce!r}")
+        if kw.get("method", "sigma") != "sigma":
+            raise ValueError("FastPTALikelihood implements only method='sigma' (use PTALikelihood for method='B')")
         self.reduce_name, self.tri_inv = reduce, tri_inv
         self._reducer = REDUCERS[reduce]
         super().__init__(terms, T, **kw)

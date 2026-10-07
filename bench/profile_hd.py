@@ -132,7 +132,9 @@ def main():
         "qr_formQ_67": P * qr,
         "reduce_rest_67": P * (2 * n**3 + n**2 * (n + 1)),
         "chol_1876": N**3 / 3,
-        "tri_inv_1876": N**3 / 3,
+        # production _tri_inv_lower: dense GEMMs at every level (the triangular zeros are multiplied):
+        # 4 h^3 + 2 * 4 (h/2)^3 + ... = (2/3) n^3; the triangular minimum would be n^3 / 3
+        "tri_inv_1876_production_dense": 2 * N**3 / 3,
         "diag_blocks_einsum": 2 * N * P * k * k,
         "reduce_bwd_67": P * 2 * n**3,
     }

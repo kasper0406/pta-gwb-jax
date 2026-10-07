@@ -126,15 +126,63 @@ def timeit(fn, *args, n: int = 30, warmup: int = 3) -> dict:
     return {"median_ms": float(np.median(ts)), "min_ms": float(ts.min()), "p90_ms": float(np.percentile(ts, 90)), "n": n}
 
 
+def source_revision() -> dict:
+    """HEAD SHA plus a hash of all uncommitted changes (tracked diff + untracked files under
+    src/, bench/*.py, tests/), so a result can be tied to the exact code that produced it."""
+    import hashlib
+
+    def sh(*cmd):
+        return subprocess.run(cmd, capture_output=True, check=False, cwd=ROOT).stdout
+
+    h = hashlib.sha256()
+    diff = sh("git", "diff", "HEAD", "--", "src", "bench", "tests", "scripts", "pyproject.toml")
+    h.update(diff)
+    untracked = sh("git", "ls-files", "--others", "--exclude-standard", "--", "src", "bench", "tests").decode().split()
+    for f in sorted(untracked):
+        if f.endswith((".py", ".toml")):
+            h.update(f.encode())
+            h.update((ROOT / f).read_bytes())
+    dirty = bool(diff.strip()) or any(f.endswith(".py") for f in untracked)
+    return {"git_sha": sh("git", "rev-parse", "HEAD").decode().strip(), "dirty": dirty,
+            "dirty_hash": h.hexdigest()[:16] if dirty else None}
+
+
+def make_like(orf: str, variant: str, grad_precision: str = "float64", common: str = "powerlaw", n_common: int = 14):
+    """``"prod"`` -> the production ``PTALikelihood`` (with an added vmapped value+grad);
+    ``"<reduce>[+<tri_inv>]"`` -> ``FastPTALikelihood`` (tri_inv defaults to ``levels``)."""
+    terms, T = get_terms()
+    kw = {"n_modes": 30, "n_common": n_common, "orf": orf, "common": common, "grad_precision": grad_precision}
+    if variant == "prod":
+        like = PTALikelihood(terms, T, **kw)
+        like.value_and_grad_batched = jax.jit(jax.vmap(jax.value_and_grad(like._logL)))
+    else:
+        from ptagwb.perf_likelihood import FastPTALikelihood
+
+        parts = variant.split("+")
+        like = FastPTALikelihood(terms, T, reduce=parts[0], tri_inv=parts[1] if len(parts) > 1 else "levels", **kw)
+    return like
+
+
+def like_options(like) -> dict:
+    """Effective likelihood implementation and options (recorded with every benchmark row)."""
+    return {
+        "class": type(like).__name__,
+        "reduce": getattr(like, "reduce_name", "production (_reduce: geqrf+orgqr)"),
+        "tri_inv": getattr(like, "tri_inv", "production (_tri_inv_lower)") if like.Lgamma is not None else None,
+        "method": like.method, "grad_precision": like.grad_precision, "orf": like.orf_name,
+        "common": like.common, "n_common": like.n_common, "n_modes": like.n_modes,
+    }
+
+
 def env_info() -> dict:
     def sh(*cmd):
         try:
             return subprocess.run(cmd, capture_output=True, text=True, check=False, cwd=ROOT).stdout.strip()
-        except Exception:
+        except Exception:  # noqa: BLE001
             return ""
 
     return {
-        "git_sha": sh("git", "rev-parse", "HEAD"),
+        **source_revision(),
         "jax": jax.__version__,
         "backend": jax.default_backend(),
         "devices": [str(d) for d in jax.devices()],

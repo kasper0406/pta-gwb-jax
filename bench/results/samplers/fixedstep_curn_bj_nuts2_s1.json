@@ -1,0 +1,109 @@
+{
+ "chains": 4,
+ "draws_per_chain": 300,
+ "thin": 1,
+ "grads_sampling": 77584.0,
+ "grads_warmup": 0,
+ "grads_per_draw_mean": 64.65333333333334,
+ "t_compile": 2.057911907322705,
+ "t_warm": 0.007619526702910662,
+ "t_samp": 37.549481101334095,
+ "accept_mean": 0.9082155309963864,
+ "divergences": 0,
+ "lockstep_efficiency": 0.9402753538879193,
+ "ms_per_lockstep_step": 1.820316128627792,
+ "t_total": 39.61501253535971,
+ "ess_bulk_common": 148.22440433145914,
+ "ess_tail_common": 496.70327299763704,
+ "ess_bulk_min": 71.47171563628203,
+ "ess_tail_min": 22.676751060116217,
+ "ess_bulk_min_param": "J0613-0200_red_noise_log10_A",
+ "ess_tail_min_param": "J0437-4715_red_noise_log10_A",
+ "ess_bulk_median": 900.8760518276658,
+ "rhat_max": 1.0582004459671093,
+ "rhat_max_param": "J1713+0747_red_noise_log10_A",
+ "rhat_common": 1.0179273996034683,
+ "ess_per_s_bulk_common": 3.947442147907415,
+ "ess_per_kgrad_bulk_common": 1.9105022212242104,
+ "ess_per_s_tail_common": 13.227966364094168,
+ "ess_per_kgrad_tail_common": 6.402135401598745,
+ "ess_per_s_bulk_min": 1.903400887042956,
+ "ess_per_kgrad_bulk_min": 0.9212172050459119,
+ "ess_per_s_tail_min": 0.60391649618057,
+ "ess_per_kgrad_tail_min": 0.2922864387001987,
+ "extra": {
+  "step_size": [
+   0.05,
+   0.05,
+   0.05,
+   0.05
+  ],
+  "init_step": 0.05,
+  "adapt": false,
+  "driver": "blackjax",
+  "trace": [
+   {
+    "ess_bulk_common": 36.64188251099255,
+    "rhat_common": 1.0673539078826393,
+    "rhat_max": 1.085295580505409,
+    "ess_bulk_min": 36.64188251099255,
+    "draws": 100,
+    "t_samp": 12.523517660330981,
+    "t_total": 14.589049094356596,
+    "grads": 25840.0,
+    "lockstep_grads": 27504.0
+   },
+   {
+    "ess_bulk_common": 64.60147460695816,
+    "rhat_common": 1.0431656596642183,
+    "rhat_max": 1.0755998430036977,
+    "ess_bulk_min": 42.959815694199214,
+    "draws": 200,
+    "t_samp": 24.803444187156856,
+    "t_total": 26.86897562118247,
+    "grads": 51616.0,
+    "lockstep_grads": 54496.0
+   },
+   {
+    "ess_bulk_common": 148.22440433145914,
+    "rhat_common": 1.0179273996034683,
+    "rhat_max": 1.0582004459671093,
+    "ess_bulk_min": 71.47171563628203,
+    "draws": 300,
+    "t_samp": 37.549481101334095,
+    "t_total": 39.61501253535971,
+    "grads": 77584.0,
+    "lockstep_grads": 82512.0
+   }
+  ],
+  "until": null,
+  "target_common": null,
+  "target_common_and_max_rhat": null,
+  "t_compile_sampling": 1.075351375155151
+ },
+ "model": "curn",
+ "sampler": "bj_nuts2",
+ "seed": 1,
+ "like": "hh",
+ "opts": {
+  "init_step": 0.05,
+  "adapt": false,
+  "block": 100
+ },
+ "warmup": 0,
+ "samples": 300,
+ "wall_total": 40.28136897087097,
+ "env": {
+  "git_sha": "8a39c1ba19faf0fb4cd6203ba19f77ffb5d87cc0",
+  "dirty": true,
+  "dirty_hash": "af12347261fe12e6",
+  "jax": "0.11.2",
+  "backend": "gpu",
+  "devices": [
+   "cuda:0"
+  ],
+  "XLA_FLAGS": "",
+  "host": "kworkstation",
+  "time": "2026-10-07T14:39:55"
+ }
+}

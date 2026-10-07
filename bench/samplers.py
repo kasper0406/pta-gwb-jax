@@ -175,6 +175,142 @@ def _sample_blocks(tg, samp_block, states, key, N, block, t_compile_warm, t_warm
     }
 
 
+# ---------------------------------------------------------------------- matched NUTS drivers
+#
+# Both drivers: same whitened target, identity metric, same init draws, same warmup length and
+# initial step size; compile (AOT) timed separately; every execution timer stops after
+# block_until_ready. Sampling proceeds in blocks of ``block`` draws until ``until`` is met
+# (common bulk ESS >= ess_target and max R-hat < rhat_target) or N draws; per-block cumulative
+# times and diagnostics are recorded so the time to any target can be read off.
+
+
+def _common_diag(tg, Wd):
+    C, N, D = Wd.shape
+    X = np.asarray(tg.post.transform.to_constrained(tg.w_to_z(Wd.reshape(-1, D)).reshape(C, N, D)))
+    jc = tg.names.index("gw_log10_A")
+    rh = np.array([dg.rhat(X[:, :, j]) for j in range(D)])
+    return {"ess_bulk_common": float(dg.ess_bulk(X[:, :, jc])), "rhat_common": float(rh[jc]),
+            "rhat_max": float(np.nanmax(rh)), "ess_bulk_min": float(min(dg.ess_bulk(X[:, :, j]) for j in range(D)))}
+
+
+def _adaptive_blocks(tg, samp_block, states, key, N, block, until, t_compile, t_warm, warm_grads, extra):
+    ess_target, rhat_target = until if until else (np.inf, 0.0)
+    keys = jax.random.split(key, N)
+    cs, t_cs = _aot(samp_block, states, keys[:block])
+    Ws, steps, accs, divs, trace = [], [], [], [], []
+    t_samp, n = 0.0, 0
+    while n + block <= N:
+        (states, (w, ns, acc, dv)), dt = _timed(cs, states, keys[n : n + block])
+        t_samp += dt
+        n += block
+        Ws.append(np.asarray(w)); steps.append(np.asarray(ns)); accs.append(np.asarray(acc)); divs.append(np.asarray(dv))
+        Wd = np.concatenate(Ws, 0).swapaxes(0, 1)
+        d = _common_diag(tg, Wd)
+        st = np.concatenate(steps, 0)
+        d.update(draws=n, t_samp=t_samp, t_total=t_compile + t_cs + t_warm + t_samp,
+                 grads=float(st.sum()), lockstep_grads=float(st.max(1).sum() * st.shape[1]))
+        trace.append(d)
+        print(f"  block: {n} draws, {t_samp:.0f} s, ESS common {d['ess_bulk_common']:.0f}, R-hat common "
+              f"{d['rhat_common']:.4f} max {d['rhat_max']:.4f}", flush=True)
+        if d["ess_bulk_common"] >= ess_target and d["rhat_max"] < rhat_target:
+            break
+    Wd = np.concatenate(Ws, 0).swapaxes(0, 1)
+    st = np.concatenate(steps, 0).swapaxes(0, 1)
+    hit = next((t for t in trace if t["ess_bulk_common"] >= ess_target and t["rhat_common"] < rhat_target), None)
+    hit_all = next((t for t in trace if t["ess_bulk_common"] >= ess_target and t["rhat_max"] < rhat_target), None)
+    extra = dict(extra, trace=trace, until=list(until) if until else None,
+                 target_common=hit, target_common_and_max_rhat=hit_all, t_compile_sampling=t_cs)
+    return {"w": Wd, "grads_per_draw": st, "accept": np.concatenate(accs, 0).swapaxes(0, 1),
+            "divergent": np.concatenate(divs, 0).swapaxes(0, 1), "t_compile": t_compile + t_cs,
+            "t_warm": t_warm, "t_samp": t_samp, "warm_grads": warm_grads, "extra": extra}
+
+
+def run_np_nuts(tg: Target, C, W, N, seed, block=50, init_step=1.0, adapt=True, until=None, target_accept=0.8):
+    """NumPyro NUTS kernel (production algorithm: windowed step-size dual averaging, fixed metric)
+    driven by our own scan loops (AOT compile, synchronised timers) instead of ``MCMC``."""
+    from numpyro.infer import NUTS
+
+    D = tg.D
+    kernel = NUTS(potential_fn=lambda w: -tg.logdensity(w), dense_mass=True, inverse_mass_matrix=jnp.eye(D),
+                  adapt_mass_matrix=False, adapt_step_size=adapt, step_size=init_step,
+                  target_accept_prob=target_accept, max_tree_depth=10)
+    w0 = tg.init_w(C, seed)
+    keys = jax.random.split(jax.random.PRNGKey(seed), C)
+
+    def init(keys, w0):
+        return jax.vmap(lambda k, w: kernel.init(k, W, init_params=w, model_args=(), model_kwargs={}))(keys, w0)
+
+    ci, t_ci = _aot(init, keys, w0)
+    states, t_init = _timed(ci, keys, w0)
+
+    def step(st, _):
+        st = jax.vmap(lambda s: kernel.sample(s, (), {}))(st)
+        return st, (st.z, st.num_steps, st.accept_prob, st.diverging)
+
+    def warm(st):
+        return jax.lax.scan(step, st, None, length=W)
+
+    if W > 0:
+        cw, t_cw = _aot(warm, states)
+        (states, (_, ns_w, _, _)), t_warm = _timed(cw, states)
+        warm_grads = int(np.sum(np.asarray(ns_w)))
+    else:
+        t_cw, t_warm, warm_grads = 0.0, 0.0, 0
+    step_size = np.asarray(states.adapt_state.step_size)
+
+    def samp_block(st, keys):  # keys unused (state carries its own rng); kept for a common signature
+        return jax.lax.scan(lambda s, _k: step(s, None), st, keys)
+
+    return _adaptive_blocks(tg, samp_block, states, jax.random.PRNGKey(seed + 1000), N, block, until,
+                            t_ci + t_cw, t_init + t_warm, warm_grads,
+                            {"step_size": step_size.tolist(), "init_step": init_step, "adapt": adapt, "driver": "numpyro-kernel"})
+
+
+def run_bj_nuts2(tg: Target, C, W, N, seed, block=50, init_step=1.0, adapt=True, until=None, target_accept=0.8):
+    """BlackJAX NUTS, continuous dual averaging of the step size (no windows), same conventions."""
+    import blackjax
+    from blackjax.adaptation.step_size import dual_averaging_adaptation
+
+    logd = tg.logdensity
+    imm = jnp.ones(tg.D)
+    w0 = tg.init_w(C, seed)
+    da_init, da_update, da_final = dual_averaging_adaptation(target_accept)
+    ci, t_ci = _aot(lambda w: jax.vmap(lambda x: blackjax.nuts.init(x, logd))(w), w0)
+    states, t_init = _timed(ci, w0)
+    kw, ks = jax.random.split(jax.random.PRNGKey(seed))
+
+    def warm_step(carry, k):
+        st, da = carry
+
+        def one(k_, s_, d_):
+            s2, info = blackjax.nuts(logd, jnp.exp(d_.log_step_size), imm).step(k_, s_)
+            return s2, da_update(d_, info.acceptance_rate), info.num_integration_steps
+
+        st, da, ns = jax.vmap(one)(jax.random.split(k, C), st, da)
+        return (st, da), ns
+
+    da0 = jax.vmap(da_init)(jnp.full(C, init_step))
+    if adapt and W > 0:
+        wkeys = jax.random.split(kw, W)
+        cw, t_cw = _aot(lambda st, da, keys: jax.lax.scan(warm_step, (st, da), keys), states, da0, wkeys)
+        ((states, da), ns_w), t_warm = _timed(cw, states, da0, wkeys)
+        step = jax.vmap(da_final)(da)
+        warm_grads = int(np.sum(np.asarray(ns_w)))
+    else:
+        t_cw, t_warm, warm_grads, step = 0.0, 0.0, 0, jnp.full(C, init_step)
+
+    def samp_step(st, k):
+        def one(k_, s_, h_):
+            s2, info = blackjax.nuts(logd, h_, imm).step(k_, s_)
+            return s2, (s2.position, info.num_integration_steps, info.acceptance_rate, info.is_divergent)
+
+        return jax.vmap(one)(jax.random.split(k, C), st, step)
+
+    return _adaptive_blocks(tg, lambda st, keys: jax.lax.scan(samp_step, st, keys), states, ks, N, block, until,
+                            t_ci + t_cw, t_init + t_warm, warm_grads,
+                            {"step_size": np.asarray(step).tolist(), "init_step": init_step, "adapt": adapt, "driver": "blackjax"})
+
+
 def run_mclmc(tg: Target, C, W, N, seed, block=500, thin=1):
     """Unadjusted MCLMC (biased unless shown otherwise); BlackJAX tuner per chain."""
     import blackjax
@@ -187,20 +323,19 @@ def run_mclmc(tg: Target, C, W, N, seed, block=500, thin=1):
     kernel = blackjax.mcmc.mclmc.build_kernel()
 
     def tune(st, k):
-        s2, params, _nsteps = blackjax.mclmc_find_L_and_step_size(
+        s2, params, nsteps = blackjax.mclmc_find_L_and_step_size(
             mclmc_kernel=kernel, num_steps=int(W / 0.3), state=st, rng_key=k, logdensity_fn=logd,
             frac_tune1=0.1, frac_tune2=0.1, frac_tune3=0.1, diagonal_preconditioning=False,
         )
-        return s2, params
+        return s2, params, nsteps
 
     def tune_all(st, keys):
         return jax.vmap(tune)(st, keys)
 
     tkeys = jax.random.split(ktune, C)
     ct, t_ct = _aot(tune_all, states, tkeys)
-    (states, params), t_warm = _timed(ct, states, tkeys)
-    # tuning cost: 0.1+0.1+0.1 of W steps (+ 1/3 of phase 2 only with diagonal preconditioning)
-    warm_steps = round(0.1 * W) * 3
+    (states, params, nsteps), t_warm = _timed(ct, states, tkeys)
+    warm_steps = int(np.max(np.asarray(nsteps)))  # the tuner's own integrator-step count (per chain)
     L, eps = params.L, params.step_size
 
     def samp_step(st, k):
@@ -376,7 +511,7 @@ def run_numpyro(tg: Target, C, W, N, seed, block=250, **_):
     }
 
 
-SAMPLERS = {"numpyro": run_numpyro, "bj_nuts": run_bj_nuts, "mclmc": run_mclmc, "mams": run_mams,
+SAMPLERS = {"numpyro": run_numpyro, "bj_nuts": run_bj_nuts, "np_nuts": run_np_nuts, "bj_nuts2": run_bj_nuts2, "mclmc": run_mclmc, "mams": run_mams,
             "chees": run_chees, "meads": run_meads}
 
 
@@ -400,6 +535,10 @@ def summarize(tg: Target, res: dict, thin: int = 1) -> dict:
         "grads_per_draw_mean": float(np.mean(res["grads_per_draw"])),
         "t_compile": res["t_compile"], "t_warm": res["t_warm"], "t_samp": t,
         "accept_mean": float(np.mean(res["accept"])), "divergences": int(np.sum(res["divergent"])),
+        # vectorised chains wait for the longest trajectory: useful / executed leapfrog steps
+        "lockstep_efficiency": float(np.mean(res["grads_per_draw"]) / np.mean(np.max(res["grads_per_draw"], axis=0))),
+        "ms_per_lockstep_step": 1e3 * t / float(np.sum(np.max(res["grads_per_draw"], axis=0))),
+        "t_total": float(np.nansum([res["t_compile"], res["t_warm"], t])),
         "ess_bulk_common": float(bulk[jc]), "ess_tail_common": float(tail[jc]),
         "ess_bulk_min": float(bulk.min()), "ess_tail_min": float(tail.min()),
         "ess_bulk_min_param": tg.names[int(bulk.argmin())], "ess_tail_min_param": tg.names[int(tail.argmin())],
