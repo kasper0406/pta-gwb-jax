@@ -39,11 +39,27 @@ def main():
     ap.add_argument("--pairs", nargs="+", default=["vg14", "g433_14", "vg5"])
     ap.add_argument("--thin", type=int, default=1)
     ap.add_argument("--batch", type=int, default=8, help="draws per batched device call")
+    ap.add_argument("--systematics", action="store_true", help="ICRS-position and released-feather BFs")
     args = ap.parse_args()
     psrs = load_pulsars(verbose=False)
     T = get_tspan(psrs)
     nd = load_noise_dict()
     terms = precompute(psrs, nd, T, position="enterprise")
+    terms_icrs = precompute(psrs, nd, T, position="icrs") if args.systematics else None
+    feather_terms = None
+    if args.systematics:
+        try:
+            sys.path.insert(0, str(ROOT / "tests"))
+            from oracle_helpers import feather_pulsars
+
+            fp = feather_pulsars()
+            name_order = [p.name for p in psrs]
+            fp = sorted(fp, key=lambda p: name_order.index(p.name))
+            assert abs(get_tspan(fp) - T) < 1e-3
+            ft = precompute(fp, nd, T)  # feathers carry enterprise positions
+            feather_terms = (ft, ft)
+        except (FileNotFoundError, StopIteration, ImportError) as e:  # feathers not fetched
+            print("feather systematics skipped:", e)
     out = {}
     for key in args.pairs:
         rc, rh, nc = PAIRS[key]
@@ -87,8 +103,39 @@ def main():
         l_self = (eye.logL_samples(Xf, batch=args.batch) - posts["curn"].logL_samples(Xf, batch=args.batch)).reshape(C, N)
         res["self_check_identity_orf"] = evidence.reweight(l_self, n_boot=200)
         res["self_check_max_abs_dlogL"] = float(np.abs(l_self).max())
+        # Systematics by importance-ratio estimation from our CURN posterior (thinned 5x):
+        #   BF' = E[L'_HD / L_CURN] / E[L'_CURN / L_CURN]
+        # with primed likelihoods on (a) ICRS positions (HD only) and (b) the released feathers.
+        if args.systematics and key in ("vg14", "g433_14"):
+            Xs = runs["curn"]["x"][:, ::5]
+            C, N, D = Xs.shape
+            Xf = Xs.reshape(-1, D)
+            base = posts["curn"].logL_samples(Xf, batch=args.batch).reshape(C, N)
+            variants = {"icrs_positions": (terms_icrs, terms_icrs)}
+            if feather_terms is not None:
+                variants["released_feathers"] = feather_terms
+            for vname, (tc, th) in variants.items():
+                pc = Posterior(PTALikelihood(tc, T, n_common=nc, orf="curn"), spec)
+                ph = Posterior(PTALikelihood(th, T, n_common=nc, orf="hd"), spec)
+                lc = pc.logL_samples(Xf, batch=args.batch).reshape(C, N) - base
+                lh = ph.logL_samples(Xf, batch=args.batch).reshape(C, N) - base
+                rh_, rc_ = evidence.reweight(lh, n_boot=300), evidence.reweight(lc, n_boot=300)
+                lnbf = rh_["ln_bf"] - rc_["ln_bf"]
+                # joint bootstrap of the ratio (same blocks for numerator and denominator)
+                rng = np.random.default_rng(1)
+                b = max(rh_["block"], rc_["block"])
+                boots = []
+                for _ in range(300):
+                    idx = [evidence._block_resample_idx(N, b, rng) for _ in range(C)]
+                    boots.append(evidence.log_mean_exp(np.stack([lh[c, i] for c, i in enumerate(idx)]))
+                                 - evidence.log_mean_exp(np.stack([lc[c, i] for c, i in enumerate(idx)])))
+                res[f"systematic_{vname}"] = {
+                    "bf": float(np.exp(lnbf)), "ln_bf": float(lnbf), "ln_bf_sd": float(np.std(boots, ddof=1)),
+                    "kish_ess_hd": rh_["kish_ess"], "kish_ess_curn": rc_["kish_ess"], "n": int(C * N),
+                    "std_dlogL_curn": float(np.std(lc)),
+                }
         out[key] = res
-        print(key, {k: (v["bf"], v["bf_sd"], v.get("kish_ess")) for k, v in res.items() if isinstance(v, dict)})
+        print(key, {k: (v["bf"], v.get("bf_sd", v.get("ln_bf_sd")), v.get("kish_ess")) for k, v in res.items() if isinstance(v, dict)})
     save_json(out, ROOT / "outputs" / "m2" / "bayes_factors.json")
 
 
