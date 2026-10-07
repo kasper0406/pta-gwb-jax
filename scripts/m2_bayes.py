@@ -111,6 +111,7 @@ def main():
             C, N, D = Xs.shape
             Xf = Xs.reshape(-1, D)
             base = posts["curn"].logL_samples(Xf, batch=args.batch).reshape(C, N)
+            lhb = posts["hd"].logL_samples(Xf, batch=args.batch).reshape(C, N) - base  # baseline, same draws
             variants = {"icrs_positions": (terms_icrs, terms_icrs)}
             if feather_terms is not None:
                 variants["released_feathers"] = feather_terms
@@ -124,13 +125,18 @@ def main():
                 # joint bootstrap of the ratio (same blocks for numerator and denominator)
                 rng = np.random.default_rng(1)
                 b = max(rh_["block"], rc_["block"])
-                boots = []
+                lnbf0 = evidence.log_mean_exp(lhb)
+                boots, dboots = [], []
                 for _ in range(300):
                     idx = [evidence._block_resample_idx(N, b, rng) for _ in range(C)]
-                    boots.append(evidence.log_mean_exp(np.stack([lh[c, i] for c, i in enumerate(idx)]))
-                                 - evidence.log_mean_exp(np.stack([lc[c, i] for c, i in enumerate(idx)])))
+                    rs = lambda a: np.stack([a[c, i] for c, i in enumerate(idx)])  # noqa: B023
+                    v = evidence.log_mean_exp(rs(lh)) - evidence.log_mean_exp(rs(lc))
+                    boots.append(v)
+                    dboots.append(v - evidence.log_mean_exp(rs(lhb)))
                 res[f"systematic_{vname}"] = {
                     "bf": float(np.exp(lnbf)), "ln_bf": float(lnbf), "ln_bf_sd": float(np.std(boots, ddof=1)),
+                    "baseline_same_draws_bf": float(np.exp(lnbf0)),
+                    "delta_ln_bf_vs_baseline": float(lnbf - lnbf0), "delta_ln_bf_sd": float(np.std(dboots, ddof=1)),
                     "kish_ess_hd": rh_["kish_ess"], "kish_ess_curn": rc_["kish_ess"], "n": int(C * N),
                     "std_dlogL_curn": float(np.std(lc)),
                 }
