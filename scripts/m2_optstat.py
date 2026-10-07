@@ -88,6 +88,18 @@ def main():
                 b = binned_correlations(os_.xi, r["rho"], os_.orf_pairs, C, np.deg2rad(XI_BINS_DEG), a2_norm=a2n)
                 b["p_chi2_15dof"] = float(stats.chi2(15).sf(b["chi2"]))
                 out[f"ours_binned_map_{pos}"] = b
+                if pos == "enterprise":  # sensitivity of the binned chi2 to the choice of "MAP" draw
+                    top = np.argsort(run["logL"].ravel())[::-1][:20]
+                    chis = []
+                    for t in top:
+                        pt = {kk: vv[t] for kk, vv in p.items()}
+                        rt = os_.os(pt)
+                        Ct = os_.pair_covariance(pt)
+                        bt = binned_correlations(os_.xi, rt["rho"], os_.orf_pairs, Ct, np.deg2rad(XI_BINS_DEG),
+                                                 a2_norm=10 ** (2 * float(pt["log10_A"])))
+                        chis.append(bt["chi2"])
+                    out["binned_chi2_top20_logL_draws"] = {"min": min(chis), "median": float(np.median(chis)),
+                                                           "max": max(chis), "values": chis}
     # at the released ML vector (our PINT arrays, enterprise positions): reproduces the release?
     ml = json.loads((FIG1 / "optstat_ml_gamma4p33.json").read_text())
     for pos, os_ in oss.items():
