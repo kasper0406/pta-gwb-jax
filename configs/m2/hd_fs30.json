@@ -8,9 +8,9 @@
   "grad_precision": "mixed"
  },
  "num_chains": 4,
- "num_warmup": 150,
- "num_samples": 400,
- "block": 100,
+ "num_warmup": 100,
+ "num_samples": 250,
+ "block": 50,
  "target_accept": 0.8,
  "max_tree_depth": 10,
  "dense_mass": true,
@@ -19,5 +19,5 @@
  "seed": 14,
  "init": "run:curn_fs30",
  "metric": "run:curn_fs30",
- "notes": "HD free spectrum 30 modes (Fig. 1a); mixed-precision backward pass (exact float64 energy), init + metric from curn_fs30"
+ "notes": "HD free spectrum 30 modes (Fig. 1a); mixed-precision backward pass (exact float64 energy), init + metric from curn_fs30; reduced to 100 warmup + 250 draws/chain after the curn_fs30 cost measurement (~212 leapfrog steps/draw x ~106 ms per 4-chain step => ~2.8 h)"
 }
