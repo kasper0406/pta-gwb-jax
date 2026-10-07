@@ -65,7 +65,7 @@ def fig1a():
             d = kde(y)
             d = d / d.max() * 0.022
             ax.fill_betweenx(y, lf[k], lf[k] + side * d, color=col, alpha=0.35, lw=0)
-            ax.plot(lf[k] + side * d, y, color=col, lw=0.8)
+            ax.plot(lf[k] + side * np.where(d > 0.01 * d.max(), d, np.nan), y, color=col, lw=0.8)
     # power-law (HD^gamma) posterior bands, 5-95%, as the notebook's "bayesogram"
     def band(g, a, col):
         rng = np.random.default_rng(1)
