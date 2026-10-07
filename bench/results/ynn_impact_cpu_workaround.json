@@ -1,0 +1,92 @@
+{
+ "env": {
+  "git_sha": "891455059bd2988d523eaab83901af744507fcd7",
+  "dirty": true,
+  "dirty_hash": "96cd287e98f07399",
+  "jax": "0.11.2",
+  "backend": "cpu",
+  "devices": [
+   "cpu:0"
+  ],
+  "XLA_FLAGS": "--xla_cpu_experimental_ynn_fusion_type=",
+  "host": "kworkstation",
+  "time": "2026-10-07T20:12:55"
+ },
+ "ynn_fusion_active": false,
+ "likelihood": {
+  "powerlaw14/curn": {
+   "n_points": 6,
+   "dv_compiled_vs_eager": 0.0,
+   "dg_compiled_vs_eager": 1.4022116801015727e-13,
+   "ynn_fusion_in_hlo": false
+  },
+  "powerlaw14/hd": {
+   "n_points": 6,
+   "dv_compiled_vs_eager": 0.0,
+   "dg_compiled_vs_eager": 6.394884621840902e-14,
+   "ynn_fusion_in_hlo": false
+  },
+  "powerlaw14/dipole": {
+   "n_points": 6,
+   "dv_compiled_vs_eager": 9.313225746154785e-10,
+   "dg_compiled_vs_eager": 9.267031586546182e-13,
+   "ynn_fusion_in_hlo": false
+  },
+  "powerlaw14/monopole": {
+   "n_points": 6,
+   "dv_compiled_vs_eager": 0.0,
+   "dg_compiled_vs_eager": 1.2671003311702532e-13,
+   "ynn_fusion_in_hlo": false
+  },
+  "freespec30/curn": {
+   "n_points": 7,
+   "dv_compiled_vs_eager": 0.0,
+   "dg_compiled_vs_eager": 6.609050895790314e-13,
+   "ynn_fusion_in_hlo": false
+  },
+  "freespec30/hd": {
+   "n_points": 7,
+   "dv_compiled_vs_eager": 0.0,
+   "dg_compiled_vs_eager": 4.048449737023325e-13,
+   "ynn_fusion_in_hlo": false
+  },
+  "freespec30/dipole": {
+   "n_points": 7,
+   "dv_compiled_vs_eager": 0.0,
+   "dg_compiled_vs_eager": 7.938990463512789e-11,
+   "ynn_fusion_in_hlo": false
+  },
+  "freespec30/monopole": {
+   "n_points": 7,
+   "dv_compiled_vs_eager": 0.0,
+   "dg_compiled_vs_eager": 6.353636002220506e-13,
+   "ynn_fusion_in_hlo": false
+  }
+ },
+ "reducer_cases": {
+  "5": {
+   "prod/scalar": 9.948253601968219e-13,
+   "prod/const": 2.039603555665353e-14,
+   "prod/zeros": 9.720920463016992e-13,
+   "prod/partial": 3.52772824867462e-14,
+   "prod/runtime": 1.221301163082402e-13,
+   "hh/scalar": 2.1886157924430237e-12,
+   "hh/const": 7.80538330500878e-13,
+   "hh/zeros": 2.1886157924430237e-12,
+   "hh/partial": 1.0093466750102895e-12,
+   "hh/runtime": 1.9295581667530403e-12
+  },
+  "67": {
+   "prod/scalar": 2.1997225076719536e-12,
+   "prod/const": 3.5283027470442276e-13,
+   "prod/zeros": 2.1429856392238434e-12,
+   "prod/partial": 4.0109800955570856e-13,
+   "prod/runtime": 2.2883024193187976e-12,
+   "hh/scalar": 3.654764828815959e-11,
+   "hh/const": 1.4190886118005368e-10,
+   "hh/zeros": 3.654764828815959e-11,
+   "hh/partial": 3.974794650904034e-11,
+   "hh/runtime": 4.354232800569453e-11
+  }
+ }
+}

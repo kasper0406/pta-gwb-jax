@@ -1,10 +1,11 @@
 """Performance variants (``ptagwb.perf_likelihood``, docs/PERF.md) must reproduce the production
-likelihood: value (without the parameter-independent constant) to <= 1e-9 absolute and every
-gradient component to <= 1e-8 relative (to max(|g|, 1)), single and vmapped, compiled -- or, where
-production's own reproducibility floor is larger than that (``noise_floor``: production vs exact
-identities of itself -- pulsars permuted, a different split_fraction, vmapped vs single kernels;
-monopole / dipole ORFs, regularised with diag_eps = 1e-5, reach ~1e-5 in the value on the GPU),
-within 10x that floor.
+likelihood within fixed per-ORF budgets (``BUDGET``): value (without the parameter-independent
+constant) <= 2e-9 absolute (nominal 1e-9; justified at ``BUDGET``) and every gradient component
+<= 1e-8 relative to max(|g|, 1) for CURN/HD; 1e-4 / 1e-6 for the ill-conditioned
+monopole/dipole ORFs (justified at ``BUDGET``).
+fast-single is compared with production-single and fast-batched with production-batched; every
+reference, candidate and discrepancy must be finite, and production's own reproducibility floor
+(``noise_floor``) must also lie within the budget.
 
 Matrix: common spectrum {power law, free spectrum} x {14, 30} common modes x ORF {curn, hd,
 dipole, monopole}; points: interior draws, IRN/common prior corners, free-spectrum bound profiles
@@ -73,20 +74,39 @@ def points(P, common, nc, seed=0, n_interior=3):
     return pts
 
 
-def compare(prod, fast, pts):
-    """Worst (value abs diff, gradient rel diff) over pts, single and vmapped; asserts finiteness."""
+def _finite(*xs):
+    return all(np.all(np.isfinite(np.asarray(x, dtype=float))) for x in xs)
+
+
+def _diff(v0, g0, v1, g1):
+    """(|dv|, max_i |dg_i| / max(|g0_i|, 1)); asserts every input and both discrepancies finite."""
+    a, b = _flat(g0), _flat(g1)
+    assert _finite(v0, a), "non-finite reference"
+    assert _finite(v1, b), "non-finite candidate"
+    dv = abs(float(v1) - float(v0))
+    dg = float(np.max(np.abs(a - b) / np.maximum(np.abs(a), 1.0)))
+    assert _finite(dv, dg)
+    return dv, dg
+
+
+def _batched(like, pts):
     stacked = {k: jnp.stack([jnp.asarray(p[k], dtype=jnp.float64) for p in pts]) for k in pts[0]}
-    vb, gb = jax.jit(jax.vmap(jax.value_and_grad(fast._logL)))(stacked)
-    wv = wg = 0.0
+    vb, gb = jax.jit(jax.vmap(jax.value_and_grad(like._logL)))(stacked)
+    return [(vb[i], {k: gb[k][i] for k in gb}) for i in range(len(pts))]
+
+
+def compare(prod, fast, pts):
+    """Worst (dv, dg) of fast-single vs prod-single and of fast-batched vs prod-batched (kept
+    separate, so a batching discrepancy cannot mask an implementation one). Returns
+    (dv_single, dg_single, dv_batched, dg_batched)."""
+    w = [0.0, 0.0, 0.0, 0.0]
+    pb, fb = _batched(prod, pts), _batched(fast, pts)
     for i, p in enumerate(pts):
-        v0, g0 = prod.value_and_grad(p)
-        a = _flat(g0)
-        for v1, g1 in (fast.value_and_grad(p), (vb[i], {k: gb[k][i] for k in gb})):
-            b = _flat(g1)
-            assert np.isfinite(float(v1)) and np.all(np.isfinite(b)), (i, float(v1))
-            wv = max(wv, abs(float(v1) - float(v0)))
-            wg = max(wg, float(np.max(np.abs(a - b) / np.maximum(np.abs(a), 1.0))))
-    return wv, wg
+        dv, dg = _diff(*prod.value_and_grad(p), *fast.value_and_grad(p))
+        w[0], w[1] = max(w[0], dv), max(w[1], dg)
+        dv, dg = _diff(*pb[i], *fb[i])
+        w[2], w[3] = max(w[2], dv), max(w[3], dg)
+    return tuple(w)
 
 
 def _orf(name, terms):
@@ -111,7 +131,6 @@ def noise_floor(terms, T, kw_fn, pts, perm_seed=1):
     fv = fg = 0.0
     for i, p in enumerate(pts):
         v0, g0 = A.value_and_grad(p)
-        a = _flat(g0)
         cands = [(vb[i], {k: gb[k][i] for k in gb})]
         for L, permuted in others:
             if permuted:
@@ -122,14 +141,14 @@ def noise_floor(terms, T, kw_fn, pts, perm_seed=1):
                 v1, g1 = L.value_and_grad(p)
             cands.append((v1, g1))
         for v1, g1 in cands:
-            b = _flat(g1)
-            fv = max(fv, abs(float(v1) - float(v0)))
-            fg = max(fg, float(np.max(np.abs(a - b) / np.maximum(np.abs(a), 1.0))))
+            dv, dg = _diff(v0, g0, v1, g1)
+            fv, fg = max(fv, dv), max(fg, dg)
     return fv, fg
 
 
 def run_matrix(terms, T, variants=(("hh", "levels"),), combos=None):
-    """{key: (worst dv, worst dg, floor dv, floor dg)} over the COMMONS x ORFS matrix (or ``combos``)."""
+    """{key: (dv_single, dg_single, dv_batched, dg_batched, floor_dv, floor_dg, orf)} over the
+    COMMONS x ORFS matrix (or ``combos``)."""
     out = {}
     for (common, nc), orf_name in combos or itertools.product(COMMONS, ORFS):
         def kw_fn(tt, common=common, nc=nc, orf_name=orf_name):
@@ -140,7 +159,7 @@ def run_matrix(terms, T, variants=(("hh", "levels"),), combos=None):
         floor = noise_floor(terms, T, kw_fn, pts)
         for red, inv in variants:
             fast = _strip(FastPTALikelihood(terms, T, reduce=red, tri_inv=inv, **kw_fn(terms)))
-            out[f"{common}{nc}/{orf_name}/{red}+{inv}"] = (*compare(prod, fast, pts), *floor)
+            out[f"{common}{nc}/{orf_name}/{red}+{inv}"] = (*compare(prod, fast, pts), *floor, orf_name)
     return out
 
 
@@ -178,11 +197,34 @@ def test_method_b_rejected(pta):
         FastPTALikelihood(terms, T, n_modes=NM, n_common=14, orf="hd", method="B")
 
 
-def _assert_matrix(res, tol_v=1e-9, tol_g=1e-8, floor_factor=10.0):
-    """Criterion: dv <= 1e-9 and dg <= 1e-8, or, where production's own reproducibility floor
-    (``noise_floor``) already exceeds that (ill-conditioned monopole/dipole ORFs), within 10x it."""
-    bad = {k: v for k, v in res.items()
-           if not (v[0] <= max(tol_v, floor_factor * v[2]) and v[1] <= max(tol_g, floor_factor * v[3]))}
+# Fixed, per-ORF absolute budgets (value: absolute, without the constant; gradient: relative to
+# max(|g|, 1)). They bound BOTH the fast-vs-production discrepancy and production's own
+# reproducibility floor (``noise_floor``), and never expand with the measured floor.
+# * curn / hd: 2e-9 / 1e-8. The nominal value requirement 1e-9 is ~17 ULP of the largest
+#   parameter-dependent value in the matrix (|logL - const| up to 3.6e5 at free-spectrum points,
+#   ULP 5.8e-11); production differs from exact identities of itself (pulsar permutation,
+#   split_fraction, batching) by up to 9.3e-10 there, so 1e-9 would fail production against
+#   itself under a reordering. 2e-9 (~35 ULP, 5.5e-15 relative) is the smallest round budget that
+#   bounds both; measured fast-vs-production worst case 1.05e-9 (CPU, free spectrum 30, CURN),
+#   <= 6.4e-10 on the GPU, and <= 1e-9 for every power-law configuration.
+# * monopole / dipole: Gamma' = Gamma - lam0 I is nearly singular (condition numbers 1.3e7 /
+#   7.8e6 with diag_eps = 1e-5), and the production Sigma' form (Gamma'^-1 (x) I + blockdiag)
+#   loses ~kappa * eps ~ 3e-9 relative accuracy in a core term of size ~1e3-1e4: production's own
+#   value reproducibility is ~1e-6 (CPU) to ~2e-5 (GPU), and production's Sigma vs B form differ
+#   by 1.0e-5 / 3.3e-6 (review round 2). Budget 1e-4 absolute (5x the worst measured production
+#   variation; a 1e-4 log-density error changes density ratios by <= 1e-4 relative, far below
+#   Monte Carlo precision) and 1e-6 relative in the gradient (7x the worst measured 1.4e-7).
+#   This is an open production numerical limitation (docs/PERF.md), not a fast-only defect.
+BUDGET = {"curn": (2e-9, 1e-8), "hd": (2e-9, 1e-8), "dipole": (1e-4, 1e-6), "monopole": (1e-4, 1e-6)}
+
+
+def _assert_matrix(res):
+    bad = {}
+    for k, (dvs, dgs, dvb, dgb, fv, fg, orf) in res.items():
+        tv, tg = BUDGET[orf]
+        vals = (dvs, dgs, dvb, dgb, fv, fg)
+        if not (_finite(*vals) and dvs <= tv and dvb <= tv and fv <= tv and dgs <= tg and dgb <= tg and fg <= tg):
+            bad[k] = vals
     assert not bad, bad
 
 
@@ -228,3 +270,22 @@ def test_ng15_matrix(ours, noisedict):
     T = get_tspan(ours)
     terms = precompute(ours, noisedict, T, position="enterprise")
     _assert_matrix(run_matrix(terms, T))
+
+
+def test_gate_rejects_invalid_references_and_floors():
+    """The gate itself: NaN references, infinite floors and over-budget discrepancies must fail;
+    a small floor must not relax the budget."""
+    g = {"x": np.ones(3)}
+    with pytest.raises(AssertionError, match="reference"):
+        _diff(np.nan, g, 0.0, g)
+    with pytest.raises(AssertionError, match="reference"):
+        _diff(0.0, {"x": np.array([1.0, np.nan, 0.0])}, 0.0, g)
+    with pytest.raises(AssertionError, match="candidate"):
+        _diff(0.0, g, np.inf, g)
+    with pytest.raises(AssertionError):
+        _assert_matrix({"k": (0.0, 0.0, 0.0, 0.0, np.inf, 0.0, "hd")})
+    with pytest.raises(AssertionError):
+        _assert_matrix({"k": (2.5e-9, 0.0, 0.0, 0.0, 9e-10, 0.0, "hd")})  # a floor never widens the budget
+    with pytest.raises(AssertionError):
+        _assert_matrix({"k": (0.0, 0.0, 0.0, 2e-6, 0.0, 0.0, "monopole")})
+    _assert_matrix({"k": (5e-5, 1e-7, 5e-5, 1e-7, 2e-5, 1e-7, "dipole")})

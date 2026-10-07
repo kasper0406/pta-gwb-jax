@@ -1,135 +1,245 @@
 {
  "env": {
-  "git_sha": "9051265d2a343ab96dce0035e827e10325aa3fb5",
+  "git_sha": "891455059bd2988d523eaab83901af744507fcd7",
   "dirty": true,
-  "dirty_hash": "ba56d19e9311c570",
+  "dirty_hash": "854e878ef9125b0f",
   "jax": "0.11.2",
   "backend": "gpu",
   "devices": [
    "cuda:0"
   ],
-  "XLA_FLAGS": "",
+  "XLA_FLAGS": "--xla_cpu_experimental_ynn_fusion_type=",
   "host": "kworkstation",
-  "time": "2026-10-07T19:25:16"
+  "time": "2026-10-07T20:28:21"
  },
- "criteria": {
-  "dv": 1e-09,
-  "dg": 1e-08,
-  "floor_factor": 10
+ "budget": {
+  "curn": [
+   2e-09,
+   1e-08
+  ],
+  "hd": [
+   2e-09,
+   1e-08
+  ],
+  "dipole": [
+   0.0001,
+   1e-06
+  ],
+  "monopole": [
+   0.0001,
+   1e-06
+  ]
  },
  "results": {
   "powerlaw14/curn/hh+levels": {
-   "dv": 5.820766091346741e-11,
-   "dg": 1.1368683772161603e-13,
+   "dv_single": 5.820766091346741e-11,
+   "dg_single": 1.1368683772161603e-13,
+   "dv_batched": 5.820766091346741e-11,
+   "dg_batched": 1.1368683772161603e-13,
    "floor_dv": 1.1641532182693481e-10,
    "floor_dg": 5.001172503509735e-15,
-   "within_tolerance": true
+   "budget": [
+    2e-09,
+    1e-08
+   ],
+   "within_budget": true
   },
   "powerlaw14/hd/hh+levels": {
-   "dv": 5.820766091346741e-11,
-   "dg": 9.202323809214182e-14,
-   "floor_dv": 5.820766091346741e-11,
+   "dv_single": 5.820766091346741e-11,
+   "dg_single": 9.202323809214182e-14,
+   "dv_batched": 5.820766091346741e-11,
+   "dg_batched": 8.526512829121202e-14,
+   "floor_dv": 1.1641532182693481e-10,
    "floor_dg": 1.1368683772161603e-13,
-   "within_tolerance": true
+   "budget": [
+    2e-09,
+    1e-08
+   ],
+   "within_budget": true
   },
   "powerlaw14/dipole/hh+levels": {
-   "dv": 8.5378997027874e-06,
-   "dg": 7.384105596569426e-09,
-   "floor_dv": 8.537957910448313e-06,
+   "dv_single": 7.566995918750763e-10,
+   "dg_single": 1.1967904806580605e-11,
+   "dv_batched": 2.9103830456733704e-10,
+   "dg_batched": 2.5218889284023297e-11,
+   "floor_dv": 8.538016118109226e-06,
    "floor_dg": 7.3844651169918965e-09,
-   "within_tolerance": true
+   "budget": [
+    0.0001,
+    1e-06
+   ],
+   "within_budget": true
   },
   "powerlaw14/monopole/hh+levels": {
-   "dv": 1.7074926290661097e-05,
-   "dg": 1.3631785670400707e-08,
+   "dv_single": 1.1641532182693481e-10,
+   "dg_single": 1.0690088780325574e-13,
+   "dv_batched": 1.7462298274040222e-10,
+   "dg_batched": 1.1368683772161603e-13,
    "floor_dv": 1.7074926290661097e-05,
    "floor_dg": 1.3631863491020209e-08,
-   "within_tolerance": true
+   "budget": [
+    0.0001,
+    1e-06
+   ],
+   "within_budget": true
   },
   "powerlaw30/curn/hh+levels": {
-   "dv": 5.820766091346741e-11,
-   "dg": 9.035967399431411e-14,
+   "dv_single": 5.820766091346741e-11,
+   "dg_single": 8.791964780261745e-14,
+   "dv_batched": 5.820766091346741e-11,
+   "dg_batched": 9.035967399431411e-14,
    "floor_dv": 5.820766091346741e-11,
    "floor_dg": 3.428669048755789e-14,
-   "within_tolerance": true
+   "budget": [
+    2e-09,
+    1e-08
+   ],
+   "within_budget": true
   },
   "powerlaw30/hd/hh+levels": {
-   "dv": 1.1641532182693481e-10,
-   "dg": 1.3187947197699523e-13,
+   "dv_single": 5.820766091346741e-11,
+   "dg_single": 1.3187947197699523e-13,
+   "dv_batched": 5.820766091346741e-11,
+   "dg_batched": 8.526512829121202e-14,
    "floor_dv": 1.1641532182693481e-10,
    "floor_dg": 1.3187947197699523e-13,
-   "within_tolerance": true
+   "budget": [
+    2e-09,
+    1e-08
+   ],
+   "within_budget": true
   },
   "powerlaw30/dipole/hh+levels": {
-   "dv": 1.0636111255735159e-05,
-   "dg": 9.85464834441711e-09,
+   "dv_single": 7.566995918750763e-10,
+   "dg_single": 1.755768585655187e-11,
+   "dv_batched": 1.862645149230957e-09,
+   "dg_batched": 3.183238741691498e-12,
    "floor_dv": 1.0636169463396072e-05,
    "floor_dg": 9.854439502240003e-09,
-   "within_tolerance": true
+   "budget": [
+    0.0001,
+    1e-06
+   ],
+   "within_budget": true
   },
   "powerlaw30/monopole/hh+levels": {
-   "dv": 1.8049846403300762e-05,
-   "dg": 2.445172433101699e-08,
+   "dv_single": 2.9103830456733704e-10,
+   "dg_single": 8.185452315956354e-12,
+   "dv_batched": 1.7462298274040222e-10,
+   "dg_batched": 6.0254023992456496e-12,
    "floor_dv": 1.8049846403300762e-05,
    "floor_dg": 2.4451685497211568e-08,
-   "within_tolerance": true
+   "budget": [
+    0.0001,
+    1e-06
+   ],
+   "within_budget": true
   },
   "freespec14/curn/hh+levels": {
-   "dv": 1.1641532182693481e-10,
-   "dg": 9.403506109013557e-12,
+   "dv_single": 5.820766091346741e-11,
+   "dg_single": 4.475092934966988e-12,
+   "dv_batched": 1.1641532182693481e-10,
+   "dg_batched": 9.403506109013557e-12,
    "floor_dv": 1.1641532182693481e-10,
    "floor_dg": 4.841546181189208e-15,
-   "within_tolerance": true
+   "budget": [
+    2e-09,
+    1e-08
+   ],
+   "within_budget": true
   },
   "freespec14/hd/hh+levels": {
-   "dv": 1.1641532182693481e-10,
-   "dg": 1.2084118611221714e-11,
+   "dv_single": 5.820766091346741e-11,
+   "dg_single": 5.664406443894876e-12,
+   "dv_batched": 1.1641532182693481e-10,
+   "dg_batched": 1.2084118611221714e-11,
    "floor_dv": 1.1641532182693481e-10,
    "floor_dg": 1.4011798665780617e-11,
-   "within_tolerance": true
+   "budget": [
+    2e-09,
+    1e-08
+   ],
+   "within_budget": true
   },
   "freespec14/dipole/hh+levels": {
-   "dv": 2.198154106736183e-06,
-   "dg": 5.642305571700505e-09,
+   "dv_single": 2.6135239750146866e-08,
+   "dg_single": 8.923727996682453e-11,
+   "dv_batched": 2.0023435354232788e-08,
+   "dg_batched": 9.066902784127251e-11,
    "floor_dv": 2.1980376914143562e-06,
    "floor_dg": 5.642291078085908e-09,
-   "within_tolerance": true
+   "budget": [
+    0.0001,
+    1e-06
+   ],
+   "within_budget": true
   },
   "freespec14/monopole/hh+levels": {
-   "dv": 8.507282473146915e-06,
-   "dg": 4.546554712244499e-08,
+   "dv_single": 5.820766091346741e-11,
+   "dg_single": 2.1165761460201835e-11,
+   "dv_batched": 1.1641532182693481e-10,
+   "dg_batched": 6.635500757366299e-12,
    "floor_dv": 8.507282473146915e-06,
    "floor_dg": 4.546554212081387e-08,
-   "within_tolerance": true
+   "budget": [
+    0.0001,
+    1e-06
+   ],
+   "within_budget": true
   },
   "freespec30/curn/hh+levels": {
-   "dv": 6.402842700481415e-10,
-   "dg": 1.5063271463500172e-10,
-   "floor_dv": 5.820766091346741e-11,
+   "dv_single": 6.402842700481415e-10,
+   "dg_single": 1.2776103786027448e-10,
+   "dv_batched": 4.656612873077393e-10,
+   "dg_batched": 1.5063271463500172e-10,
+   "floor_dv": 1.1641532182693481e-10,
    "floor_dg": 2.976587217132496e-15,
-   "within_tolerance": true
+   "budget": [
+    2e-09,
+    1e-08
+   ],
+   "within_budget": true
   },
   "freespec30/hd/hh+levels": {
-   "dv": 6.402842700481415e-10,
-   "dg": 3.327466080449426e-11,
+   "dv_single": 5.820766091346741e-10,
+   "dg_single": 2.6916580075919683e-11,
+   "dv_batched": 6.402842700481415e-10,
+   "dg_batched": 3.3274438759889335e-11,
    "floor_dv": 7.566995918750763e-10,
    "floor_dg": 8.237097115504355e-11,
-   "within_tolerance": true
+   "budget": [
+    2e-09,
+    1e-08
+   ],
+   "within_budget": true
   },
   "freespec30/dipole/hh+levels": {
-   "dv": 5.207955837249756e-06,
-   "dg": 3.0573189661630434e-08,
-   "floor_dv": 5.207606591284275e-06,
-   "floor_dg": 3.04957712698034e-08,
-   "within_tolerance": true
+   "dv_single": 4.540197551250458e-09,
+   "dg_single": 1.785266794292639e-10,
+   "dv_batched": 4.0745362639427185e-09,
+   "dg_batched": 1.725444566025749e-10,
+   "floor_dv": 5.207490175962448e-06,
+   "floor_dg": 3.049577499354553e-08,
+   "budget": [
+    0.0001,
+    1e-06
+   ],
+   "within_budget": true
   },
   "freespec30/monopole/hh+levels": {
-   "dv": 1.6808509826660156e-05,
-   "dg": 9.647169241233655e-08,
-   "floor_dv": 1.6808509826660156e-05,
+   "dv_single": 5.820766091346741e-11,
+   "dg_single": 2.5445832740914074e-11,
+   "dv_batched": 5.820766091346741e-11,
+   "dg_batched": 9.895960153741514e-12,
+   "floor_dv": 1.6808451618999243e-05,
    "floor_dg": 1.3973769119601798e-07,
-   "within_tolerance": true
+   "budget": [
+    0.0001,
+    1e-06
+   ],
+   "within_budget": true
   }
  },
- "all_within_tolerance": true
+ "all_within_tolerance": true,
+ "note": "budget for curn/hd updated to 2e-9 after this run (re-evaluated from the stored numbers)"
 }

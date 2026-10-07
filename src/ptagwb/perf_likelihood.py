@@ -122,12 +122,10 @@ def _reduce_bwd_sz(res, cts):
 
         rb = -qb d^2 + ldb diag(E) - rowsum((E Eb) * E) - d * (E db)
 
-    Why: for CURN (and any caller that ignores E, d) Eb and db are zero. The production rule
-    instantiates them, and XLA:CPU (jaxlib 0.11.2) then fuses ``reduce(dot(E, broadcast(0)) * E)``
-    into a YNNPACK library fusion (``__ynn_fusion``) that returns garbage (|g| ~ 1e100-1e281;
-    reproduced with the structured-Householder forward, disappears with
-    ``--xla_cpu_experimental_ynn_fusion_type=``; GPU unaffected). Skipping the zero terms removes
-    the dot (and n^3 wasted flops) instead of relying on the compiler.
+    Skipping symbolic zeros removes n^3 wasted work when E or d are unused (CURN). It is *not* the
+    protection against the XLA:CPU YNNPACK bug (any broadcast cotangent -- explicit zeros or a
+    nonzero constant -- triggers it): that is the XLA flag set by ``ptagwb/__init__`` plus the
+    optimization barriers below (docs/PERF.md).
     """
     E, d, RA, c, s_perp = res
     qb, ldb, Eb, db = cts
@@ -136,11 +134,15 @@ def _reduce_bwd_sz(res, cts):
         rb = rb - qb * d * d
     if not isinstance(ldb, SymbolicZero):
         rb = rb + ldb * jnp.diagonal(E)
+    # optimization_barrier: second defence against the XLA:CPU YNNPACK miscompilation of
+    # reduce(dot(E, broadcast(c)) * E) (any constant/broadcast cotangent, not only zeros); it
+    # keeps the product out of the fused reduction. The package-wide fix is the XLA flag set in
+    # ptagwb/__init__ (config.disable_xla_cpu_ynn_fusion).
     if not isinstance(Eb, SymbolicZero):
         Eb = 0.5 * (Eb + Eb.T)
-        rb = rb - jnp.sum((E @ Eb) * E, axis=1)
+        rb = rb - jnp.sum(jax.lax.optimization_barrier(E @ Eb) * E, axis=1)
     if not isinstance(db, SymbolicZero):
-        rb = rb - d * (E @ db)
+        rb = rb - d * jax.lax.optimization_barrier(E @ db)
     return jnp.zeros_like(RA), jnp.zeros_like(c), jnp.zeros_like(s_perp), rb
 
 

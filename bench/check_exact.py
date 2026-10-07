@@ -6,12 +6,14 @@ monopole}, at interior draws, IRN / common prior corners and free-spectrum bound
 single and vmapped (compiled). Reported per configuration:
 
     dv   = max |logL_variant - logL_prod|, both without the parameter-independent constant
+           (single vs single and batched vs batched, reported separately)
     dg   = max_i |g_i - g_i^prod| / max(|g_i^prod|, 1)
     floor_dv, floor_dg = the same for production vs exact identities of production (pulsars
            permuted; split_fraction 0.45 / 0.55; vmapped vs single kernels): its reproducibility floor
 
-Criterion (as the test): dv <= 1e-9 and dg <= 1e-8, or within 10x the production floor where
-that floor already exceeds them (monopole / dipole). Run on the GPU and with JAX_PLATFORMS=cpu.
+Criterion (as the test): fixed per-ORF budgets (tests/test_perf_likelihood.py BUDGET), applied
+separately to fast-single vs prod-single, fast-batched vs prod-batched, and production's own floor.
+Run on the GPU and with JAX_PLATFORMS=cpu.
 
     uv run --no-sync python bench/check_exact.py [variant ...]      # default: hh+levels
 """
@@ -25,20 +27,23 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tests"))
 import jax
 from common import env_info, get_terms, save_json
-from test_perf_likelihood import run_matrix
+from test_perf_likelihood import BUDGET, _finite, run_matrix
 
 
 def main():
     variants = [tuple(v.split("+")) for v in (sys.argv[1:] or ["hh+levels"])]
     terms, T = get_terms()
     res = run_matrix(terms, T, variants=variants)
-    out = {"env": env_info(), "criteria": {"dv": 1e-9, "dg": 1e-8, "floor_factor": 10}, "results": {}}
+    out = {"env": env_info(), "budget": BUDGET, "results": {}}
     ok = True
-    for k, (dv, dg, fv, fg) in res.items():
-        passed = dv <= max(1e-9, 10 * fv) and dg <= max(1e-8, 10 * fg)
+    for k, (dvs, dgs, dvb, dgb, fv, fg, orf) in res.items():
+        tv, tg = BUDGET[orf]
+        passed = bool(_finite(dvs, dgs, dvb, dgb, fv, fg) and max(dvs, dvb, fv) <= tv and max(dgs, dgb, fg) <= tg)
         ok &= passed
-        out["results"][k] = {"dv": dv, "dg": dg, "floor_dv": fv, "floor_dg": fg, "within_tolerance": passed}
-        print(f"{k:32s} dv {dv:.1e} dg {dg:.1e} | prod floor dv {fv:.1e} dg {fg:.1e}  {'ok' if passed else 'OUTSIDE'}", flush=True)
+        out["results"][k] = {"dv_single": dvs, "dg_single": dgs, "dv_batched": dvb, "dg_batched": dgb,
+                             "floor_dv": fv, "floor_dg": fg, "budget": [tv, tg], "within_budget": passed}
+        print(f"{k:30s} single dv {dvs:.1e} dg {dgs:.1e} | batched dv {dvb:.1e} dg {dgb:.1e} | prod floor dv {fv:.1e} "
+              f"dg {fg:.1e} | budget {tv:.0e}/{tg:.0e} {'ok' if passed else 'OUTSIDE'}", flush=True)
     out["all_within_tolerance"] = ok
     save_json(f"exact_ng15_{jax.default_backend()}.json", out)
     return 0 if ok else 1

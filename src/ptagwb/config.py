@@ -9,6 +9,47 @@ DATA_DIR = REPO_ROOT / "data"
 RAW_DIR = DATA_DIR / "raw"
 
 
+XLA_CPU_YNN_FLAG = "--xla_cpu_experimental_ynn_fusion_type="
+YNN_OPT_OUT_ENV = "PTAGWB_KEEP_XLA_CPU_YNN_FUSION"
+
+
+def disable_xla_cpu_ynn_fusion() -> bool:
+    """Append ``--xla_cpu_experimental_ynn_fusion_type=`` (no YNNPACK library fusions) to
+    ``XLA_FLAGS`` unless that flag is already set by the user or ``PTAGWB_KEEP_XLA_CPU_YNN_FUSION=1``.
+
+    Workaround for an XLA:CPU miscompilation (jaxlib 0.11.2): a batched dot whose operand is a
+    broadcast (e.g. of a scalar cotangent), fused with a multiply + reduce, returns wrong values
+    (from ~6% errors to ~1e111). This hits reverse-mode gradients of the likelihood on the CPU
+    backend; the GPU backend does not use YNNPACK. XLA reads ``XLA_FLAGS`` when a backend is first
+    initialised, so this must run before the first JAX computation (it does: ``ptagwb/__init__``).
+    Returns True if the flag is (now) present. ``xla_cpu_ynn_fusion_active()`` verifies the effect.
+    """
+    import os
+
+    if os.environ.get(YNN_OPT_OUT_ENV, "") not in ("", "0"):
+        return False
+    flags = os.environ.get("XLA_FLAGS", "")
+    if "--xla_cpu_experimental_ynn_fusion_type" not in flags:
+        os.environ["XLA_FLAGS"] = (flags + " " + XLA_CPU_YNN_FLAG).strip()
+    return True
+
+
+def xla_cpu_ynn_fusion_active() -> bool:
+    """Compile the known-bad pattern on the CPU backend and report whether XLA formed a YNNPACK
+    fusion (``__ynn_fusion`` in the optimised HLO). False means the workaround is in effect."""
+    import jax
+    import jax.numpy as jnp
+
+    cpu = jax.devices("cpu")[0]
+    E = jax.device_put(jnp.ones((2, 8, 8), dtype=jnp.float32), cpu)
+
+    def f(E, c):
+        return jnp.sum((E @ jnp.full_like(E, c)) * E, axis=-1)
+
+    txt = jax.jit(f).lower(E, jnp.float32(1.0)).compile().as_text()
+    return "__ynn_fusion" in txt
+
+
 def enable_x64() -> None:
     """PTA likelihoods need float64 (residuals ~1e-7 s, covariances span ~30 decades)."""
     import jax

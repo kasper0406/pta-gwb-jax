@@ -355,6 +355,14 @@ over speed"). Both 14-mode paths miss the ~10 ms target for value + gradient: ex
 14.9 ms, mixed 10.3 ms. The 30-mode free-spectrum HD system is 4020-dimensional and takes
 51 ms (24.8 ms mixed).
 
+**Note added 2026-10-07 (performance study, `docs/PERF.md` Sec. 3a).** XLA:CPU in jaxlib 0.11.2
+miscompiles a batched dot with a broadcast operand fused into a multiply + reduce (YNNPACK library
+fusion). The likelihood's reducer VJP is affected on the **CPU backend** when it receives constant
+(broadcast) cotangents on E; the production likelihood's own gradient was verified unaffected on
+CPU (compiled vs eager <= 9e-11 at 52 NG15 points across CURN/HD/dipole/monopole and both spectra),
+and the GPU backend, on which every number in this document was produced, does not use YNNPACK
+(compiled = eager to <= 2.4e-11). `ptagwb` now disables the fusion via `XLA_FLAGS` at import.
+
 ## 5. Deviations from / additions to `docs/SPEC_astra.md`
 
 All load-bearing claims in the spec were checked against the installed enterprise and

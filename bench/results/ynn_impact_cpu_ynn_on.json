@@ -1,0 +1,92 @@
+{
+ "env": {
+  "git_sha": "891455059bd2988d523eaab83901af744507fcd7",
+  "dirty": true,
+  "dirty_hash": "96cd287e98f07399",
+  "jax": "0.11.2",
+  "backend": "cpu",
+  "devices": [
+   "cpu:0"
+  ],
+  "XLA_FLAGS": "",
+  "host": "kworkstation",
+  "time": "2026-10-07T20:12:56"
+ },
+ "ynn_fusion_active": true,
+ "likelihood": {
+  "powerlaw14/curn": {
+   "n_points": 6,
+   "dv_compiled_vs_eager": 0.0,
+   "dg_compiled_vs_eager": 8.337774914934926e-14,
+   "ynn_fusion_in_hlo": true
+  },
+  "powerlaw14/hd": {
+   "n_points": 6,
+   "dv_compiled_vs_eager": 0.0,
+   "dg_compiled_vs_eager": 6.394884621840902e-14,
+   "ynn_fusion_in_hlo": true
+  },
+  "powerlaw14/dipole": {
+   "n_points": 6,
+   "dv_compiled_vs_eager": 9.313225746154785e-10,
+   "dg_compiled_vs_eager": 7.710498906021712e-13,
+   "ynn_fusion_in_hlo": true
+  },
+  "powerlaw14/monopole": {
+   "n_points": 6,
+   "dv_compiled_vs_eager": 0.0,
+   "dg_compiled_vs_eager": 2.3051089224646853e-13,
+   "ynn_fusion_in_hlo": true
+  },
+  "freespec30/curn": {
+   "n_points": 7,
+   "dv_compiled_vs_eager": 0.0,
+   "dg_compiled_vs_eager": 6.87113030451387e-13,
+   "ynn_fusion_in_hlo": true
+  },
+  "freespec30/hd": {
+   "n_points": 7,
+   "dv_compiled_vs_eager": 0.0,
+   "dg_compiled_vs_eager": 2.928240983024466e-12,
+   "ynn_fusion_in_hlo": true
+  },
+  "freespec30/dipole": {
+   "n_points": 7,
+   "dv_compiled_vs_eager": 9.313225746154785e-10,
+   "dg_compiled_vs_eager": 8.689911415136865e-11,
+   "ynn_fusion_in_hlo": true
+  },
+  "freespec30/monopole": {
+   "n_points": 7,
+   "dv_compiled_vs_eager": 0.0,
+   "dg_compiled_vs_eager": 6.330957926844191e-13,
+   "ynn_fusion_in_hlo": true
+  }
+ },
+ "reducer_cases": {
+  "5": {
+   "prod/scalar": 5.968952161183306e-13,
+   "prod/const": 2.6229614411320674,
+   "prod/zeros": 5.741619022231989e-13,
+   "prod/partial": 3.4480055763881907e-14,
+   "prod/runtime": 1.7128940840714187e-13,
+   "hh/scalar": 2.1886157924430237e-12,
+   "hh/const": 7.80538330500878e-13,
+   "hh/zeros": 2.1886157924430237e-12,
+   "hh/partial": 1.0093466750102895e-12,
+   "hh/runtime": 1.9272694180935365e-12
+  },
+  "67": {
+   "prod/scalar": 2.1997225076719536e-12,
+   "prod/const": 4.155923016466271e+273,
+   "prod/zeros": 2.1429856392238434e-12,
+   "prod/partial": 6.961586142861394e-13,
+   "prod/runtime": 3.567834332841913e-11,
+   "hh/scalar": 3.654764828815959e-11,
+   "hh/const": 1.4190886118005368e-10,
+   "hh/zeros": 3.654764828815959e-11,
+   "hh/partial": 3.974794650904034e-11,
+   "hh/runtime": 4.354232800570258e-11
+  }
+ }
+}
