@@ -95,10 +95,11 @@ def energy2d(ours, rel, seed=0, ours_halves=None):
     rng = np.random.default_rng(seed)
     e = energy_distance(ours, rel, seed=seed)
     own = energy_distance(*ours_halves, seed=seed) if ours_halves is not None else float("nan")
-    # MC noise floor: two disjoint random halves of the released chain, thinned like ours
-    idx = rng.permutation(len(rel))
+    # Descriptive references only (not a calibrated null distribution): the first vs second
+    # contiguous half of the released chain (keeps its autocorrelation), and our chains 1-2 vs 3-4.
+    del rng
     h = len(rel) // 2
-    floor = energy_distance(rel[idx[:h]], rel[idx[h:]], seed=seed)
+    floor = energy_distance(rel[:h], rel[h:], seed=seed)
     return {"energy": e, "released_split_floor": floor, "ours_split_floor": own}
 
 

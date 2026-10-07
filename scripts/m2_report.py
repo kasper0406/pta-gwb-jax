@@ -45,8 +45,8 @@ def main():
     for e in cmp_.get("pairs", []):
         if "energy_2d" in e:
             ed = e["energy_2d"]
-            print(f"* {e['run']} vs {e['released']}: {ed['energy']:.2e} (MC floors: our chains 1-2 vs 3-4 "
-                  f"{ed.get('ours_split_floor', float('nan')):.2e}; released halves {ed['released_split_floor']:.2e})")
+            print(f"* {e['run']} vs {e['released']}: {ed['energy']:.2e} (descriptive references: our chains 1-2 vs 3-4 "
+                  f"{ed.get('ours_split_floor', float('nan')):.2e}; released first vs second half {ed['released_split_floor']:.2e})")
     print("\n## ICRS minus enterprise positions (same model)\n")
     print("| run | param | enterprise | ICRS | shift of median | z(5,50,95) |")
     print("|---|---|---|---|---|---|")
@@ -83,6 +83,21 @@ def main():
                 v = r[est]
                 kish = f"{v['kish_ess']:.0f} / {v['n']}" if np.isfinite(v.get("kish_ess", np.nan)) else f"- / {v['n']}"
                 print(f"| {k} | {est} | {v['bf']:.1f} | {v['bf_sd']:.1f} | {v['bf_q16_q84'][0]:.1f}-{v['bf_q16_q84'][1]:.1f} | {kish} | {v['block']} |")
+    print("\nBootstrap bf_sd vs block length (conditional on the draws):\n")
+    print("| setup | block | reweight | reverse | bridge |")
+    print("|---|---|---|---|---|")
+    for k, r in bf.items():
+        for b, v in r.get("block_sensitivity", {}).items():
+            print(f"| {k} | {b} | {v['reweight_bf_sd']:.1f} | {v['reverse_reweight_bf_sd']:.1f} | {v['bridge_bf_sd']:.1f} |")
+    print("\nConvergence of the averaged quantities (split R-hat / bulk ESS):\n")
+    for k, r in bf.items():
+        if "bridge" in r and "integrand_diagnostics" in r["bridge"]:
+            d = r["bridge"]["integrand_diagnostics"]
+            g = r.get("log_lr_diagnostics", {})
+            print(f"* {k}: bridge integrand at CURN draws R-hat {d['base']['rhat']:.3f} / ESS {d['base']['ess_bulk']:.0f}, "
+                  f"at HD draws {d['target']['rhat']:.3f} / {d['target']['ess_bulk']:.0f}; log LR at CURN draws "
+                  f"{g['curn_draws']['rhat']:.3f} / {g['curn_draws']['ess_bulk']:.0f}, at HD draws "
+                  f"{g['hd_draws']['rhat']:.3f} / {g['hd_draws']['ess_bulk']:.0f}")
     print("\n## Optimal statistic\n")
     for k, v in os_.items():
         if isinstance(v, dict) and "snr_mean" in v:
@@ -91,7 +106,7 @@ def main():
             print(f"* {k}: A2 {v['A2']:.4e} +- {v['sigma']:.4e}, S/N {v['snr']:.3f}")
         elif isinstance(v, dict) and "chi2" in v:
             print(f"* {k}: chi2 {v['chi2']:.2f}, p(chi2_15) {v['p_chi2_15dof']:.3f}, n_pairs {v['n_pairs']}")
-    for k in ("pair_cov_vs_released_max_rel", "binned_at_released_ml_with_released_cov_chi2", "map_g433_params", "map_vg_params"):
+    for k in ("pair_cov_vs_released_max_rel", "binned_at_released_ml_with_released_cov_chi2", "maxlike_draw_g433_params", "maxlike_draw_vg_params"):
         if k in os_:
             print(f"* {k}: {os_[k]}")
 

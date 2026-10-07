@@ -16,6 +16,10 @@ All sums are done in log space. Uncertainties come from a moving-block bootstrap
 chain (block length from the integrated autocorrelation time of the weights), so they account
 for autocorrelation in the MCMC draws. The Kish effective sample size of the importance weights
 is reported for the reweighting estimators.
+
+The bootstrap error is *conditional* on the draws: it cannot account for parts of the weight
+distribution the chains never visited, so it is a lower bound on the estimator's true error.
+Report it together with block-length sensitivity and the spread between estimators.
 """
 
 from __future__ import annotations
@@ -95,18 +99,42 @@ def _bridge(l1: np.ndarray, l2: np.ndarray, n1: float, n2: float, tol=1e-12, max
     return float(lr)
 
 
-def bridge(l_base, l_target, n_boot: int = 1000, seed: int = 0) -> dict:
-    """Optimal-bridge ln BF_21 from l at base draws (chains, n1) and at target draws (chains, n2)."""
+def bridge_integrands(l1, l2, lnbf, n1, n2):
+    """The two averaged quantities of the optimal bridge at the solution r = e^lnbf:
+    numerator terms e^l / (s1 r + s2 e^l) at base draws (bounded by 1/s2) and denominator terms
+    1 / (s1 r + s2 e^l) at target draws (bounded by 1/(s1 r)). Same shapes as l1, l2."""
+    s1, s2 = n1 / (n1 + n2), n2 / (n1 + n2)
+    d1 = np.logaddexp(np.log(s1) + lnbf, np.log(s2) + l1)
+    d2 = np.logaddexp(np.log(s1) + lnbf, np.log(s2) + l2)
+    return np.exp(l1 - d1), np.exp(-d2)
+
+
+def bridge(l_base, l_target, n_boot: int = 1000, seed: int = 0, block: tuple[int, int] | None = None) -> dict:
+    """Optimal-bridge ln BF_21 from l at base draws (chains, n1) and at target draws (chains, n2).
+
+    The bridge weights s_k use the autocorrelation ESS of l in each sample set (they affect only
+    the efficiency, not the consistency). Bootstrap block lengths, like those of the reweighting
+    estimators, are 2x the integrated autocorrelation time of the *averaged quantities*, here the
+    two bridge integrands at the solution (``bridge_integrands``); their R-hat and bulk ESS are
+    returned as convergence diagnostics.
+    """
+    from .diagnostics import ess_bulk, rhat
+
     l1, l2 = _as_chains(l_base), _as_chains(l_target)
     n1, n2 = ess(l1), ess(l2)
     lnbf = _bridge(l1.ravel(), l2.ravel(), n1, n2)
-    b1, b2 = block_length(l1), block_length(l2)
+    f1, f2 = bridge_integrands(l1, l2, lnbf, n1, n2)
+    b1, b2 = block or (block_length(f1), block_length(f2))
     rng = np.random.default_rng(seed)
     boots = np.array(
         [_bridge(_resample(l1, b1, rng).ravel(), _resample(l2, b2, rng).ravel(), n1, n2) for _ in range(n_boot)]
     )
     out = _pack(lnbf, boots, (b1, b2), float("nan"), l1.size + l2.size)
     out["ess_base"], out["ess_target"] = float(n1), float(n2)
+    out["integrand_diagnostics"] = {
+        "base": {"rhat": rhat(f1), "ess_bulk": ess_bulk(f1), "max_over_mean": float(f1.max() / f1.mean())},
+        "target": {"rhat": rhat(f2), "ess_bulk": ess_bulk(f2), "max_over_mean": float(f2.max() / f2.mean())},
+    }
     return out
 
 

@@ -149,13 +149,16 @@ likelihood agrees with both to below 4e-7 absolute (`docs/M1_VALIDATION.md`).
 - *PTA likelihoods.* CURN (block-diagonal) and HD (dense 67 x 28 inter-pulsar block)
   on the GPU. Match discovery to float64 precision and the m2a chain `logl` (float32).
   Time per evaluation.
-- **M2 (done, 2026-10-07; covers sampling plus the BF/OS parts of M3 below)**: NumPyro NUTS
+- **M2 (in progress; HD^free INCOMPLETE / PRELIMINARY after review of 4b63e38; covers sampling
+  plus the BF/OS parts of M3 below)**: NumPyro NUTS
   for CURN^13/3, CURN^gamma (14 and 5 modes), HD^13/3, HD^gamma (14 and 5 modes, enterprise and
   ICRS positions) and HD^free (30 modes); HD vs CURN Bayes factors (reweighting, reverse
   reweighting, bridge); OS (fixed and noise-marginalised), pair-covariance-aware binned
   correlations; Figs. 1a-c and 4. Fixed-gamma amplitude prior resolved to U[-18,-11]. See
-  `docs/M2_RESULTS.md`. Not done: CURN vs IRN BF, multi-component OS, phase-shift / sky-scramble
-  backgrounds. The original M2 plan was:
+  `docs/M2_RESULTS.md`. Open: HD^free chains not converged (re-run `configs/m2/hd_fs30_v2.json`
+  prepared, needs ~13-21 GPU hours); several IRN nuisance parameters at R-hat 1.01-1.03 (paper
+  criterion < 1.01); BF uncertainty is conditional (estimator spread larger). Not in scope: CURN
+  vs IRN BF, multi-component OS, phase-shift / sky-scramble backgrounds. The original M2 plan was:
 - *M2: sampling.* CURN^13/3, CURN^gamma, HD^13/3, HD^gamma, CURN^free/HD^free (30f).
   NUTS via numpyro, plus our own sampler if needed. Compare marginals with the released
   chains (quantiles, KS / Wasserstein distance, 2-D (gamma, log10 A) contours).

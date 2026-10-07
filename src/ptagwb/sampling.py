@@ -255,6 +255,9 @@ class RunConfig:
     metric: str = "adapt"
     adapt_mass_matrix: bool = True
     progress_bar: bool = False
+    # sampler backend; only "nuts" (numpyro) is implemented. The model/init/chain/draw fields above
+    # are backend-independent; target_accept, max_tree_depth, dense_mass, metric are NUTS-specific.
+    sampler: str = "nuts"
     notes: str = ""
 
     @classmethod
@@ -360,6 +363,8 @@ def run_nuts(cfg: RunConfig, post: Posterior, log=print) -> Path:
     """
     from numpyro.infer import MCMC, NUTS
 
+    if cfg.sampler != "nuts":
+        raise NotImplementedError(f"sampler {cfg.sampler!r} not implemented (only 'nuts')")
     out = run_dir(cfg.name)
     out.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(cfg.seed)

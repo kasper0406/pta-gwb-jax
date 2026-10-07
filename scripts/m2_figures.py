@@ -53,7 +53,7 @@ def fig1a():
     rel = released("hd_fs30")
     f = np.arange(1, 31) / T_SPAN
     lf = np.log10(f)
-    fig, ax = plt.subplots(figsize=(6.5, 3.8))
+    fig, ax = plt.subplots(figsize=(6.5, 4.0))
     for k in range(30):
         name = f"gw_log10_rho_{k}"
         for x, col, side in ((run_draws(run, name).ravel(), OURS, -1), (rel[name], REL, 1)):
@@ -92,7 +92,8 @@ def fig1a():
     ax.set_xlabel(r"$\log_{10}$(frequency [Hz])")
     ax.set_ylabel(r"$\log_{10}\rho$ [s] (excess timing delay)")
     ax.legend(loc="upper right", fontsize=8)
-    ax.set_title("Fig. 1a: HD free spectrum, 30 modes ([-9,-4] truncation as in the release)", fontsize=9, color=INK)
+    ax.set_title("PRELIMINARY (not converged: R-hat up to 1.08, see M2_RESULTS Sec. 10)\n"
+                 "Fig. 1a: HD free spectrum, 30 modes ([-9,-4] truncation as in the release)", fontsize=9, color=INK)
     fig.tight_layout()
     fig.savefig(FIG / "m2_fig1a_freespec.png", dpi=170)
     plt.close(fig)
@@ -153,7 +154,7 @@ def fig1b():
 
 
 def fig1c(opt):
-    b = opt.get("ours_binned_map_enterprise")
+    b = opt.get("ours_binned_maxlike_draw_enterprise")
     if b is None:
         print("optstat binned results missing; Fig. 1c skipped")
         return
@@ -164,7 +165,7 @@ def fig1c(opt):
     ax.axhline(0, color=MUTED, lw=0.6)
     xd = np.rad2deg(np.array(b["xi_mean"]))
     ax.errorbar(xd - 1.2, b["rho_bin_norm"], b["sig_bin_norm"], fmt="o", ms=4, color=OURS, capsize=3,
-                label=fr"ours, MAP CURN$^{{13/3}}$ of our chain ($\chi^2$={b['chi2']:.1f})")
+                label=fr"ours, highest-likelihood saved CURN$^{{13/3}}$ draw ($\chi^2$={b['chi2']:.1f})")
     ax.errorbar(np.rad2deg(np.array(br["xi_mean"])) + 1.2, br["rho_bin_norm"], br["sig_bin_norm"], fmt="s", ms=4,
                 color=REL, capsize=3, label=fr"ours at the released ML noise vector ($\chi^2$={br['chi2']:.1f})")
     ax.set_xlabel(r"angular separation $\xi_{ab}$ [deg]")
