@@ -14,11 +14,14 @@ with our own JAX analysis pipeline on a single GPU.
   `discovery` sit in an optional dependency group. Tests use them to cross-check
   likelihood values. They are never imported by `src/ptagwb`.
 
-Status: **M1 (deterministic pipeline and likelihood) done, awaiting review.** M1 covers the
-PINT ingestion into a hashed cache, fixed white noise, Fourier bases, ORFs, and the JAX
-float64 CURN / HD likelihoods with gradients. They are validated against discovery,
-enterprise and the released chains: see [`docs/M1_VALIDATION.md`](docs/M1_VALIDATION.md).
-Sampling (M2 onwards) has not started. See [`docs/PLAN.md`](docs/PLAN.md) for the analysis
+Status: **M1 (deterministic pipeline and likelihood) and M2 (sampling, Bayes factors, optimal
+statistic) done.** M1 covers the PINT ingestion into a hashed cache, fixed white noise, Fourier
+bases, ORFs, and the JAX float64 CURN / HD likelihoods with gradients, validated against
+discovery, enterprise and the released chains ([`docs/M1_VALIDATION.md`](docs/M1_VALIDATION.md)).
+M2 adds NumPyro NUTS sampling, Bayes-factor estimators and the optimal statistic, and reproduces
+the paper's headline numbers (HD^13/3 A = 2.45e-15, HD^gamma A = 6.4e-15 / gamma = 3.23, HD vs
+CURN BF ~180-230, OS S/N 4.5 / 5.0, binned chi^2 = 8.1): see
+[`docs/M2_RESULTS.md`](docs/M2_RESULTS.md). See [`docs/PLAN.md`](docs/PLAN.md) for the analysis
 settings, target numbers and milestones, [`docs/SPEC_astra.md`](docs/SPEC_astra.md) for the
 independent reproduction spec, and [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) for the
 verified versions.
@@ -33,7 +36,17 @@ T = get_tspan(psrs)                         # 505861299.1401644 s
 terms = precompute(psrs, load_noise_dict(), T)
 hd = PTALikelihood(terms, T, orf="hd")      # or "curn"; common="freespec" for a free spectrum
 logL = hd.logL({"rn_log10_A": ..., "rn_gamma": ..., "log10_A": -14.6, "gamma": 13 / 3})
+
+# M2: NUTS (uniform box priors via a logistic transform), BF estimators, optimal statistic
+from ptagwb.sampling import ModelSpec, Posterior, RunConfig, run_nuts
+post = Posterior(hd, ModelSpec(orf="hd", gamma=13 / 3))
+# run_nuts(RunConfig(name="...", model={...}), post) -> runs/<name>/{samples.npz,meta.json}
+from ptagwb.optstat import OptimalStatistic   # OptimalStatistic(curn_like).os(params)
+from ptagwb.evidence import bridge, reweight   # ln BF from log-likelihood ratios at draws
 ```
+
+M2 production runs: `scripts/m2_production.sh` (configs in `configs/m2/`), then
+`scripts/m2_{compare,bayes,optstat,figures,report}.py`; see `docs/M2_RESULTS.md`.
 
 ## Setup
 
@@ -99,10 +112,13 @@ bins and number of backends, and computes the array span (16.030 yr, as in the p
 ## Layout
 
 ```
-src/ptagwb/     our pipeline (data, noise, basis, orf, likelihood, sampling, optstat)
+src/ptagwb/     our pipeline (data, noise, basis, orf, likelihood, sampling, diagnostics,
+                evidence, optstat)
 scripts/        fetch_data.py, smoke_load.py, check_gpu.py, ingest.py, m1_validate.py,
-                oracle_sanity.py, setup_oracle_env.sh
+                oracle_sanity.py, setup_oracle_env.sh, m2_*.py, m2_production.sh
+configs/m2/     committed NUTS run configurations (runs/ is git-ignored)
 tests/          unit tests (synthetic PTA vs dense brute force) and oracle tests (-m oracle)
-docs/           PLAN.md, ENVIRONMENT.md, SPEC_astra.md, M1_VALIDATION.md
+docs/           PLAN.md, ENVIRONMENT.md, SPEC_astra.md, M1_VALIDATION.md, M2_RESULTS.md,
+                figures/ (M2 figures)
 data/           MANIFEST.json (committed); raw/, cache/ and processed/ are git-ignored
 ```

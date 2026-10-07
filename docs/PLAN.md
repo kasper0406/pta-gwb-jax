@@ -47,7 +47,7 @@ Appendix tables/figures are cited by appendix and LaTeX label, because AASTeX's
 |---|---|
 | IRN log10 A_red | U[-20, -11] |
 | IRN gamma_red | U[0, 7] |
-| Common power law, gamma = 13/3: log10 A | U[-18, -14] **[UNCERTAIN: the released fixed-gamma spline-ORF core used U[-18, -11]; settle in M2]** |
+| Common power law, gamma = 13/3: log10 A | Paper: U[-18, -14]. **Resolved in M2: the released fixed-gamma products used U[-18, -11]** (normalisers and stored priors; `docs/M2_RESULTS.md` Sec. 2). Posteriors are unaffected |
 | Common power law, varied gamma: log10 A | U[-18, -11] |
 | Common gamma (varied) | U[0, 7] |
 | Free spectrum rho_i [s^2] | The paper says "log-Uniform in rho_i [-18, -8]", i.e. log10_rho in U[-9, -4]. **Resolved (M1 review): the released HD free-spectrum chains sampled enterprise `log10_rho` (log10 RMS in s) ~ U[-15.5, -1.0].** Evidence: constant ln-prior giving width 14.5 per rho, samples bottoming out at -15.5, and Ceffyl HD grids spanning [-15.5, -1]. [-9, -4] is only the Fig. 1(a) histogram range. CURN^free is unverified. See `docs/M1_VALIDATION.md` Sec. 7 and `ptagwb.config.PRIORS` |
@@ -149,7 +149,14 @@ likelihood agrees with both to below 4e-7 absolute (`docs/M1_VALIDATION.md`).
 - *PTA likelihoods.* CURN (block-diagonal) and HD (dense 67 x 28 inter-pulsar block)
   on the GPU. Match discovery to float64 precision and the m2a chain `logl` (float32).
   Time per evaluation.
-- **M2: sampling.** CURN^13/3, CURN^gamma, HD^13/3, HD^gamma, CURN^free/HD^free (30f).
+- **M2 (done, 2026-10-07; covers sampling plus the BF/OS parts of M3 below)**: NumPyro NUTS
+  for CURN^13/3, CURN^gamma (14 and 5 modes), HD^13/3, HD^gamma (14 and 5 modes, enterprise and
+  ICRS positions) and HD^free (30 modes); HD vs CURN Bayes factors (reweighting, reverse
+  reweighting, bridge); OS (fixed and noise-marginalised), pair-covariance-aware binned
+  correlations; Figs. 1a-c and 4. Fixed-gamma amplitude prior resolved to U[-18,-11]. See
+  `docs/M2_RESULTS.md`. Not done: CURN vs IRN BF, multi-component OS, phase-shift / sky-scramble
+  backgrounds. The original M2 plan was:
+- *M2: sampling.* CURN^13/3, CURN^gamma, HD^13/3, HD^gamma, CURN^free/HD^free (30f).
   NUTS via numpyro, plus our own sampler if needed. Compare marginals with the released
   chains (quantiles, KS / Wasserstein distance, 2-D (gamma, log10 A) contours).
 - **M3: model comparison and OS.** HD vs CURN Bayes factor (target 226 +/- 70 at 14 freq,
