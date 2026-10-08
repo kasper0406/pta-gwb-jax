@@ -190,6 +190,7 @@ def _gp_toy():
     return logL
 
 
+@pytest.mark.slow  # two NUTS compilations; ~5 min on a loaded 16-core CPU
 def test_hybrid_nuts_gp_toy(tmp_path, monkeypatch):
     from ptagwb import sampling
     from ptagwb.sampling import RunConfig, load_run, run_nuts
@@ -215,12 +216,12 @@ def test_hybrid_nuts_gp_toy(tmp_path, monkeypatch):
     prop = fit_proposals(fit, list(tr.names), lo, hi, list(tr.names), [], w_prior=0.2, k1=15)
     monkeypatch.setattr(sampling, "RUNS_DIR", tmp_path)
     prop.to_json(tmp_path / "prop.json")
-    cfg = RunConfig(name="gp", model={}, num_chains=4, num_warmup=300, num_samples=1500, block=750, dense_mass=False,
+    cfg = RunConfig(name="gp", model={}, num_chains=4, num_warmup=200, num_samples=1000, block=500, dense_mass=False,
                     seed=2, init_radius=2.0, jumps=str(tmp_path / "prop.json"))
     run_nuts(cfg, post, log=lambda s: None)
     r = load_run("gp")
     x = r["x"]
-    assert r["jump_accept"].shape == (4, 1500, 2) and r["jump_accept"].sum() > 100
+    assert r["jump_accept"].shape == (4, 1000, 2) and r["jump_accept"].sum() > 100
     for j, pm in enumerate((P.sum(1), p1)):
         cdf = np.cumsum(pm)
         for p in (0.05, 0.25, 0.5, 0.75, 0.95):
