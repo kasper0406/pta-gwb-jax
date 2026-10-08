@@ -1,5 +1,5 @@
 {
- "description": "PTA data sets for the NG15 GWB reproduction. Raw files live in data/raw/ (git-ignored); regenerate with `uv run python scripts/fetch_data.py`.",
+ "description": "PTA data sets for the NG15 GWB reproduction (M1/M2) and the five-PTA combination (M3). Raw files live in data/raw/ (git-ignored); regenerate with `uv run python scripts/fetch_data.py`.",
  "generated_by": "scripts/fetch_data.py",
  "key_files": {
   "ng15_narrowband_par_tim": "ng15_v2.1.0/extracted/NANOGrav15yr_PulsarTiming_v2.1.0/narrowband/{par,tim}/",
@@ -21,9 +21,14 @@
  "not_available": {
   "ng15_gwb_official_chain_release": "No dedicated Zenodo/NANOGrav-webpage release of the full GWB-paper chains exists (checked nanograv.org/science/data and Zenodo search, 2026-10-06). The GWB chains used for the paper figures are distributed via Google Drive links in nanograv/15yr_stochastic_analysis/data_release (fetched above as ng15_gwb_fig*).",
   "ppta_dr3_profiles": "PPTA DR3 profile / UWL data products (~1.4 TB per collection) deliberately not fetched; only toas_and_parameters/.",
-  "ppta_dr3_part2": "CSIRO collection 59381 (part 2 of 2) lists the same toas_and_parameters/ files as part 1; not fetched separately."
+  "ppta_dr3_part2": "CSIRO collection 59381 (part 2 of 2) lists the same toas_and_parameters/ files as part 1; not fetched separately.",
+  "mpta_anisotropy_supplement": "AAO Data Central document 54 (MPTA_Anisotropy_supplement.zip, 443,539,544 bytes, sha1 676a7f4180e5ced6911c6479553c0b619db10a7a) contains only ten .mp4 movies of anisotropy S/N sky maps (checked 2026-10-08); not kept.",
+  "mpta_noise_products": "The MPTA 4.5-yr release (doi:10.57891/j0vh-5g31) ships no noise-model files or chains (data availability statement of arXiv:2412.01148/2412.01153: sub-banded TOAs, archives, ephemerides, portraits). Noise model = paper table (mpta_paper_sources).",
+  "yu_allen_2512_08666_code": "Yu & Allen state their analysis code 'will be released publicly upon publication'; as of 2026-10-08 (arXiv v3, 2026-04-28, no journal reference) no release was found (GitHub search). Their combination tool MetaPulsar is public (metapulsar_*), as is the GSS evidence estimator (github.com/ApokryphaV1/GSS-estimator). No chains or WN dictionary were released.",
+  "metapulsar_zenodo": "Zenodo 10.5281/zenodo.17626664 (MetaPulsar) returned HTTP 403 ('unusual traffic') on 2026-10-08; the GitHub tags are used instead.",
+  "epta_dr2_commit_1506123": "Yu & Allen used EPTA GitLab commit 1506123 (2023-08-23). Between it and our commit 2911d0e only noise files, GWB scripts, tutorials and README changed (GitLab compare API, 2026-10-08): DR2new par/tim are identical, so no separate fetch."
  },
- "updated_at": "2026-10-06T19:33:10+00:00",
+ "updated_at": "2026-10-08T09:59:45+00:00",
  "datasets": {
   "ng15_v2.1.0": {
    "group": "ng15",
@@ -2830,6 +2835,233 @@
    ],
    "note": "GitHub archive tarballs are not guaranteed byte-stable; the commit sha is the authoritative identifier.",
    "total_size": 30921
+  },
+  "mpta_4p5yr": {
+   "group": "m3",
+   "kind": "datacentral",
+   "description": "MeerKAT PTA 4.5-yr data release (Miles et al. 2025, arXiv:2412.01148 / 2412.01153; doi:10.57891/j0vh-5g31, AAO Data Central): partim.tar.gz = 83 tempo2 par files + 83 sub-banded (32-channel) narrowband tim files; portraits.tar.gz = 84 frequency-resolved 2D template portraits (PSRFITS, small). No noise-model files or chains are part of the release; the published noise model is the 'MPTA noise models' table of arXiv:2412.01148 (see mpta_paper_sources).",
+   "status": "fetched",
+   "fetched_at": "2026-10-08T09:52:41+00:00",
+   "dest": "data/raw/mpta_4p5yr",
+   "source_url": "https://docs.datacentral.org.au/meerkat-pulsar-timing-array/45-year/accessing-the-data/",
+   "doi": "10.57891/j0vh-5g31",
+   "files": [
+    {
+     "name": "partim.tar.gz",
+     "path": "data/raw/mpta_4p5yr/partim.tar.gz",
+     "url": "https://docs.datacentral.org.au/documents/52/partim.tar.gz",
+     "size": 7283924,
+     "sha256": "172eb9472f4788f22bfe3b24faad2dc0169fca680b80340e4c829201fdafc393",
+     "md5": "36ea68d599a4082010f43d3132e5aafe",
+     "checksum_verified": true,
+     "sha1_etag": "9d8c1d9c3156ae92ff23f600cafcfccd8d8bcc4e",
+     "extracted_to": "data/raw/mpta_4p5yr/extracted"
+    },
+    {
+     "name": "portraits.tar.gz",
+     "path": "data/raw/mpta_4p5yr/portraits.tar.gz",
+     "url": "https://docs.datacentral.org.au/documents/53/portraits.tar.gz",
+     "size": 3922099,
+     "sha256": "2d9086e0d6f855568b60de8c64ec6cf21c50ad3a59dc8b3b3359d30a523af1dd",
+     "md5": "cb114be2216b7fe8d5458c8f1437362d",
+     "checksum_verified": true,
+     "sha1_etag": "d959a1fe8b2d8c8991e144860ced20ae460d57d9",
+     "extracted_to": "data/raw/mpta_4p5yr/extracted"
+    }
+   ],
+   "total_size": 11206023
+  },
+  "mpta_4p5yr_archives": {
+   "group": "m3",
+   "kind": "datacentral",
+   "description": "MPTA 4.5-yr full PSRFITS observation archives (archives.tar.gz, 867,068,478 bytes). Not needed for timing analyses (the TOAs are in partim); optional.",
+   "status": "not_fetched",
+   "reason": "large optional source; run with --include-large",
+   "params": {
+    "landing": "https://docs.datacentral.org.au/meerkat-pulsar-timing-array/45-year/accessing-the-data/",
+    "doi": "10.57891/j0vh-5g31",
+    "documents": [
+     "51/archives.tar.gz"
+    ]
+   }
+  },
+  "mpta_gw_scripts": {
+   "group": "m3",
+   "kind": "github",
+   "description": "MattTMiles/MPTAGW: the MPTA authors' GW-search / noise-modelling scripts (enterprise model definitions for DM, chromatic, solar-wind GPs, example_noise.json, noise-value extraction). Not an official data product; used to pin down the MPTA noise model.",
+   "status": "fetched",
+   "fetched_at": "2026-10-08T09:52:42+00:00",
+   "dest": "data/raw/mpta_gw_scripts",
+   "source_url": "https://github.com/MattTMiles/MPTAGW/tree/fb1d8c9e31dd59d8b528b9a63875d99f1ce505df",
+   "doi": null,
+   "commit": "fb1d8c9e31dd59d8b528b9a63875d99f1ce505df",
+   "files": [
+    {
+     "name": "MPTAGW-fb1d8c9e31dd.tar.gz",
+     "path": "data/raw/mpta_gw_scripts/MPTAGW-fb1d8c9e31dd.tar.gz",
+     "url": "https://codeload.github.com/MattTMiles/MPTAGW/tar.gz/fb1d8c9e31dd59d8b528b9a63875d99f1ce505df",
+     "size": 898308,
+     "sha256": "b83251b5397c62e7ced6e19ff0dffb368d24b4d92d6bf6f991ce12611fda9d4a",
+     "md5": "4c0fe7ff0611569212329347422dccdb",
+     "checksum_verified": null,
+     "extracted_to": "data/raw/mpta_gw_scripts/extracted"
+    }
+   ],
+   "note": "GitHub archive tarballs are not guaranteed byte-stable; the commit sha is the authoritative identifier.",
+   "total_size": 898308
+  },
+  "inpta_dr1": {
+   "group": "m3",
+   "kind": "github",
+   "description": "InPTA DR1 (Tarafdar et al. 2022, arXiv:2206.09289; 14 pulsars, uGMRT) at the commit used by Yu & Allen (arXiv:2512.08666, ref. InPTAdataSource). Needed to reproduce their five-PTA combination, which used InPTA DR1, not DR2.",
+   "status": "fetched",
+   "fetched_at": "2026-10-08T09:52:42+00:00",
+   "dest": "data/raw/inpta_dr1",
+   "source_url": "https://github.com/inpta/InPTA.DR1/tree/2c400d51428abd59d6cf842cd8fe7c840e819d0d",
+   "doi": null,
+   "commit": "2c400d51428abd59d6cf842cd8fe7c840e819d0d",
+   "files": [
+    {
+     "name": "InPTA.DR1-2c400d51428a.tar.gz",
+     "path": "data/raw/inpta_dr1/InPTA.DR1-2c400d51428a.tar.gz",
+     "url": "https://codeload.github.com/inpta/InPTA.DR1/tar.gz/2c400d51428abd59d6cf842cd8fe7c840e819d0d",
+     "size": 6361854,
+     "sha256": "089dc5b1c563de5b96b35be93cc1dbe2e8b2e28b652d08ef16db34550674ad92",
+     "md5": "8cdb6a66bcab8abfd5d208e117cf52d6",
+     "checksum_verified": null,
+     "extracted_to": "data/raw/inpta_dr1/extracted"
+    }
+   ],
+   "note": "GitHub archive tarballs are not guaranteed byte-stable; the commit sha is the authoritative identifier.",
+   "total_size": 6361854
+  },
+  "ppta_dr3_github": {
+   "group": "m3",
+   "kind": "github",
+   "description": "danielreardon/PPTA-DR3 at the commit used by Yu & Allen (ref. PPTAdataSource): PPTA DR3 analysis codes, single-pulsar noise chains and max-likelihood noise files (noiseFiles_maxlike), CRN/time-slice chains, pairwise correlation chains.",
+   "status": "fetched",
+   "fetched_at": "2026-10-08T09:53:07+00:00",
+   "dest": "data/raw/ppta_dr3_github",
+   "source_url": "https://github.com/danielreardon/PPTA-DR3/tree/fdbe6eb1c86d4c6cf2f1f518711e44ad1a9fd3fa",
+   "doi": null,
+   "commit": "fdbe6eb1c86d4c6cf2f1f518711e44ad1a9fd3fa",
+   "files": [
+    {
+     "name": "PPTA-DR3-fdbe6eb1c86d.tar.gz",
+     "path": "data/raw/ppta_dr3_github/PPTA-DR3-fdbe6eb1c86d.tar.gz",
+     "url": "https://codeload.github.com/danielreardon/PPTA-DR3/tar.gz/fdbe6eb1c86d4c6cf2f1f518711e44ad1a9fd3fa",
+     "size": 357235809,
+     "sha256": "5bf976deea7328ff9fe320630f986909c9d11b558108b4f4f622f0dc5c8ecce8",
+     "md5": "4920672f2a888750703b09f98890a961",
+     "checksum_verified": null,
+     "extracted_to": "data/raw/ppta_dr3_github/extracted"
+    }
+   ],
+   "note": "GitHub archive tarballs are not guaranteed byte-stable; the commit sha is the authoritative identifier.",
+   "total_size": 357235809
+  },
+  "metapulsar_v0.9.3": {
+   "group": "m3",
+   "kind": "github",
+   "description": "vhaasteren/metapulsar v0.9.3 (2025-11-17), the 'direct combination' code of van Haasteren & Yu used by Yu & Allen (arXiv:2512.08666 refs. DynComb/DynCombCode, Zenodo 10.5281/zenodo.17626664, which was not reachable on 2026-10-08: HTTP 403). The exact release they used is not stated; v0.9.3 is the tag closest to the Zenodo record.",
+   "status": "fetched",
+   "fetched_at": "2026-10-08T09:53:08+00:00",
+   "dest": "data/raw/metapulsar_v0.9.3",
+   "source_url": "https://github.com/vhaasteren/metapulsar/tree/d2067ab520766f699305c3ec2dfa2774d2c9e33c",
+   "doi": null,
+   "commit": "d2067ab520766f699305c3ec2dfa2774d2c9e33c",
+   "files": [
+    {
+     "name": "metapulsar-d2067ab52076.tar.gz",
+     "path": "data/raw/metapulsar_v0.9.3/metapulsar-d2067ab52076.tar.gz",
+     "url": "https://codeload.github.com/vhaasteren/metapulsar/tar.gz/d2067ab520766f699305c3ec2dfa2774d2c9e33c",
+     "size": 10452406,
+     "sha256": "1ceb53ba5c14ae57a07f55f5f7fe5b1515ea5673859467433cef2180454fa2f9",
+     "md5": "68c4a0414c6afbb3af547798cf6800fb",
+     "checksum_verified": null,
+     "extracted_to": "data/raw/metapulsar_v0.9.3/extracted"
+    }
+   ],
+   "note": "GitHub archive tarballs are not guaranteed byte-stable; the commit sha is the authoritative identifier.",
+   "total_size": 10452406
+  },
+  "metapulsar_main": {
+   "group": "m3",
+   "kind": "github",
+   "description": "vhaasteren/metapulsar main (2026-09-16): latest METHOD_DESCRIPTION.md (shared vs per_pta strategies, stripped tempo2/PINT-only terms, TCB->TDB, NE_SW alignment).",
+   "status": "fetched",
+   "fetched_at": "2026-10-08T09:53:09+00:00",
+   "dest": "data/raw/metapulsar_main",
+   "source_url": "https://github.com/vhaasteren/metapulsar/tree/5adf31682a7c66ad10e888ee63c5e84139e2921f",
+   "doi": null,
+   "commit": "5adf31682a7c66ad10e888ee63c5e84139e2921f",
+   "files": [
+    {
+     "name": "metapulsar-5adf31682a7c.tar.gz",
+     "path": "data/raw/metapulsar_main/metapulsar-5adf31682a7c.tar.gz",
+     "url": "https://codeload.github.com/vhaasteren/metapulsar/tar.gz/5adf31682a7c66ad10e888ee63c5e84139e2921f",
+     "size": 12108222,
+     "sha256": "8371c0dedea148c4d5dba90e3529d3c3050fd952a073d1a493c7eb71043e9809",
+     "md5": "4ff77fc1ce4eb2bd5dca18e3e9ccc622",
+     "checksum_verified": null,
+     "extracted_to": "data/raw/metapulsar_main/extracted"
+    }
+   ],
+   "note": "GitHub archive tarballs are not guaranteed byte-stable; the commit sha is the authoritative identifier.",
+   "total_size": 12108222
+  },
+  "m3_paper_sources": {
+   "group": "m3",
+   "kind": "arxiv_src",
+   "description": "arXiv LaTeX sources holding machine-readable noise tables or methods we need: 2412.01148 (MPTA data release + noise paper; longtable 'MPTA noise models' = the only public MPTA noise model: MAP and 68% intervals of EFAC, EQUAD, ECORR, red/DM/chromatic/solar-wind power laws, chromatic index, n_earth; plus the deterministic-model table), 2512.20455 (InPTA DR2 II customised noise models; no machine-readable noise files are released, the paper table is the source), 2608.02808 (InPTA DR2 III GWB search), 2512.08666 v3 (Yu & Allen five-PTA search).",
+   "status": "fetched",
+   "fetched_at": "2026-10-08T09:59:45+00:00",
+   "dest": "data/raw/m3_paper_sources",
+   "source_url": "https://arxiv.org/abs/2412.01148,2512.20455,2608.02808,2512.08666",
+   "doi": null,
+   "files": [
+    {
+     "name": "2412.01148.tar.gz",
+     "path": "data/raw/m3_paper_sources/2412.01148.tar.gz",
+     "url": "https://arxiv.org/e-print/2412.01148",
+     "size": 3401212,
+     "sha256": "5ea580b38b13e045e68ea7249bca7993146d34b72329d2119257edf3c90128f1",
+     "md5": "f997d0289ab901450ddd7c6b3460c6e3",
+     "checksum_verified": null,
+     "extracted_to": "data/raw/m3_paper_sources/extracted/2412.01148"
+    },
+    {
+     "name": "2512.20455.tar.gz",
+     "path": "data/raw/m3_paper_sources/2512.20455.tar.gz",
+     "url": "https://arxiv.org/e-print/2512.20455",
+     "size": 44696287,
+     "sha256": "7e886feb8c6b7c927c307a80329106d7bec12b007c36ee532821603b07fb4a77",
+     "md5": "d946b0fee7cb85a3095d78c35687fb14",
+     "checksum_verified": null,
+     "extracted_to": "data/raw/m3_paper_sources/extracted/2512.20455"
+    },
+    {
+     "name": "2608.02808.tar.gz",
+     "path": "data/raw/m3_paper_sources/2608.02808.tar.gz",
+     "url": "https://arxiv.org/e-print/2608.02808",
+     "size": 3456873,
+     "sha256": "0fe4e83625a4279295451291418a428639e0e38ee7609d63a1398ac3c2a40570",
+     "md5": "60da0c0d2822e89376ec616a3bea7fd3",
+     "checksum_verified": null,
+     "extracted_to": "data/raw/m3_paper_sources/extracted/2608.02808"
+    },
+    {
+     "name": "2512.08666.tar.gz",
+     "path": "data/raw/m3_paper_sources/2512.08666.tar.gz",
+     "url": "https://arxiv.org/e-print/2512.08666",
+     "size": 1663421,
+     "sha256": "6ccf05333fd18205827026e3082df333d39020442ac6428539faf670d859bf68",
+     "md5": "a9dfbd64970b7199cd8d1ffaf171e72c",
+     "checksum_verified": null,
+     "extracted_to": "data/raw/m3_paper_sources/extracted/2512.08666"
+    }
+   ],
+   "total_size": 53217793
   }
  }
 }

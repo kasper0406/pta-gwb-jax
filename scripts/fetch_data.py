@@ -47,8 +47,8 @@ CHUNK = 1 << 20
 @dataclass
 class Source:
     name: str
-    group: str  # ng15 | ng15_reference | secondary
-    kind: str  # zenodo | gdrive | github | gitlab | csiro_dap | not_fetched
+    group: str  # ng15 | ng15_reference | secondary | m3
+    kind: str  # zenodo | gdrive | github | gitlab | csiro_dap | datacentral | arxiv_src
     description: str
     params: dict[str, Any] = field(default_factory=dict)
     large: bool = False  # only fetched with --include-large
@@ -255,6 +255,95 @@ SOURCES: list[Source] = [
         "InPTA DR2 noise-analysis (DM12) par files.",
         {"repo": "inpta/InPTA.DR2.NA", "ref": "HEAD"},
     ),
+    # ---------------- M3: five-PTA combination inputs ----------------
+    Source(
+        "mpta_4p5yr",
+        "m3",
+        "datacentral",
+        "MeerKAT PTA 4.5-yr data release (Miles et al. 2025, arXiv:2412.01148 / 2412.01153; "
+        "doi:10.57891/j0vh-5g31, AAO Data Central): partim.tar.gz = 83 tempo2 par files + 83 "
+        "sub-banded (32-channel) narrowband tim files; portraits.tar.gz = 84 frequency-resolved "
+        "2D template portraits (PSRFITS, small). No noise-model files or chains are part of the "
+        "release; the published noise model is the 'MPTA noise models' table of arXiv:2412.01148 "
+        "(see mpta_paper_sources).",
+        {
+            "landing": "https://docs.datacentral.org.au/meerkat-pulsar-timing-array/45-year/accessing-the-data/",
+            "doi": "10.57891/j0vh-5g31",
+            "documents": ["52/partim.tar.gz", "53/portraits.tar.gz"],
+        },
+    ),
+    Source(
+        "mpta_4p5yr_archives",
+        "m3",
+        "datacentral",
+        "MPTA 4.5-yr full PSRFITS observation archives (archives.tar.gz, 867,068,478 bytes). "
+        "Not needed for timing analyses (the TOAs are in partim); optional.",
+        {
+            "landing": "https://docs.datacentral.org.au/meerkat-pulsar-timing-array/45-year/accessing-the-data/",
+            "doi": "10.57891/j0vh-5g31",
+            "documents": ["51/archives.tar.gz"],
+        },
+        large=True,
+        extract=False,
+    ),
+    Source(
+        "mpta_gw_scripts",
+        "m3",
+        "github",
+        "MattTMiles/MPTAGW: the MPTA authors' GW-search / noise-modelling scripts (enterprise "
+        "model definitions for DM, chromatic, solar-wind GPs, example_noise.json, noise-value "
+        "extraction). Not an official data product; used to pin down the MPTA noise model.",
+        {"repo": "MattTMiles/MPTAGW", "ref": "fb1d8c9e31dd59d8b528b9a63875d99f1ce505df"},
+    ),
+    Source(
+        "inpta_dr1",
+        "m3",
+        "github",
+        "InPTA DR1 (Tarafdar et al. 2022, arXiv:2206.09289; 14 pulsars, uGMRT) at the commit used "
+        "by Yu & Allen (arXiv:2512.08666, ref. InPTAdataSource). Needed to reproduce their "
+        "five-PTA combination, which used InPTA DR1, not DR2.",
+        {"repo": "inpta/InPTA.DR1", "ref": "2c400d51428abd59d6cf842cd8fe7c840e819d0d"},
+    ),
+    Source(
+        "ppta_dr3_github",
+        "m3",
+        "github",
+        "danielreardon/PPTA-DR3 at the commit used by Yu & Allen (ref. PPTAdataSource): PPTA DR3 "
+        "analysis codes, single-pulsar noise chains and max-likelihood noise files "
+        "(noiseFiles_maxlike), CRN/time-slice chains, pairwise correlation chains.",
+        {"repo": "danielreardon/PPTA-DR3", "ref": "fdbe6eb1c86d4c6cf2f1f518711e44ad1a9fd3fa"},
+    ),
+    Source(
+        "metapulsar_v0.9.3",
+        "m3",
+        "github",
+        "vhaasteren/metapulsar v0.9.3 (2025-11-17), the 'direct combination' code of van "
+        "Haasteren & Yu used by Yu & Allen (arXiv:2512.08666 refs. DynComb/DynCombCode, Zenodo "
+        "10.5281/zenodo.17626664, which was not reachable on 2026-10-08: HTTP 403). The exact "
+        "release they used is not stated; v0.9.3 is the tag closest to the Zenodo record.",
+        {"repo": "vhaasteren/metapulsar", "ref": "d2067ab520766f699305c3ec2dfa2774d2c9e33c"},
+    ),
+    Source(
+        "metapulsar_main",
+        "m3",
+        "github",
+        "vhaasteren/metapulsar main (2026-09-16): latest METHOD_DESCRIPTION.md (shared vs per_pta "
+        "strategies, stripped tempo2/PINT-only terms, TCB->TDB, NE_SW alignment).",
+        {"repo": "vhaasteren/metapulsar", "ref": "5adf31682a7c66ad10e888ee63c5e84139e2921f"},
+    ),
+    Source(
+        "m3_paper_sources",
+        "m3",
+        "arxiv_src",
+        "arXiv LaTeX sources holding machine-readable noise tables or methods we need: 2412.01148 "
+        "(MPTA data release + noise paper; longtable 'MPTA noise models' = the only public MPTA noise "
+        "model: MAP and 68% intervals of EFAC, EQUAD, ECORR, red/DM/chromatic/solar-wind power laws, "
+        "chromatic index, n_earth; plus the deterministic-model table), 2512.20455 (InPTA DR2 II "
+        "customised noise models; no machine-readable noise files are released, the paper table is "
+        "the source), 2608.02808 (InPTA DR2 III GWB search), 2512.08666 v3 (Yu & Allen five-PTA "
+        "search).",
+        {"ids": ["2412.01148", "2512.20455", "2608.02808", "2512.08666"]},
+    ),
 ]
 
 
@@ -290,6 +379,22 @@ NOT_AVAILABLE: dict[str, str] = {
     "not fetched; only toas_and_parameters/.",
     "ppta_dr3_part2": "CSIRO collection 59381 (part 2 of 2) lists the same toas_and_parameters/ "
     "files as part 1; not fetched separately.",
+    "mpta_anisotropy_supplement": "AAO Data Central document 54 (MPTA_Anisotropy_supplement.zip, "
+    "443,539,544 bytes, sha1 676a7f4180e5ced6911c6479553c0b619db10a7a) contains only ten .mp4 "
+    "movies of anisotropy S/N sky maps (checked 2026-10-08); not kept.",
+    "mpta_noise_products": "The MPTA 4.5-yr release (doi:10.57891/j0vh-5g31) ships no noise-model "
+    "files or chains (data availability statement of arXiv:2412.01148/2412.01153: sub-banded "
+    "TOAs, archives, ephemerides, portraits). Noise model = paper table (mpta_paper_sources).",
+    "yu_allen_2512_08666_code": "Yu & Allen state their analysis code 'will be released publicly "
+    "upon publication'; as of 2026-10-08 (arXiv v3, 2026-04-28, no journal reference) no release "
+    "was found (GitHub search). Their combination tool MetaPulsar is public (metapulsar_*), as is "
+    "the GSS evidence estimator (github.com/ApokryphaV1/GSS-estimator). No chains or WN dictionary "
+    "were released.",
+    "metapulsar_zenodo": "Zenodo 10.5281/zenodo.17626664 (MetaPulsar) returned HTTP 403 "
+    "('unusual traffic') on 2026-10-08; the GitHub tags are used instead.",
+    "epta_dr2_commit_1506123": "Yu & Allen used EPTA GitLab commit 1506123 (2023-08-23). Between it "
+    "and our commit 2911d0e only noise files, GWB scripts, tutorials and README changed (GitLab "
+    "compare API, 2026-10-08): DR2new par/tim are identical, so no separate fetch.",
 }
 
 
@@ -362,17 +467,24 @@ def download(
     tmp.replace(dest)
 
 
-def extract(archive: Path, outdir: Path) -> str | None:
-    marker = outdir / ".extracted_ok"
+def extract(archive: Path, outdir: Path, shared: bool = False) -> str | None:
+    """Unpack once into outdir. ``shared``: several archives unpack into the same outdir
+    (one marker per archive, outdir not wiped)."""
+    marker = outdir / (f".extracted_ok_{archive.name}" if shared else ".extracted_ok")
     if marker.exists():
         return str(outdir.relative_to(ROOT))
     name = archive.name.lower()
-    if outdir.exists():
+    if outdir.exists() and not shared:
         shutil.rmtree(outdir)
-    outdir.mkdir(parents=True)
+    outdir.mkdir(parents=True, exist_ok=True)
     if name.endswith((".tar.gz", ".tgz", ".tar")):
-        with tarfile.open(archive) as t:
-            t.extractall(outdir, filter="data")
+        try:
+            with tarfile.open(archive) as t:
+                t.extractall(outdir, filter="data")
+        except tarfile.ReadError:  # arXiv e-print that is a single gzipped .tex
+            import gzip
+
+            (outdir / "main.tex").write_bytes(gzip.decompress(archive.read_bytes()))
     elif name.endswith(".zip"):
         with zipfile.ZipFile(archive) as z:
             z.extractall(outdir)
@@ -516,12 +628,68 @@ def fetch_csiro_dap(src: Source, dest: Path) -> dict[str, Any]:
     }
 
 
+def fetch_datacentral(src: Source, dest: Path) -> dict[str, Any]:
+    """AAO Data Central document downloads (docs.datacentral.org.au/documents/<id>/<name>).
+
+    Data Central publishes no checksums, but its HTTP ETag is the sha1 of the file (verified
+    for every MPTA document on 2026-10-08); we record it and check it.
+    """
+    base = "https://docs.datacentral.org.au/documents"
+    files = []
+    for doc in src.params["documents"]:
+        url = f"{base}/{doc}"
+        req = urllib.request.Request(url, headers=UA, method="HEAD")
+        with urllib.request.urlopen(req, timeout=120) as r:
+            size = int(r.headers.get("Content-Length") or 0) or None
+            etag = (r.headers.get("ETag") or "").strip('"')
+        out = dest / doc.split("/")[-1]
+        download(url, out, size=size)
+        e = file_entry(out, url)
+        if re.fullmatch(r"[0-9a-f]{40}", etag):
+            h = hashlib.sha1()
+            with open(out, "rb") as f:
+                while chunk := f.read(CHUNK):
+                    h.update(chunk)
+            e["sha1_etag"] = etag
+            e["checksum_verified"] = h.hexdigest() == etag
+            if not e["checksum_verified"]:
+                raise RuntimeError(f"{out.name}: sha1 {h.hexdigest()} != ETag {etag}")
+        if src.extract:
+            e["extracted_to"] = extract(out, dest / "extracted", shared=True)
+        files.append(e)
+    return {
+        "source_url": src.params["landing"],
+        "doi": src.params.get("doi"),
+        "files": files,
+    }
+
+
+def fetch_arxiv_src(src: Source, dest: Path) -> dict[str, Any]:
+    """arXiv e-print (LaTeX source) tarballs; used for machine-readable paper tables."""
+    files = []
+    for aid in src.params["ids"]:
+        url = f"https://arxiv.org/e-print/{aid}"
+        out = dest / f"{aid}.tar.gz"
+        download(url, out)
+        e = file_entry(out, url)
+        e["extracted_to"] = extract(out, dest / "extracted" / aid) if src.extract else None
+        files.append(e)
+        time.sleep(3)  # arXiv asks for a few seconds between requests
+    return {
+        "source_url": "https://arxiv.org/abs/" + ",".join(src.params["ids"]),
+        "doi": None,
+        "files": files,
+    }
+
+
 FETCHERS = {
     "zenodo": fetch_zenodo,
     "gdrive": fetch_gdrive,
     "github": fetch_github,
     "gitlab": fetch_gitlab,
     "csiro_dap": fetch_csiro_dap,
+    "datacentral": fetch_datacentral,
+    "arxiv_src": fetch_arxiv_src,
 }
 
 
@@ -531,7 +699,7 @@ FETCHERS = {
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument(
-        "--group", nargs="*", help="only these groups (ng15, ng15_reference, secondary)"
+        "--group", nargs="*", help="only these groups (ng15, ng15_reference, secondary, m3)"
     )
     ap.add_argument("--only", nargs="*", help="only these source names")
     ap.add_argument("--include-large", action="store_true", help="also fetch sources marked large")
@@ -594,7 +762,8 @@ def main() -> None:
             }
             print(f"    FAILED: {e!r}")
         manifest = {
-            "description": "PTA data sets for the NG15 GWB reproduction. Raw files live in "
+            "description": "PTA data sets for the NG15 GWB reproduction (M1/M2) and the five-PTA "
+            "combination (M3). Raw files live in "
             "data/raw/ (git-ignored); regenerate with `uv run python scripts/fetch_data.py`.",
             "generated_by": "scripts/fetch_data.py",
             "key_files": KEY_FILES,
