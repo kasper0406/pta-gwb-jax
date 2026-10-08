@@ -8,7 +8,9 @@ abort above 2.5 h. **Used: 1.93 GPU-hours** (five pilots, 10:23-12:21 UTC on 202
 **Status after review round 1 (2026-10-08, afternoon).** Round 1 (Secs. 1-6, corrected below) stopped v2.
 Round 2 (Secs. 7-11) fixed the acceptance gate, built and tested an exact hybrid kernel (NUTS + block
 Metropolis-Hastings jumps), and compared it with plain NUTS on CURN^free and HD^free.
-Round 2 used **~2.6 GPU-hours** (budget 3.5). Summary and recommendation: Sec. 12.
+Round 2 used **~2.6 GPU-hours** (budget 3.5). Round 3 (Secs. 13-15, ~3.0 GPU-h) added proposal validation, the exact
+conditional-grid move, a controlled analysis of what drives f_3, and an enhanced HD pilot. Current recommendation:
+Sec. 15.
 
 **Round-1 findings that stand.** Do not launch v2 as planned:
 1. The v2-style warmup was expensive in every attempt. From warmup iteration ~8 on, at least one of the 8 lockstep
@@ -35,7 +37,10 @@ Round 2 used **~2.6 GPU-hours** (budget 3.5). Summary and recommendation: Sec. 1
 | cd720dd | `scripts/fs_pilot_diag.py` (crossings, IRN indicators, projection), round-1 document |
 | c0c1182 | round 2: fail-closed gate (`diagnostics.py`, `m2_freespec_diag.py`, tests); `ptagwb.hybrid` (HybridNUTS, block proposals) + `tests/test_hybrid.py`; `RunConfig.jumps` / `jump_sweeps` / `init_rho_low_frac`; frozen proposals `configs/m2/proposals/{curn,hd}_fs30_v1.json`; `bench/bench_jumps.py`; configs of the CURN A/B and the HD hybrid pilot |
 | 0813235 | `scripts/fs_compare_kernels.py`, `scripts/fs_schur_prototype.py`, slow marker for the GP-toy test (HD hybrid pilot launched at this SHA) |
-| this commit | round-2 document |
+| 7360f80 | round-2 document |
+| e5f8311 | round 3: proposal validation, `ptagwb.conditional` + tests, conditional-grid moves (one-bin and joint), `scripts/fs_conditional_analysis.py`, frozen relevance declaration + `--relevance-file`, `RunConfig.max_sampling_seconds`, `bench/bench_grid.py`, proposals v2, grid-pilot config |
+| 67db032 | fixed-step grid-pilot config (run at this SHA) |
+| this commit | round-3 document |
 
 Run metadata check: every pilot's `meta.json` has `backend: gpu`, `devices: [cuda:0]`,
 `xla_flags: --xla_cpu_experimental_ynn_fusion_type=`, `likelihood.class: FastPTALikelihood`,
@@ -181,7 +186,7 @@ J0645+5158 1.057; J1713+0747 1.055. Funnel indicators (pulsar-wise, both runs):
   "f_3 >= 650 draws" figures are withdrawn. The two-state formula also assumes stationarity and a Poisson crossing
   process, which paired entries / exits from inherited starts do not satisfy.
 
-## 6. Round-1 recommendation (superseded by Sec. 12; kept with corrections)
+## 6. Round-1 recommendation (superseded by Sec. 15; kept with corrections)
 
 **Corrections (review round 1).**
 * *Shelf warp:* the benefit has to be evaluated in the **final NUTS coordinate**
@@ -239,7 +244,11 @@ Changes (review round 1, item 6; tests in `tests/test_freespec_gate.py`, 238 pas
   the existing < -9 occupancy. Entries, exits and sojourns are counted from the state (`region_states`,
   `region_events`).
 * **Relevance is predeclared:** a region is relevant if the released core puts >= 0.5% of its mass there
-  (`--relevance-ref hd_fs30`, also in convergence-only mode), or it is given explicitly. With no declaration and no
+  (`--relevance-ref hd_fs30`, also in convergence-only mode), or it is given explicitly. Round 3 froze the declaration in
+  `configs/m2/relevance/hd_fs30_released_v1.json` (`scripts/fs_freeze_relevance.py`). It records the reference
+  identity: path, sha256 8ca24e87..., stored la_forge burn-in 122,500 of 490,000 samples, 367,500 retained. The gate
+  reads it with `--relevance-file`. The pooled-draw declaration used for the CURN A/B (Sec. 9) was exploratory, not
+  predeclared. With no declaration and no
   reference, convergence is INCONCLUSIVE, never PASS.
 * **Every relevant region must show exploration evidence**, else convergence FAILs and names the missing evidence:
   * >= 10 entries and >= 10 exits pooled, in >= 2 chains;
@@ -252,7 +261,9 @@ Changes (review round 1, item 6; tests in `tests/test_freespec_gate.py`, 238 pas
 * **Agreement:** z keeps the reference SE (sqrt(SE_ours^2 + SE_ref^2)), and the verdicts are FAIL / INCONCLUSIVE / PASS /
   UNAVAILABLE. Agreement is INCONCLUSIVE when our SE of any compared occupancy (< -9 and the relevant regions) exceeds
   0.01. The released core's own SE reaches 0.010 (f_1 high region): it limits how precisely agreement can be
-  established, so it is reported but does not block. Exit 0 only for convergence PASS and agreement PASS.
+  established, so it is reported but does not block. Exit 0 only for convergence PASS and agreement PASS. The thresholds are operational safeguards, not convergence guarantees. MCSE 0.01 targets absolute
+  (percentage-point) accuracy and is weak for the *relative* accuracy of a 0.7% event. Agreement PASS means
+  compatibility under this rule, not demonstrated equivalence within +-2 percentage points.
 * **Results:**
   * M2 hd_fs30 now fails at f_3 with "no exploration evidence" (low and high).
   * Pilot E fails at f_3 and f_29.
@@ -345,8 +356,10 @@ exits of the minority region, pooled, with the number of chains that have any in
 * **Plain NUTS stays trapped where it started.** At f_2, the chains started on the low shelf spent 69% and 89% of their
   1500 post-warmup draws there; the other six never went (R-hat 1.47, ESS 15). At f_3, two chains spent 23% / 13% low.
   These are the same metastable excursions as in the HD runs, now with matched, controlled starts.
-* **The hybrid removes them.** Max R-hat 1.007 over all 164 parameters (NUTS: 1.470, 19 parameters >= 1.01).
-  Worst-parameter min(bulk, tail) ESS is 793 against 15, i.e. 2,327 vs 34 per sampling hour (~70x). f_3's low region (0.9%)
+* **The hybrid removes most of them** (it still fails 4 region criteria, below). Max R-hat 1.007 over all 164
+  parameters (NUTS: 1.470, 19 parameters >= 1.01). Worst-parameter min(bulk, tail) ESS is 793 against 15, i.e. 2,327 vs
+  34 per recorded sampling hour. That **~70x is an observed ESS-per-hour ratio, not an isolated kernel speedup**: the
+  NUTS arm overlapped another GPU job at its start, and the arms adapted different step sizes. f_3's low region (0.9%)
   is crossed 26 times in 7 chains, with a longest sojourn of 17%. Jump acceptance is 0.42-0.87 for bins and 0.51-0.82 for
   IRN pairs. In bins where plain NUTS already mixes (f_9-f_30), both arms agree on the occupancies.
 * **Fail-closed gate**, applied as a function (the CLI is HD-only) with relevance declared from the pooled draws of both
@@ -372,7 +385,7 @@ GPU time 83 min including setup. Matched comparison over the first 50 draws, plu
 
 | | E: plain NUTS, 8 x 50 | hybrid, first 8 x 50 | hybrid, 8 x 100 |
 |---|---|---|---|
-| sampling wall [h] | 0.63 | 0.67 | 1.35 |
+| sampling wall [h] | 0.63 | 0.67 (half the full run's time, not separately measured) | 1.35 |
 | max R-hat | 1.173 | 1.125 | 1.062 |
 | parameters with R-hat >= 1.01 | 120 | 102 | 58 |
 | worst parameter, min(bulk, tail) ESS | J0610-2100 log10_A, 19 | f_8, 38 | f_1, 140 |
@@ -393,20 +406,22 @@ Jump acceptance: bins 0.46-0.86, IRN pairs 0.42-0.78. All bins: `outputs/m2/fs_c
 * **Gate** (fail-closed, relevance from the released core): convergence FAIL (65 parameters, 30 bins, 52 of 58
   relevant regions; "no exploration evidence" only at f_3), agreement INCONCLUSIVE (78 comparisons with our SE > 0.01;
   0 disagreeing). Exit 1, as expected for 800 draws.
-* **Why f_3 still is not visited: a joint bottleneck.** Using the Sec. 11 prototype, I computed the exact conditional
-  P(f_3 < -10 | all other parameters) on a 241-point grid at 40 hybrid draws (5 per chain). The Rao-Blackwellised
-  average is 1.0%, close to the released 0.7%, but it comes almost entirely from one draw with conditional
-  probability 0.41. In that draw f_4 is itself on its low shelf (log10 rho_4 = -14.8), and a few IRN amplitudes sit
-  at the bottom of their range. At the other 39 draws the conditional is ~0 (and at 20 hd_fs30 draws < 1e-4).
-  The f_3 shelf is reachable only jointly with f_4 (and partly the IRN). A 1-D independence proposal for f_3 cannot
-  make that move (~61 shelf proposals in 800 iterations, none accepted), and neither can NUTS. This is the reviewer's caveat that
-  coordinatewise moves need not resolve joint bottlenecks, now observed.
+* **Why f_3 is not visited (corrected in round 3; the round-2 "only jointly with f_4" diagnosis was false).** The exact
+  conditional P(f_3 < -10 | all other parameters) at 40 hybrid draws (5 per chain) is ~0 at 39 of them (median 2e-9)
+  and 0.41 at one (chain 6, draw 99). That single draw contributes 99.9% of the 40-point sum. Varying f_4 alone at that
+  state barely changes it: P = 0.4106 at the saved f_4 = -14.8 and 0.5164 at f_4 = -7.5 (reviewer, refined
+  quadrature). In the released chain, 1,084 of the 2,585 f_3-low draws have f_4 > -8. Conclusion as of round 2:
+  **the f_3 conditional mass varies strongly with the remaining parameters; the controlling coordinates were
+  unidentified.** Round 3 identifies them (Sec. 13). The Rao-Blackwellised average (1.0%) is **exploratory only**:
+  one point carries 99.9% of it, so its SE is about the size of the estimate itself, and it says nothing about
+  agreement with the released 0.7%. The ~61 f_3 shelf proposals of the block sweep were made at intermediate states,
+  not at the saved endpoints, so "none accepted" does not show that 1-D moves cannot work.
 * **Projection with this kernel (indicative, from one 8 x 100 run).** The worst-parameter ESS rate (0.18 per draw)
   would reach 400 at ~290 draws per chain (~4 h). The fail-closed gate is much more demanding, though:
   * f_1's occupancy MCSE (0.044 at 800 draws; indicator ESS ~0.1 per draw) needs ~2,000 draws per chain (~27 h)
     to reach 0.01;
   * the rare high tails (f_13, f_28, f_29) need >= 10 entries and exits: ~500-1,000 draws per chain;
-  * f_3 needs a joint move.
+  * f_3 needs moves that reach its conditional low mass, which is ~0 at most states.
 
   **A full run with this kernel would most likely still fail the gate.**
 
@@ -420,8 +435,10 @@ Split the coordinates into U (bin k, 134) and R (the rest):
     log|B| = log|B_RR| + log|S|,  z^T B^-1 z = z_R^T B_RR^-1 z_R + t^T S^-1 t,
     S = I + L_U^T M L_U,  t = L_U^T (b_U - h),  M = A_UU - A_UR L_R B_RR^-1 L_R^T A_RU,  h = A_UR L_R B_RR^-1 z_R.
 
-Only L_U depends on rho_k, and S >= I keeps every evaluation well conditioned. The setup is one 3886-dim Cholesky
-(1.8-6.2 s, numpy on a loaded CPU); after it, each rho_k value costs a 134-dim Cholesky (9-50 ms, unoptimised).
+Only L_U depends on rho_k. S >= I bounds its smallest eigenvalue below in exact arithmetic, but **not its condition
+number**: the reviewer measured cond(S) ~ 1.6e7 near rho = -2 .. -1 at the exceptional state. The setup is one
+3886-dim Cholesky (1.8-6.2 s, numpy on a loaded CPU); after it, each rho_k value costs a 134-dim Cholesky (9-50 ms,
+unoptimised).
 
 Check against the production `PTALikelihood._logL`: 40-point grids over rho_k in [-15.4, -2] at hd_fs30 draws, comparing
 differences from the first grid point (which cancels the constant). The largest disagreement is a few 1e-9 at
@@ -434,27 +451,29 @@ logL ranges of ~1e3:
 | f_1 | 900 | 851 | 9.0e-9 |
 | f_29 | 300 | 1389 | 9.9e-10 |
 
-The prototype makes Metropolised conditional-grid moves for single bins affordable: after one Cholesky, a 50-point grid
-costs ~0.5-2.5 s in this unoptimised numpy version, against ~7 s for 50 full HD likelihood evaluations on the GPU. The cache is valid only for the current values of all other parameters; it must be
-rebuilt as they change. Not wired into any kernel yet.
+(Round 2 also compared a single-chain CPU grid without its rebuild cost against an 8-chain GPU likelihood benchmark.
+That comparison did not establish the cost of an 8-chain grid move and is withdrawn. The measured complete-update
+cost of the JAX implementation is in Sec. 13.) The cache is valid only for the current values of all other parameters
+and must be rebuilt per state.
 
-## 12. Recommendation
+## 12. Round-2 recommendation (superseded by Sec. 15)
 
 **Recommendation: (b), modified: do not launch a full HD run yet. Adopt the hybrid kernel, then a short, targeted round of
 kernel work and one more 2-h HD pilot before committing GPU-days.**
 
 1. **Keep the exact hybrid kernel (NUTS + frozen block-MH jumps).** It is cheap (+11% per HD iteration), tested for
-   invariance, and on CURN^free it removed the trapping completely: max R-hat 1.470 -> 1.007, worst ESS 15 -> 793,
-   ~70x per hour. On HD it gave ~2x at matched length.
+   invariance. On CURN^free it removed most of the trapping (max R-hat 1.470 -> 1.007, worst ESS 15 -> 793, ~70x
+   observed ESS per recorded hour, with GPU contention in the NUTS arm). On HD it gave ~2x at matched length.
 2. **Add joint bin-pair blocks**, e.g. (f_3, f_4), (f_1, f_2) and (f_7, f_8), with 2-D proposals that include
-   "both low" cells, plus bin + IRN-pair blocks for the pulsars whose amplitudes co-move with the low bins. The
-   Rao-Blackwellised f_3 analysis shows this is where the remaining mass sits. Fit them from the hybrid pilot's
+   "both low" cells, plus bin + IRN-pair blocks for the pulsars whose amplitudes co-move with the low bins. (Round 3:
+   the f_3/f_4 premise was false; see Sec. 13 for the coordinates that do matter.) Fit them from the hybrid pilot's
    draws, never the released chain.
 3. **Use Metropolised conditional-grid moves for the low-frequency bins**, built on the cached conditional of
    Sec. 11 (exact via an MH correction of the interpolated grid density). They track the current conditional,
-   unlike frozen marginal proposals. The same conditional gives **Rao-Blackwellised occupancy estimates**, whose
-   MCSE is far below that of the raw indicator. Whether the gate may use them (it currently uses raw indicators)
-   should be decided before the run, not after.
+   unlike frozen marginal proposals. The same conditional gives Rao-Blackwellised occupancy estimates. Lower
+   pointwise variance does not by itself imply lower MCSE (autocorrelation matters), so they are exploratory until
+   their own R-hat / ESS / MCSE and contribution concentration have been assessed. If they are ever admitted to the
+   gate, the transport requirements stay.
 4. **Warmup:** start step-size adaptation near the measured workable value (0.02-0.025). On CURN that gave a warmup
    costing only 1.3-1.6x a sampling iteration. Keep diverse region starts (`init_rho_low_frac`). Shared-step adaptation is optional:
    averaging acceptance can hide a difficult chain.
@@ -465,7 +484,176 @@ Not (a): the v2 recipe is untested at a sensible step-size start, but its plain-
 (c) as formulated in round 1: the shelf warp's benefit in the final coordinate is ~2.5x in scale ratio, not ~25x, and the
 pivot cancels. The warp remains a controlled competitor for later.
 
-## 13. Reproduction
+## 13. Round 3: proposal validation, exact conditional-grid moves, what controls f_3
+
+**Proposal validation** (`hybrid.validate_proposals`, called before initialisation by `make_sweep`, `make_grid_moves` and
+`HybridNUTS`). A proposal file must:
+* match the target's parameter names;
+* use distinct, in-range block indices, with no parameter in two blocks;
+* have prior bounds equal to the target's (`posterior.transform`);
+* have w_prior in (0, 1];
+* have finite, strictly increasing edges inside the bounds.
+
+Otherwise it is rejected with a ValueError. Every uniform component (the prior part and each histogram cell) is now
+sampled and evaluated on the same trimmed interval [a + d, b - d] (d = 1e-12 (b - a)), and log q = -inf outside the
+support. Tests cover mismatched (narrower) bounds and nine malformed variants.
+
+**Cached conditional in JAX** (`ptagwb.conditional`, the Sec. 11 formulation, jit/vmap-able). Agreement with the
+production likelihood depends on how much power the other common bins carry:
+* at posterior states (other bins log10 rho <= -6): <= 1e-9 relative on the synthetic PTA (tests), and <= 6e-8 in
+  logL on the real data (f_1, f_3, f_4, f_8 at four hybrid draws; `--validate`);
+* at prior draws z ~ U(-4, 4) with several bins near the maximal power: up to 7e-4. A long-double dense reference on
+  the synthetic PTA shows that the dense Schur form (not production) loses precision there, because
+  B = I + L^T A L is very ill conditioned.
+
+The conditional is therefore used **only to build proposals**. The Metropolis-Hastings acceptance always uses the
+production likelihood.
+
+**Metropolised conditional-grid move** (`hybrid.make_grid_moves`, `RunConfig.grid_bins` / `grid_kw`). For bin k at the
+current values of all other parameters:
+1. Rebuild the cache (it is independent of rho_k; tested) and evaluate the conditional on a grid: 48 uniform nodes on
+   the trimmed prior range [a, b] (d = 1e-9 (hi - lo)) plus 32 nodes on [x* - 0.75, x* + 0.75], x* the coarse argmax.
+2. Propose rho' from the independence density
+   q(rho | rest) = 0.05 / (b - a) + 0.95 q_grid(rho | rest) on [a, b]. q_grid is the normalised piecewise log-linear
+   interpolant of the conditional through the nodes, sampled exactly by a per-cell inverse CDF. The 5% uniform part is
+   the only explicit extra component; there is no separate low-region component.
+3. Accept with min(1, L(x') q(rho | rest) / (L(x) q(rho' | rest))), L the production likelihood.
+
+*Joint variant* (`grid_kw.companions`): one or more pulsars' IRN (log10_A, gamma) pairs are drawn from their frozen
+2-D block proposals q2, then rho' from q(. | rest with the new pairs). The reverse density uses q2 at the current
+pairs and q(. | current rest). This is an exact independence proposal for the joint block, at the cost of two cache
+builds per move.
+
+**Tests** (`tests/test_conditional.py`, `tests/test_hybrid.py`; 267 passing in total with the gate and sampling tests):
+* grid density normalisation and its sampler (KS);
+* invariance of the one-bin move from exact conditional draws (KS), also with a deliberately coarse grid;
+* a q-ratio-free variant fails the same test (p < 1e-6);
+* joint-move invariance against a 3-D grid reference (marked slow);
+* an end-to-end HybridNUTS run with grid bins.
+
+**Complete 8-chain update** (GPU, `bench/bench_grid.py`, `bench/results/grid_update_hd_fs30_grid_pilot.json`). Cost per
+iteration of everything after NUTS:
+
+| component | cost per iteration |
+|---|---|
+| block sweep (30 bins + 8 IRN pairs) | 5.1 s |
+| grid moves (f_1, f_2, f_4, f_8 one-bin; f_3 three times jointly with J1713+0747 / J1909-3744 / J0030+0451) | 2.6 s |
+| **complete update, incl. potential/gradient refresh** | **7.9 s** |
+| one leapfrog step (value + grad), for scale | 0.16 s |
+
+At posterior draws, one-bin grid moves accept 0.88-1.0 and the joint f_3 move about 0.13.
+
+**What controls P(f_3 < -10 | rest)?** (`scripts/fs_conditional_analysis.py --bin 2`, CPU, 40 hybrid-pilot states
+(chain c, draw n = 20, 39, 59, 79, 99); output `outputs/m2/fs_conditional_hd_fs30_hybrid_pilot_bin2.json`.)
+* **Quadrature:** at S* = (chain 6, draw 99), 241 nodes give 0.4127 and 961 give 0.4110.
+* **The reviewer's f_4 check, reproduced:** P = 0.413 at the saved f_4 vs 0.519 at f_4 = -7.5.
+* **Controlled swaps:** every other group (29 bins, 67 IRN pairs) was swapped between S* and three reference states T
+  with median conditional mass (P ~ 2-4e-9: (2, 99), (1, 79), (5, 20)). Changes are in the log-odds of the conditional
+  low mass.
+
+| group | log-odds change when S* takes T's value | when T takes S*'s value |
+|---|---|---|
+| J1713+0747 IRN | -72 / -5 / -72 | +9.6 / +7.8 / +12.6 |
+| J1909-3744 IRN | -23 / -30 / -78 | +5.6 / +13.8 / +5.8 |
+| J0030+0451 IRN | -6.5 / - / - | +5.1 / - / - |
+| f_1, f_4, f_5 (bins) | ~+0.1-0.5 | -60 / -15 / -9 (f_1, f_4, f_5 at T (2, 99)) |
+
+  The two best-timed pulsars dominate. In S*, J1713+0747 and J1909-3744 have IRN amplitudes at the top of their
+  pilot distributions (log10_A = -14.3 and -14.5 vs pilot medians -15.6 and -17.2; gamma ~ 3), so their intrinsic noise
+  can absorb the f_3 power. Inserting S*'s values of these two pairs, plus J0030+0451 / J1744-1134 and some bins,
+  cumulatively into T raises P from ~1e-9 to 0.17-0.46.
+* **Strong interactions:** S*'s low f_1 / f_4 / f_5 values *lower* the f_3 low mass when inserted alone into T, so
+  the effect is not additive.
+* **Conclusion:** the controlling coordinates are mainly the IRN of J1713+0747 and J1909-3744 (secondarily J0030+0451
+  and J1744-1134), conditional on the low-frequency bins. This is evidence from three state pairs around one
+  exceptional state, not a complete map. It motivates the joint f_3 + IRN moves used in the pilot.
+* **Same analysis for f_8** (`--bin 7`; `outputs/m2/fs_conditional_hd_fs30_hybrid_pilot_bin7.json`). The f_8 conditional
+  low mass is far less concentrated: mean 0.050, largest single state 25% of the sum, median 1.3e-3. Again
+  J1713+0747's IRN dominates in all three swap pairs (+4.0 to +5.5 log-odds into T), followed by J2043+1711.
+  Setting f_4 to -14.78 / -7.5 at S* gives P = 0.43 / 0.51, so f_4 does not control f_8 either.
+
+## 14. Enhanced HD pilot
+
+**Rules fixed before launch.** The configs were committed first (e5f8311, 67db032). The relevance declaration and
+the proposals (`hd_fs30_v2.json`, fitted from hd_fs30 + pilot E + the hybrid pilot, never the released chain) were
+frozen. Success = replicated f_3 entries and exits (>= 2 chains) plus improved occupancy MCSE vs the hybrid pilot.
+
+**Attempt 1: `hd_fs30_grid_pilot`, aborted.** Step-size adaptation (dual averaging) for 25 iterations, starting at
+the workable 0.025, with the same starts and fixed dense metric as before. The pre-set rule was to abort if warmup
+took more than 35 min. Per-iteration times were 171, 8, 29, 173, 90, 91, 49, 173, 91, 173, 90, 173, 90, 90, 172, 172,
+90, 90 s: most iterations ran 511-1023 lockstep leapfrog steps. The rule fired at 18/25 iterations (38 min of GPU).
+So on HD, even starting near a workable step size, dual-averaging adaptation of 8 vectorised chains repeatedly
+drives some chain to tree depth 9-10. This resolves the round-1 confounder: the poor 1.0 start was not the
+cause. (CURN^free did not show this, Sec. 9.)
+
+**Attempt 2: `hd_fs30_grid_pilot_fixed`, the result.** The attempt-1 config said "relaunch nothing". I deviated from
+that and documented it in the new config before launch: it is the same pilot with a **fixed step size 0.025** and no
+adaptation, exactly matching pilot E and the hybrid pilot. Run at the clean SHA 67db032:
+* 140 draws per chain;
+* the 2-h sampling cap is checked between 10-draw blocks, so sampling actually ran 2.11 h (6.5 min over);
+* 54 s per iteration (hybrid pilot: 48.5 s), 0 divergences, acceptance 0.942.
+
+Grid-move acceptance: 0.95-0.96 for the one-bin moves (f_1, f_2, f_4, f_8) and 0.24 for the three joint f_3 + IRN moves.
+
+| | hybrid pilot, 8 x 100 | grid pilot, first 8 x 100 | grid pilot, 8 x 140 |
+|---|---|---|---|
+| sampling wall [h] | 1.35 | 1.53 (pro rata) | 2.11 |
+| max R-hat / parameters >= 1.01 | 1.062 / 58 | 1.079 / 51 | 1.066 / 25 |
+| worst min(bulk, tail) ESS (parameter) | 140 (f_1) | 73 (J1944+0907 log10_A) | 89 (J1944+0907 log10_A) |
+| median parameter min ESS | 560 | 555 | 754 |
+| f_1 low: occupancy, excursions (chains), MCSE(< -9) | 17.6%, 102 (8), 0.044 | 18.1%, 113 (8), **0.025** | 17.9%, 164 (8), 0.029 |
+| f_3 low (released 0.70%): occupancy, entries / exits (chains) | 0, 0 / 0 (0) | 0.1%, 1 / 1 (1) | **0.18%, 2 / 2 (2)** |
+| f_4 low: occupancy, excursions, MCSE | 7.5%, 50 (8), 0.018 | 7.9%, 85 (8), 0.021 | 7.7%, 119 (8), 0.014 |
+| f_8 low: occupancy, excursions, MCSE | 4.8%, 42 (7), 0.016 | 5.6%, 60 (8), **0.010** | 6.0%, 91 (8), 0.010 |
+| f_13 / f_28 high: excursions (chains) | 4 (2) / 2 (1) | 12 (4) / 6 (3) | 12 (4) / 15 (5) |
+
+**Gate** (fail-closed, frozen relevance file): convergence FAIL (28 parameters, 29 bins, 49 of 58 relevant regions),
+**no "no exploration evidence" region any more**. f_3 low now fails on its event count (2 entries and 2 exits < 10),
+an unavailable indicator, and MCSE 0.017 > 0.01. Agreement INCONCLUSIVE (74 comparisons with our SE > 0.01).
+Exit 1.
+
+**Against the pre-set success criterion:**
+* **f_3 entries/exits: met only at the literal minimum.** There were 2 entries and 2 exits in 2 chains, each a
+  single-draw visit (chain 3, draw 118; chain 7, draw 4). Both visits occur with J1713+0747 at a high IRN amplitude
+  (-14.1, -14.5), consistent with Sec. 13. The f_3 low occupancy (0.18%, from 2 of 1,120 draws) is far too poorly
+  determined to compare with the released 0.7%.
+* **Occupancy MCSE: improved for f_1 and f_8.** At matched length, f_1 went 0.044 -> 0.025 and f_8 0.016 -> 0.010,
+  with ~1.4-1.6x more excursions per draw at f_4 / f_8 / f_13 / f_28. f_4 was mixed (0.018 -> 0.021 matched, 0.014 at
+  140 draws). f_3's MCSE rises (0.009 -> 0.017-0.026), because the sparse-count SE grows once the region is visited
+  at all.
+* **Not improved:** the worst-parameter ESS (an IRN amplitude, J1944+0907) and the ESS per hour (iterations are ~11%
+  more expensive).
+
+**Indicative projection with this kernel** (from one 8 x 140 run; not a calibrated budget):
+* f_3 needs >= 10 entries and exits; at 2 per 1,120 draws that is ~700 draws per chain (~10.5 h);
+* f_1's occupancy MCSE 0.029 at 140 draws scales to 0.01 at ~1,200 draws per chain (~18 h);
+* the gate would therefore need **~18-20 GPU-h at least**, with f_3's rate resting on two events.
+
+GPU time this round: complete-update benchmarks ~10 min, attempt 1 38 min, attempt 2 2.15 h (setup + 1 iteration +
+2.11 h sampling), **~3.0 GPU-h** in total.
+
+## 15. Recommendation (round 3)
+
+**(b), modified again: do not launch a full HD run yet.**
+
+* **Use this kernel next:** NUTS + block sweep + Metropolised conditional grids is exact, tested, and better than the
+  hybrid baseline where it matters most. f_3's low region is visited for the first time (2 independent entries and
+  exits), and f_1 / f_8 occupancy MCSE drops by ~40% at matched length. It does not change the worst IRN ESS.
+* **f_3 is still the bottleneck.** Its conditional low mass is ~0 except where J1713+0747 and J1909-3744 (and
+  J0030+0451, J1744-1134) sit at high IRN amplitude together with particular low-frequency bins (Sec. 13). Joint
+  moves built from marginal histograms rarely propose such a configuration. Two candidates, to be benchmarked
+  before any longer run:
+  1. a joint f_3 move whose companion proposals are the *conditional* grids of those IRN amplitudes (rebuilt per
+     state), not frozen histograms;
+  2. parallel tempering (2-4 temperatures), now that a multi-coordinate bottleneck is evidenced. Judge it by
+     cold-chain f_3 excursions and temperature round trips.
+* **Warmup:** on HD, dual-averaging step-size adaptation with 8 lockstep chains saturates the tree depth even when it
+  starts at 0.025 (attempt 1). Use a fixed step size from a short pilot (0.025 works, acceptance 0.94), or adapt one
+  shared step size from pooled acceptance, which still needs a test.
+* **Full-run decision:** launch only after a ~2 GPU-h pilot shows f_3 entries/exits at a rate projecting >= 10 within
+  ~600 draws per chain. The current kernel projects >= 18-20 GPU-h with a fragile f_3 estimate.
+
+## 16. Reproduction
 
 ```bash
 uv run --no-sync python scripts/m2_run.py configs/m2/hd_fs30_v2_pilotE.json   # stopped after 50 draws (2 blocks)
@@ -493,6 +681,22 @@ JAX_PLATFORMS=cpu uv run --no-sync python scripts/fs_schur_prototype.py --bin 2 
 
 The f_3 Rao-Blackwellised check (Sec. 10) used `BinConditional` from `scripts/fs_schur_prototype.py` on 40 hybrid-pilot
 draws (5 per chain at evenly spaced positions after the first 20%) with a 241-point grid on [-15.5, -1] and the uniform prior.
+
+Round 3:
+
+```bash
+JAX_PLATFORMS=cpu uv run --no-sync pytest -q tests/test_conditional.py tests/test_hybrid.py   # incl. -m slow
+JAX_PLATFORMS=cpu uv run --no-sync python scripts/fs_conditional_analysis.py --validate
+JAX_PLATFORMS=cpu uv run --no-sync python scripts/fs_conditional_analysis.py --run hd_fs30_hybrid_pilot --bin 2   # also --bin 7
+uv run --no-sync python scripts/fs_fit_proposals.py --runs hd_fs30,hd_fs30_v2_pilotE,hd_fs30_hybrid_pilot \
+    --pairs J0610-2100,J2234+0611,J0437-4715,J1853+1303,J0645+5158,J1713+0747,J1909-3744,J0030+0451 --out configs/m2/proposals/hd_fs30_v2.json
+uv run --no-sync python scripts/fs_freeze_relevance.py --out configs/m2/relevance/hd_fs30_released_v1.json
+XLA_PYTHON_CLIENT_PREALLOCATE=false uv run --no-sync python bench/bench_grid.py --config configs/m2/hd_fs30_grid_pilot.json
+XLA_PYTHON_CLIENT_PREALLOCATE=false uv run --no-sync python scripts/m2_run.py configs/m2/hd_fs30_grid_pilot_fixed.json
+JAX_PLATFORMS=cpu uv run --no-sync python scripts/fs_compare_kernels.py hd_fs30_hybrid_pilot hd_fs30_grid_pilot_fixed [--draws 100]
+JAX_PLATFORMS=cpu uv run --no-sync python scripts/m2_freespec_diag.py --run hd_fs30_grid_pilot_fixed \
+    --relevance-file configs/m2/relevance/hd_fs30_released_v1.json
+```
 
 Pilots A-D: `configs/m2/hd_fs30_v2_pilot{,B,C,D}.json`. Their logs (`runs/logs/*.aborted.log`) and run directories
 (`runs/*.aborted/`, metadata only) are git-ignored. The per-iteration warmup times above are read from the
