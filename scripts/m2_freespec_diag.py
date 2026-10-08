@@ -51,6 +51,7 @@ when the inputs are valid.
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import sys
 
@@ -89,7 +90,8 @@ def _bins_only(r, key):
 
 
 def evaluate(run_name: str, reference_key: str, threshold: float = -9.0,
-             load=load_run, load_reference=released, relevance_key: str = "hd_fs30") -> tuple[int, dict]:
+             load=load_run, load_reference=released, relevance_key: str = "hd_fs30",
+             relevance_file: str = "") -> tuple[int, dict]:
     """(exit status, result). All loading, extraction and conversion happens inside the validation
     boundary, so missing or malformed inputs map to status 2 with a structured ``input_errors``.
     Region relevance is derived from ``relevance_key`` (a released chain; '' = from the reference
@@ -121,7 +123,12 @@ def evaluate(run_name: str, reference_key: str, threshold: float = -9.0,
         exp = expected_names()
         ref = _bins_only(load_reference(reference_key), reference_key) if reference_key else None
         rel, source = None, None
-        if relevance_key and relevance_key != reference_key:
+        if relevance_file:
+            dec = json.loads((ROOT / relevance_file).read_text())
+            rel, r_ = dec["relevant_regions"], dec.get("reference", {})
+            source = (f"declared in {relevance_file} (reference {r_.get('path')}, sha256 {str(r_.get('sha256'))[:12]}, "
+                      f"burn-in {r_.get('burn_in')}, {r_.get('n_retained')} draws)")
+        elif relevance_key and relevance_key != reference_key:
             rel = derive_relevant_regions(_bins_only(load_reference(relevance_key), relevance_key), N_BINS)
             source = (f"derived from released {relevance_key} "
                       f"(reference mass >= {GATE_DEFAULTS['region_min_mass']})")
@@ -147,8 +154,11 @@ def main() -> int:
     ap.add_argument("--relevance-ref", default="hd_fs30",
                     help="released chain from which region relevance is derived ('' = from --released if given, "
                          "else undeclared -> convergence INCONCLUSIVE)")
+    ap.add_argument("--relevance-file", default="",
+                    help="frozen relevance declaration (scripts/fs_freeze_relevance.py); overrides --relevance-ref")
     args = ap.parse_args()
-    code, g = evaluate(args.run, args.released, args.threshold, relevance_key=args.relevance_ref)
+    code, g = evaluate(args.run, args.released, args.threshold, relevance_key=args.relevance_ref,
+                       relevance_file=args.relevance_file)
     if g.get("input_errors"):
         print("GATE: INVALID INPUT (exit 2)")
         for e in g["input_errors"][:20]:

@@ -281,6 +281,13 @@ class RunConfig:
     # follow every NUTS transition (warmup included).
     jumps: str = ""
     jump_sweeps: int = 1
+    # Metropolised conditional-grid moves (``hybrid.make_grid_moves``) for these free-spectrum bins
+    # (0-based), after the block sweep; ``grid_kw``: n_coarse, n_fine, half_width, w_uniform.
+    grid_bins: list = field(default_factory=list)
+    grid_kw: dict = field(default_factory=dict)
+    # hard cap on the sampling phase: stop after the first checkpoint block that ends beyond it
+    # (0 = none); the run then holds fewer than num_samples draws (meta: stopped_by_cap)
+    max_sampling_seconds: float = 0.0
     # init "run:<name>" only: each free-spectrum bin of each chain is independently moved, with this
     # probability, to a uniform draw in [lo + 0.5, -10] (deliberately diverse region starts)
     init_rho_low_frac: float = 0.0
@@ -432,11 +439,12 @@ def run_nuts(cfg: RunConfig, post: Posterior, log=print) -> Path:
         **kw,
     )
     fields = ("potential_energy", "diverging", "num_steps", "accept_prob")
-    if cfg.jumps:
+    if cfg.jumps or cfg.grid_bins:
         from .hybrid import BlockProposals, HybridNUTS
 
-        prop = BlockProposals.from_json(cfg.jumps, post.names)
-        kernel = HybridNUTS(post, prop, sweeps=cfg.jump_sweeps, **nuts_kw)
+        prop = BlockProposals.from_json(cfg.jumps, post.names) if cfg.jumps else None
+        kernel = HybridNUTS(post, prop, sweeps=cfg.jump_sweeps, grid_bins=list(cfg.grid_bins), grid_kw=dict(cfg.grid_kw),
+                            **nuts_kw)
         fields = fields + ("trajectory_length",)  # per-block accepted jumps (see hybrid.py)
     else:
         kernel = NUTS(potential_fn=post.potential_fn, **nuts_kw)
@@ -499,7 +507,7 @@ def run_nuts(cfg: RunConfig, post: Posterior, log=print) -> Path:
         warmup_divergences=int(np.sum(np.asarray(wx["diverging"]))),
         step_size=step_size.tolist(),
     )
-    if cfg.jumps:
+    if cfg.jumps or cfg.grid_bins:
         wa = np.asarray(wx["trajectory_length"])
         meta.update(warmup_jump_accept_rate=(wa.reshape(-1, wa.shape[-1]).mean(axis=0) / cfg.jump_sweeps).tolist())
     log(f"[{cfg.name}] warmup done in {t_warm:.0f} s, {warm_steps} grad evals, step sizes {np.round(step_size, 4)}")
@@ -507,6 +515,10 @@ def run_nuts(cfg: RunConfig, post: Posterior, log=print) -> Path:
     chunks: dict[str, list] = {k: [] for k in ("z",) + fields}
     n_done, t_samp, samp_steps = 0, 0.0, 0
     while n_done < cfg.num_samples:
+        if cfg.max_sampling_seconds and t_samp >= cfg.max_sampling_seconds:
+            meta["stopped_by_cap"] = {"sampling_seconds": t_samp, "draws": n_done}
+            log(f"[{cfg.name}] sampling cap {cfg.max_sampling_seconds:.0f} s reached after {n_done} draws")
+            break
         mcmc.post_warmup_state = mcmc.last_state
         t1 = time.time()
         mcmc.run(mcmc.post_warmup_state.rng_key, extra_fields=fields)

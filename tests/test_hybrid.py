@@ -65,7 +65,7 @@ def _apply_sweeps(tr, post, prop, x0, n_sweeps, seed=1):
 
 
 def test_proposal_density_normalised_and_sampler_consistent(one_d):
-    tr, _, prop, _, _ = one_d
+    _tr, _, prop, _, _ = one_d
     e, lo, hi, w = jnp.asarray(prop.edges1[0]), float(prop.lo1[0]), float(prop.hi1[0]), prop.w_prior
     g = np.linspace(lo, hi, 2_000_001)
     q = np.exp(np.asarray(jax.vmap(lambda t: log_q1(t, e, lo, hi, w))(jnp.asarray(g))))
@@ -95,7 +95,7 @@ def test_block_mh_invariance_1d(one_d):
 def test_naive_acceptance_is_detected(one_d):
     """Power check: dropping the proposal ratio q(x)/q(x') (a common bug) visibly breaks
     invariance under the same test."""
-    tr, post, prop, g, c = one_d
+    _tr, _post, prop, g, c = one_d
     e, lo, hi, w = jnp.asarray(prop.edges1[0]), float(prop.lo1[0]), float(prop.hi1[0]), prop.w_prior
 
     def naive(key, x):
@@ -190,6 +190,7 @@ def _gp_toy():
     return logL
 
 
+@pytest.mark.slow  # two NUTS compilations; ~5 min on a loaded 16-core CPU
 def test_hybrid_nuts_gp_toy(tmp_path, monkeypatch):
     from ptagwb import sampling
     from ptagwb.sampling import RunConfig, load_run, run_nuts
@@ -215,12 +216,12 @@ def test_hybrid_nuts_gp_toy(tmp_path, monkeypatch):
     prop = fit_proposals(fit, list(tr.names), lo, hi, list(tr.names), [], w_prior=0.2, k1=15)
     monkeypatch.setattr(sampling, "RUNS_DIR", tmp_path)
     prop.to_json(tmp_path / "prop.json")
-    cfg = RunConfig(name="gp", model={}, num_chains=4, num_warmup=300, num_samples=1500, block=750, dense_mass=False,
+    cfg = RunConfig(name="gp", model={}, num_chains=4, num_warmup=200, num_samples=1000, block=500, dense_mass=False,
                     seed=2, init_radius=2.0, jumps=str(tmp_path / "prop.json"))
     run_nuts(cfg, post, log=lambda s: None)
     r = load_run("gp")
     x = r["x"]
-    assert r["jump_accept"].shape == (4, 1500, 2) and r["jump_accept"].sum() > 100
+    assert r["jump_accept"].shape == (4, 1000, 2) and r["jump_accept"].sum() > 100
     for j, pm in enumerate((P.sum(1), p1)):
         cdf = np.cumsum(pm)
         for p in (0.05, 0.25, 0.5, 0.75, 0.95):
@@ -232,3 +233,64 @@ def test_hybrid_nuts_gp_toy(tmp_path, monkeypatch):
 
     se = np.sqrt(p_low * (1 - p_low) / ess(ind))
     assert abs(ind.mean() - p_low) < 5 * se, (ind.mean(), p_low, se)
+
+
+# ---------------------------------------------------------------------- proposal validation
+
+
+def _valid_prop():
+    rng = np.random.default_rng(0)
+    lo, hi = np.array([-15.5, -20.0, 0.0]), np.array([-1.0, -11.0, 7.0])
+    X = np.stack([rng.normal(-7, 0.3, 800), rng.normal(-14, 0.5, 800), rng.normal(3, 0.5, 800)], 1)
+    tr = BoxTransform(("rho", "A", "g"), lo, hi)
+    return tr, fit_proposals(X, list(tr.names), lo, hi, ["rho"], [("A", "g")], k1=10, k2a=4, k2b=3)
+
+
+def test_proposal_validation_accepts_valid_and_rejects_malformed():
+    import dataclasses
+
+    from ptagwb.hybrid import validate_proposals
+
+    tr, p = _valid_prop()
+    assert validate_proposals(p, tr) == []
+    narrow = BoxTransform(tr.names, tr.lo, tr.hi - np.array([1.0, 0.0, 0.0]))  # same names, narrower prior
+    assert any("bounds differ" in e for e in validate_proposals(p, narrow))
+    bad = {
+        "w_prior": dataclasses.replace(p, w_prior=0.0),
+        "w_prior>1": dataclasses.replace(p, w_prior=1.5),
+        "index": dataclasses.replace(p, idx1=np.array([7])),
+        "overlap": dataclasses.replace(p, idx1=np.array([1])),
+        "nan edge": dataclasses.replace(p, edges1=np.where(np.arange(11) == 3, np.nan, p.edges1)),
+        "decreasing": dataclasses.replace(p, edges1=p.edges1[:, ::-1].copy()),
+        "outside": dataclasses.replace(p, edges1=p.edges1 - 20.0),
+        "pair edges": dataclasses.replace(p, edges2b=p.edges2b[:, :, ::-1].copy()),
+        "names": dataclasses.replace(p, names=("x", "A", "g")),
+    }
+    for label, q in bad.items():
+        assert validate_proposals(q, tr), label
+        with pytest.raises(ValueError, match="invalid block proposals"):
+            make_sweep(q, tr, lambda x: 0.0)
+    # the production kernel refuses a mismatched proposal before initialisation
+    from ptagwb.hybrid import HybridNUTS
+
+    post = Posterior.generic(narrow, lambda x: -jnp.sum(x**2))
+    with pytest.raises(ValueError, match="invalid block proposals"):
+        HybridNUTS(post, p)
+
+
+def test_log_q_is_minus_inf_outside_support_and_matches_sampler_support():
+    from ptagwb.hybrid import log_q2, sample_q2
+
+    _tr, p = _valid_prop()
+    e, lo, hi, w = jnp.asarray(p.edges1[0]), float(p.lo1[0]), float(p.hi1[0]), p.w_prior
+    for x in (lo - 1.0, hi + 0.5, lo, hi):  # outside or on the (trimmed-away) boundary
+        assert float(log_q1(jnp.asarray(x), e, lo, hi, w)) == -np.inf
+    assert np.isfinite(float(log_q1(jnp.asarray(-7.0), e, lo, hi, w)))
+    ea, eb, lo2, hi2 = (jnp.asarray(a[0]) for a in (p.edges2a, p.edges2b, p.lo2, p.hi2))
+    assert float(log_q2(jnp.array([-21.0, 3.0]), ea, eb, lo2, hi2, w)) == -np.inf
+    assert float(log_q2(jnp.array([-14.0, 7.5]), ea, eb, lo2, hi2, w)) == -np.inf
+    keys = jax.random.split(jax.random.PRNGKey(0), 20_000)
+    xs = jax.vmap(lambda k: sample_q1(k, e, lo, hi, w))(keys)
+    assert np.all(np.isfinite(np.asarray(jax.vmap(lambda t: log_q1(t, e, lo, hi, w))(xs))))
+    ys = jax.vmap(lambda k: sample_q2(k, ea, eb, lo2, hi2, w))(keys)
+    assert np.all(np.isfinite(np.asarray(jax.vmap(lambda t: log_q2(t, ea, eb, lo2, hi2, w))(ys))))

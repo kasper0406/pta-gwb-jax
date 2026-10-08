@@ -465,10 +465,13 @@ Pilots (CURN diagonal vs dense metric, HD step-size-only warmup) are described i
    released core occupies 0.9% of the time. Matching peaks and medians (first 10 bins
    |z(50)| <= 1.6) therefore do not validate the posterior; Fig. 1a is labelled preliminary.
    Per-bin numbers: `outputs/m2/freespec_gate_hd_fs30.json`. The acceptance gate below rejects the
-   existing run (convergence FAIL: 59 of 164 parameters, 18 of 30 bins; exit status 1).
+   existing run (fail-closed version: convergence FAIL, 59 of 164 parameters, 30 of 30 bins, "no exploration
+   evidence" at f_3; exit status 1).
    The auxiliary CURN^free run shows the same behaviour (R-hat 1.15 at f_4, bulk ESS 20).
 
-   **Re-run prepared, not run** (GPU reserved for the performance study): `configs/m2/hd_fs30_v2.json`
+   **Re-run prepared, then stopped by a pilot** (docs/FS_PILOT.md: v2-style warmup saturates the tree depth; plain NUTS
+   crosses the bins' low-power/signal regions rarely; an exact NUTS + block-MH hybrid kernel is the candidate):
+   `configs/m2/hd_fs30_v2.json`
    via `scripts/m2_rerun_fs30.sh`. 8 chains, 500 warmup + 750 draws each; **independent,
    overdispersed initialisation**: every coordinate z ~ U(-4, 4) in the unconstrained (logistic)
    parameterisation, i.e. uniform in z, not uniform in the prior box; starting points lie within

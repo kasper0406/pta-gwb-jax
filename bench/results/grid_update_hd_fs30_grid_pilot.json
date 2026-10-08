@@ -1,0 +1,52 @@
+{
+ "env": {
+  "git_sha": "7360f807e07c68fbce1c88e3a40c935a06e27c43",
+  "dirty": true,
+  "dirty_hash": "2a071da19d8db10c",
+  "jax": "0.11.2",
+  "backend": "gpu",
+  "devices": [
+   "cuda:0"
+  ],
+  "XLA_FLAGS": "--xla_cpu_experimental_ynn_fusion_type=",
+  "host": "kworkstation",
+  "time": "2026-10-08T16:36:39"
+ },
+ "config": "configs/m2/hd_fs30_grid_pilot.json",
+ "B": 8,
+ "grid_bins": [
+  0,
+  1,
+  2,
+  2,
+  2,
+  3,
+  7
+ ],
+ "grid_kw": {
+  "n_coarse": 48,
+  "n_fine": 32,
+  "half_width": 0.75,
+  "w_uniform": 0.05,
+  "companions": {
+   "2": [
+    "J1713+0747",
+    "J1909-3744",
+    "J0030+0451"
+   ]
+  }
+ },
+ "value_grad_ms": 159.74032692611217,
+ "sweep_ms": 5131.433550268412,
+ "grid_moves_ms": 2607.0182230323553,
+ "grid_accept_at_draws": [
+  0.875,
+  0.875,
+  0.125,
+  0.125,
+  0.0,
+  1.0,
+  1.0
+ ],
+ "complete_update_ms": 7899.545490276068
+}
