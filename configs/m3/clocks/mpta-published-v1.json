@@ -1,0 +1,16 @@
+{
+ "profile": "mpta-published-v1",
+ "version": 1,
+ "clock": null,
+ "ephem": "DE440",
+ "overrides": [],
+ "note": "[UNRESOLVED] par CLK TT(BIPM2020) (81/83) vs paper BIPM2022: par value kept",
+ "files": {
+  "gps2utc.clk": "9a775ba0bbf851947e58fffb5d5c30f7baf5cae6668227d4c81261760d3b9314",
+  "mk2utc_observatory.clk": "932e6711c105f8502b5eeb740c9b1b8b8129ad766527c0b957de04cbe0c1766e",
+  "tai2tt_bipm2019.clk": "3d1e27041f0c7a6c7aa79d2d6d5b90235ac2e73d436defcfc6e8d6fcdd78f512",
+  "tai2tt_bipm2020.clk": "5b77068b5fd5407c7349227e27a73400357ba60902659045866ea6cd5023be49",
+  "tai2tt_bipm2022.clk": "f2659c5192db7994f6b9b79e33875ab8b035f9ac0a5a580980d9847470ad80af",
+  "tai2tt_bipm2023.clk": "f99dc4c467568d0fb01d6b076af36ed5add935e2593adf60e33611ebdd5f363d"
+ }
+}

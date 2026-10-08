@@ -29,7 +29,8 @@ def _required(config) -> bool:
 def pytest_runtest_makereport(item, call):
     outcome = yield
     rep = outcome.get_result()
-    if rep.skipped and _required(item.config):
+    # an expected failure (xfail, e.g. a documented open gate) is not a missing oracle
+    if rep.skipped and _required(item.config) and not hasattr(rep, "wasxfail"):
         reason = rep.longrepr[2] if isinstance(rep.longrepr, tuple) else str(rep.longrepr)
         rep.outcome = "failed"
         rep.longrepr = f"skipped in --require-oracles / PTAGWB_REQUIRE_ORACLES mode: {reason}"

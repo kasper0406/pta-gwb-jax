@@ -103,6 +103,11 @@ Groups:
   KDEs.
 - `secondary` (download only, not used yet): EPTA DR2 (Zenodo + GitLab), PPTA DR3 timing
   files (CSIRO DAP), InPTA DR2 (GitHub).
+- `m3` (five-PTA combination inputs): MeerKAT PTA 4.5-yr par/tim and portraits (AAO Data
+  Central), InPTA DR1 and the PPTA DR3 GitHub repository (the versions Yu & Allen used),
+  MetaPulsar, the MPTA authors' scripts, and arXiv sources holding the MPTA/InPTA noise
+  tables. Survey and plan: [`docs/M3_SURVEY.md`](docs/M3_SURVEY.md),
+  [`docs/M3_PLAN.md`](docs/M3_PLAN.md) (`scripts/m3_survey.py`, `scripts/m3_survey_report.py`).
 
 ## Smoke test
 

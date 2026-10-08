@@ -1,0 +1,138 @@
+{
+  "version": 3,
+  "doc": "Legs excluded from the M3a validation-set pass requirement (docs/M3_PLAN.md Sec. 4.1, 5.1; docs/M3A_VALIDATION.md Sec. 'Quarantine'). Gates are still run and reported for them. A leg leaves quarantine only by passing G3-G5 with the evaluator class named here fixed. Entries in 'lifted' are lifted only under the configuration in 'lifted_under' (ptagwb.m3data.quarantine(config)).",
+  "legs": [
+    {
+      "dataset": "mpta",
+      "psr": "J1825-0319",
+      "class": "signed-H3",
+      "reason": "DDH with negative H3 and fitted STIG. PINT 1.1.7 rejects it (DDH -> M2 < 0); zeroing H3 would also zero the STIG design column. The only evaluator that reads it is tempo2 itself, so there is no independent cross-check; the PINT fix (nanograv/PINT#2023) is unmerged (open, 2026-10-08)."
+    },
+    {
+      "dataset": "epta_dr2new",
+      "psr": "J1600-3053",
+      "class": "residual-excess",
+      "reason": "pre-fit wrms / TRES = 1.68 (survey screen); DDH"
+    },
+    {
+      "dataset": "ppta_dr3_gh",
+      "psr": "J1600-3053",
+      "class": "residual-excess",
+      "reason": "pre-fit wrms / TRES = 1.55 (survey screen); DDH"
+    },
+    {
+      "dataset": "ppta_dr3_gh",
+      "psr": "J1713+0747",
+      "class": "residual-excess",
+      "reason": "pre-fit wrms / TRES = 1.76 (survey screen); DDK"
+    },
+    {
+      "dataset": "ppta_dr3_gh",
+      "psr": "J2241-5236",
+      "class": "residual-excess",
+      "reason": "pre-fit wrms / TRES = 2.40 (survey screen); PB + FB1.. without FB0 (canonicalised to FB0 = 1/PB)"
+    }
+  ],
+  "lifted": [
+    {
+      "dataset": "mpta",
+      "psr": "J0613-0200",
+      "class": "ELL1H-H3H4-NHARMS",
+      "reason": "ELL1H with H3+H4 and no NHARMS: PINT uses >= 7 harmonics, tempo2 4",
+      "lifted": "2026-10-08: tempo2 harmonic convention (NHARMS = 4 when the par gives none) applied at ingestion (profiles.TEMPO2_PAR, legs.load_leg); with it PINT matches tempo2 to 0.9-5 ns projected rms and column-space sin 7e-5..4e-4, the level of the other non-quarantined legs (docs/M3A_VALIDATION.md Sec. 12). With PINT's forced 7 harmonics the leg differs by 17-128 ns and sin up to 1.0.",
+      "lifted_under": {
+        "ell1h_nharms": "tempo2"
+      }
+    },
+    {
+      "dataset": "mpta",
+      "psr": "J1327-0755",
+      "class": "ELL1H-H3H4-NHARMS",
+      "reason": "ELL1H with H3+H4 and no NHARMS: PINT uses >= 7 harmonics, tempo2 4",
+      "lifted": "2026-10-08: tempo2 harmonic convention (NHARMS = 4 when the par gives none) applied at ingestion (profiles.TEMPO2_PAR, legs.load_leg); with it PINT matches tempo2 to 0.9-5 ns projected rms and column-space sin 7e-5..4e-4, the level of the other non-quarantined legs (docs/M3A_VALIDATION.md Sec. 12). With PINT's forced 7 harmonics the leg differs by 17-128 ns and sin up to 1.0.",
+      "lifted_under": {
+        "ell1h_nharms": "tempo2"
+      }
+    },
+    {
+      "dataset": "mpta",
+      "psr": "J1545-4550",
+      "class": "ELL1H-H3H4-NHARMS",
+      "reason": "ELL1H with H3+H4 and no NHARMS: PINT uses >= 7 harmonics, tempo2 4",
+      "lifted": "2026-10-08: tempo2 harmonic convention (NHARMS = 4 when the par gives none) applied at ingestion (profiles.TEMPO2_PAR, legs.load_leg); with it PINT matches tempo2 to 0.9-5 ns projected rms and column-space sin 7e-5..4e-4, the level of the other non-quarantined legs (docs/M3A_VALIDATION.md Sec. 12). With PINT's forced 7 harmonics the leg differs by 17-128 ns and sin up to 1.0.",
+      "lifted_under": {
+        "ell1h_nharms": "tempo2"
+      }
+    },
+    {
+      "dataset": "mpta",
+      "psr": "J1804-2717",
+      "class": "ELL1H-H3H4-NHARMS",
+      "reason": "ELL1H with H3+H4 and no NHARMS: PINT uses >= 7 harmonics, tempo2 4",
+      "lifted": "2026-10-08: tempo2 harmonic convention (NHARMS = 4 when the par gives none) applied at ingestion (profiles.TEMPO2_PAR, legs.load_leg); with it PINT matches tempo2 to 0.9-5 ns projected rms and column-space sin 7e-5..4e-4, the level of the other non-quarantined legs (docs/M3A_VALIDATION.md Sec. 12). With PINT's forced 7 harmonics the leg differs by 17-128 ns and sin up to 1.0.",
+      "lifted_under": {
+        "ell1h_nharms": "tempo2"
+      }
+    },
+    {
+      "dataset": "mpta",
+      "psr": "J2145-0750",
+      "class": "ELL1H-H3H4-NHARMS",
+      "reason": "ELL1H with H3+H4 and no NHARMS: PINT uses >= 7 harmonics, tempo2 4",
+      "lifted": "2026-10-08: tempo2 harmonic convention (NHARMS = 4 when the par gives none) applied at ingestion (profiles.TEMPO2_PAR, legs.load_leg); with it PINT matches tempo2 to 0.9-5 ns projected rms and column-space sin 7e-5..4e-4, the level of the other non-quarantined legs (docs/M3A_VALIDATION.md Sec. 12). With PINT's forced 7 harmonics the leg differs by 17-128 ns and sin up to 1.0.",
+      "lifted_under": {
+        "ell1h_nharms": "tempo2"
+      }
+    },
+    {
+      "dataset": "ppta_dr3_gh",
+      "psr": "J0613-0200",
+      "class": "ELL1H-H3H4-NHARMS",
+      "reason": "T2 (-> ELL1H) with H3+H4 and no NHARMS",
+      "lifted": "2026-10-08: tempo2 harmonic convention (NHARMS = 4 when the par gives none) applied at ingestion (profiles.TEMPO2_PAR, legs.load_leg); with it PINT matches tempo2 to 0.9-5 ns projected rms and column-space sin 7e-5..4e-4, the level of the other non-quarantined legs (docs/M3A_VALIDATION.md Sec. 12). With PINT's forced 7 harmonics the leg differs by 17-128 ns and sin up to 1.0.",
+      "lifted_under": {
+        "ell1h_nharms": "tempo2"
+      }
+    },
+    {
+      "dataset": "epta_dr2new",
+      "psr": "J0751+1807",
+      "class": "ELL1H-H3H4-NHARMS",
+      "reason": "T2 (-> ELL1H) with H3+H4 and no NHARMS",
+      "lifted": "2026-10-08: tempo2 harmonic convention (NHARMS = 4 when the par gives none) applied at ingestion (profiles.TEMPO2_PAR, legs.load_leg); with it PINT matches tempo2 to 0.9-5 ns projected rms and column-space sin 7e-5..4e-4, the level of the other non-quarantined legs (docs/M3A_VALIDATION.md Sec. 12). With PINT's forced 7 harmonics the leg differs by 17-128 ns and sin up to 1.0.",
+      "lifted_under": {
+        "ell1h_nharms": "tempo2"
+      }
+    },
+    {
+      "dataset": "epta_dr2new",
+      "psr": "J1012+5307",
+      "class": "ELL1H-H3H4-NHARMS",
+      "reason": "T2 (-> ELL1H) with H3+H4 and no NHARMS",
+      "lifted": "2026-10-08: tempo2 harmonic convention (NHARMS = 4 when the par gives none) applied at ingestion (profiles.TEMPO2_PAR, legs.load_leg); with it PINT matches tempo2 to 0.9-5 ns projected rms and column-space sin 7e-5..4e-4, the level of the other non-quarantined legs (docs/M3A_VALIDATION.md Sec. 12). With PINT's forced 7 harmonics the leg differs by 17-128 ns and sin up to 1.0.",
+      "lifted_under": {
+        "ell1h_nharms": "tempo2"
+      }
+    },
+    {
+      "dataset": "inpta_dr2",
+      "psr": "J0751+1807",
+      "class": "ELL1H-H3H4-NHARMS",
+      "reason": "T2 (-> ELL1H) with H3+H4 and no NHARMS",
+      "lifted": "2026-10-08: tempo2 harmonic convention (NHARMS = 4 when the par gives none) applied at ingestion (profiles.TEMPO2_PAR, legs.load_leg); with it PINT matches tempo2 to 0.9-5 ns projected rms and column-space sin 7e-5..4e-4, the level of the other non-quarantined legs (docs/M3A_VALIDATION.md Sec. 12). With PINT's forced 7 harmonics the leg differs by 17-128 ns and sin up to 1.0.",
+      "lifted_under": {
+        "ell1h_nharms": "tempo2"
+      }
+    },
+    {
+      "dataset": "inpta_dr2",
+      "psr": "J1012+5307",
+      "class": "ELL1H-H3H4-NHARMS",
+      "reason": "T2 (-> ELL1H) with H3+H4 and no NHARMS",
+      "lifted": "2026-10-08: tempo2 harmonic convention (NHARMS = 4 when the par gives none) applied at ingestion (profiles.TEMPO2_PAR, legs.load_leg); with it PINT matches tempo2 to 0.9-5 ns projected rms and column-space sin 7e-5..4e-4, the level of the other non-quarantined legs (docs/M3A_VALIDATION.md Sec. 12). With PINT's forced 7 harmonics the leg differs by 17-128 ns and sin up to 1.0.",
+      "lifted_under": {
+        "ell1h_nharms": "tempo2"
+      }
+    }
+  ]
+}

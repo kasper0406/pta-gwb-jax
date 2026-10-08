@@ -1,0 +1,16 @@
+{
+ "profile": "ppta-dr3-published-v1",
+ "version": 1,
+ "clock": "TT(BIPM2020)",
+ "ephem": "DE440",
+ "overrides": [
+  "ppta_dr3_github/extracted/PPTA-DR3-fdbe6eb1c86d4c6cf2f1f518711e44ad1a9fd3fa/clockfiles/pks2gps.clk"
+ ],
+ "note": "DE440 is the GW paper's override (the par files say DE436)",
+ "files": {
+  "gps2utc.clk": "9a775ba0bbf851947e58fffb5d5c30f7baf5cae6668227d4c81261760d3b9314",
+  "pks2gps.clk": "c8131f51e17eef409450459d7097f9eceec2efd3dccd1394cc7214460ef342fa",
+  "tai2tt_bipm2020.clk": "5b77068b5fd5407c7349227e27a73400357ba60902659045866ea6cd5023be49",
+  "tai2tt_bipm2023.clk": "f99dc4c467568d0fb01d6b076af36ed5add935e2593adf60e33611ebdd5f363d"
+ }
+}

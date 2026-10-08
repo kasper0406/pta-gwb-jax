@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "doc": "M3a validation set (docs/M3_PLAN.md Sec. 5.1; docs/M3A_VALIDATION.md). 'role' says which evaluator class or ingestion feature the leg covers. Quarantined legs (configs/m3/quarantine.json) are run and reported but excluded from the pass requirement.",
+  "legs": [
+    {"dataset": "mpta", "psr": "J1825-0319", "role": "signed H3 (DDH, negative H3 + STIG)"},
+    {"dataset": "mpta", "psr": "J1802-2124", "role": "ELL1H H3+STIG (absorbed Shapiro)"},
+    {"dataset": "mpta", "psr": "J1327-0755", "role": "ELL1H H3+H4, no NHARMS"},
+    {"dataset": "ppta_dr3_gh", "psr": "J2241-5236", "role": "PB + FB series"},
+    {"dataset": "ppta_dr3_gh", "psr": "J1600-3053", "role": "DDH"},
+    {"dataset": "ppta_dr3_gh", "psr": "J1713+0747", "role": "DDK; multi-valued -j mask flags"},
+    {"dataset": "epta_dr2new", "psr": "J1744-1134", "role": "TIME offsets, END, -padd"},
+    {"dataset": "inpta_dr2", "psr": "J1614-2230", "role": "InPTA DR2: valueless flags, DMX_0001 template, INCLUDE"},
+    {"dataset": "ng15", "psr": "J1909-3744", "role": "ordinary NG15; multi-leg J1909"},
+    {"dataset": "ng15", "psr": "J1022+1001", "role": "ordinary NG15 (short leg); multi-leg J1022"},
+    {"dataset": "epta_dr2new", "psr": "J1909-3744", "role": "ordinary EPTA (INCLUDE tree); multi-leg J1909"},
+    {"dataset": "epta_dr2new", "psr": "J1022+1001", "role": "ordinary EPTA; multi-leg J1022"},
+    {"dataset": "ppta_dr3_gh", "psr": "J1909-3744", "role": "ordinary PPTA (-j flags); multi-leg J1909"},
+    {"dataset": "ppta_dr3_gh", "psr": "J1022+1001", "role": "ordinary PPTA; multi-leg J1022"},
+    {"dataset": "ppta_dr3_gh", "psr": "J0437-4715", "role": "PPTA DDK, large leg; multi-leg J0437"},
+    {"dataset": "inpta_dr2", "psr": "J1909-3744", "role": "ordinary InPTA; multi-leg J1909"},
+    {"dataset": "inpta_dr2", "psr": "J1022+1001", "role": "ordinary InPTA; multi-leg J1022"},
+    {"dataset": "inpta_dr2", "psr": "J0437-4715", "role": "InPTA; multi-leg J0437"},
+    {"dataset": "mpta", "psr": "J1909-3744", "role": "ordinary MPTA; multi-leg J1909"},
+    {"dataset": "mpta", "psr": "J1022+1001", "role": "ordinary MPTA; multi-leg J1022"},
+    {"dataset": "mpta", "psr": "J0437-4715", "role": "MPTA; multi-leg J0437"}
+  ],
+  "multileg": {
+    "J1909-3744": [["ng15", "J1909-3744"], ["epta_dr2new", "J1909-3744"], ["ppta_dr3_gh", "J1909-3744"], ["inpta_dr2", "J1909-3744"], ["mpta", "J1909-3744"]],
+    "J1022+1001": [["ng15", "J1022+1001"], ["epta_dr2new", "J1022+1001"], ["ppta_dr3_gh", "J1022+1001"], ["inpta_dr2", "J1022+1001"], ["mpta", "J1022+1001"]],
+    "J0437-4715": [["ppta_dr3_gh", "J0437-4715"], ["inpta_dr2", "J0437-4715"], ["mpta", "J0437-4715"]]
+  }
+}

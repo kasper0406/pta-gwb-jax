@@ -167,7 +167,9 @@ likelihood agrees with both to below 4e-7 absolute (`docs/M1_VALIDATION.md`).
   S/N (5 +/- 1, 4 +/- 1), binned HD (15 bins, chi^2 = 8.1), multi-component OS table.
   Optionally phase-shift / sky-scramble backgrounds (expensive; GPU makes the OS ones
   cheap).
-- **M4 (optional)**: EPTA DR2new / PPTA DR3 / InPTA with the same pipeline.
+- **M4 (optional)**: EPTA DR2new / PPTA DR3 / InPTA with the same pipeline. Superseded by the
+  five-PTA combination milestone (branch `m3-combination`): see `docs/M3_PLAN.md` and
+  `docs/M3_SURVEY.md`.
 
 ## 4. Known risks and open questions
 

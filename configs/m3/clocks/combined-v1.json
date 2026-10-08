@@ -1,0 +1,27 @@
+{
+ "profile": "combined-v1",
+ "version": 1,
+ "clock": "TT(BIPM2023)",
+ "ephem": "DE440",
+ "overrides": [
+  "epta_dr2_gitlab/extracted/epta-dr2-2911d0e52e0c8a4e528c4e3aa46b868ced1910e8/EPTA-DR2/clockfiles/ncyobs2obspm.clk",
+  "ppta_dr3_github/extracted/PPTA-DR3-fdbe6eb1c86d4c6cf2f1f518711e44ad1a9fd3fa/clockfiles/pks2gps.clk"
+ ],
+ "note": "one realisation and ephemeris for all legs; release observatory files pinned",
+ "files": {
+  "effix2gps.clk": "f38395c28760e497d11782b3b38a2f5782c68f7629d6b4f096bed7467a97f99d",
+  "gps2utc.clk": "9a775ba0bbf851947e58fffb5d5c30f7baf5cae6668227d4c81261760d3b9314",
+  "jb2gps.clk": "d4b3ddb5543ba8b9dc02a8261c42a59494c9915dc004f803d48bb1ce3058b37c",
+  "jbroach2jb.clk": "55e3f92250d228d24c26b25426fc1c4929e57eb8915ede604a0b2dc52ceea6ec",
+  "leap2effix.clk": "d8a46bf592b5a43e40e6e8c1c9383892f8869d6b21bfdf612c846c37f388caba",
+  "mk2utc_observatory.clk": "932e6711c105f8502b5eeb740c9b1b8b8129ad766527c0b957de04cbe0c1766e",
+  "ncyobs2obspm.clk": "13f9fc7a3a7813049086998230af73f7f8808e2f922f8b62b579c00cc0c7735f",
+  "obspm2gps.clk": "f1a89b4bb20e4ddaab9b9dfcaa576c9eb9ee783a7305ceed64a8895ebbc7262c",
+  "pks2gps.clk": "c8131f51e17eef409450459d7097f9eceec2efd3dccd1394cc7214460ef342fa",
+  "tai2tt_bipm2023.clk": "f99dc4c467568d0fb01d6b076af36ed5add935e2593adf60e33611ebdd5f363d",
+  "time_ao.dat": "7e1755bb794d84bb7e585d556dcf46fffde159ea5d7f9543cd54e7fcb55bf86d",
+  "time_gbt.dat": "2d2a5936211afbeefb8ab02ee6d4f227cbd0517a0f469e5ad256f420d9b95a7c",
+  "time_vla.dat": "81494172917d043e032c195bbb29e06fda7929aa3aa3664ee6a19445c2dad5da",
+  "wsrt2gps.clk": "72f512aa3c5f26b434708ebdd1b62718145f52e77d7ac2cc03628203ec296319"
+ }
+}

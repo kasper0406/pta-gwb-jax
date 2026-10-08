@@ -1,0 +1,24 @@
+{
+ "profile": "ng15-published-v1",
+ "version": 1,
+ "clock": "TT(BIPM2019)",
+ "ephem": "DE440",
+ "overrides": [
+  "ng15_v2.1.0/extracted/NANOGrav15yr_PulsarTiming_v2.1.0/clock/ao2gps.clk",
+  "ng15_v2.1.0/extracted/NANOGrav15yr_PulsarTiming_v2.1.0/clock/gbt2gps.clk",
+  "ng15_v2.1.0/extracted/NANOGrav15yr_PulsarTiming_v2.1.0/clock/tai2tt_bipm2019.clk",
+  "ng15_v2.1.0/extracted/NANOGrav15yr_PulsarTiming_v2.1.0/clock/time_ao.dat",
+  "ng15_v2.1.0/extracted/NANOGrav15yr_PulsarTiming_v2.1.0/clock/time_gbt.dat",
+  "ng15_v2.1.0/extracted/NANOGrav15yr_PulsarTiming_v2.1.0/clock/time_vla.dat",
+  "ng15_v2.1.0/extracted/NANOGrav15yr_PulsarTiming_v2.1.0/clock/vla2gps.clk"
+ ],
+ "note": "NG15 v2.1.0 release clock files (as M1/M2)",
+ "files": {
+  "gps2utc.clk": "9a775ba0bbf851947e58fffb5d5c30f7baf5cae6668227d4c81261760d3b9314",
+  "tai2tt_bipm2019.clk": "3d1e27041f0c7a6c7aa79d2d6d5b90235ac2e73d436defcfc6e8d6fcdd78f512",
+  "tai2tt_bipm2023.clk": "f99dc4c467568d0fb01d6b076af36ed5add935e2593adf60e33611ebdd5f363d",
+  "time_ao.dat": "7e1755bb794d84bb7e585d556dcf46fffde159ea5d7f9543cd54e7fcb55bf86d",
+  "time_gbt.dat": "060493be69cd421ce383a91631f089c22e8ed58fb322fdd9f1c4ed3ff2d2797b",
+  "time_vla.dat": "33075c55c6f78cd42f4cc43c773d3fc870d696f499ed72b1e5af540daef70bf7"
+ }
+}
