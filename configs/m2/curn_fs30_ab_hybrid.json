@@ -1,0 +1,30 @@
+{
+ "model": {
+  "orf": "curn",
+  "common": "freespec",
+  "n_common": 30,
+  "position": "enterprise"
+ },
+ "sampler": "nuts",
+ "num_chains": 8,
+ "num_warmup": 150,
+ "num_samples": 1500,
+ "block": 250,
+ "seed": 41,
+ "init": "run:curn_fs30",
+ "init_rho_low_frac": 0.3,
+ "metric": "run:curn_fs30",
+ "dense_mass": true,
+ "adapt_mass_matrix": false,
+ "step_size": 0.02,
+ "adapt_step_size": true,
+ "target_accept": 0.8,
+ "max_tree_depth": 10,
+ "chain_method": "vectorized",
+ "likelihood_impl": "fast",
+ "progress_bar": true,
+ "name": "curn_fs30_ab_hybrid",
+ "jumps": "configs/m2/proposals/curn_fs30_v1.json",
+ "jump_sweeps": 1,
+ "notes": "CURN^free screening A/B (docs/FS_PILOT.md Sec. 7), matched arms (same seed, init, metric, warmup): 8 vectorised chains started at seed-41 draws of curn_fs30 with each bin independently moved to the low region [-15, -10] with probability 0.3 (diverse region starts), fixed dense curn_fs30 metric, step-size adaptation for 150 iterations starting at the measured workable 0.02 (curn_fs30 adapted 0.021-0.024), 1500 draws. Stop rule (fixed before launch): abort an arm whose warmup exceeds 15 min or whose projected total exceeds 40 min. Arm B: NUTS + one block-MH sweep per iteration (30 bins + 6 IRN pairs; proposals frozen in configs/m2/proposals/curn_fs30_v1.json, fitted from curn_fs30 only)."
+}

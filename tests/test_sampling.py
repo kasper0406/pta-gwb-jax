@@ -151,3 +151,61 @@ def test_mcse_quantile_calibrated():
     assert 0.8 < np.std(meds) / np.mean(ses) < 1.25
     s = summarize(rng.normal(size=(4, 1000)))
     assert {"q05", "q50", "q95", "q50_mcse", "rhat", "ess_bulk", "ess_tail"} <= set(s)
+
+
+def test_run_config_likelihood_impl_default_and_validation():
+    from ptagwb.config import REPO_ROOT
+    from ptagwb.sampling import RunConfig
+
+    cfg = RunConfig.from_json(REPO_ROOT / "configs/m2/hd_fs30_v2.json")
+    assert cfg.likelihood_impl == "production"  # default unchanged for existing configs
+    assert RunConfig(name="t", model={}, likelihood_impl="fast").likelihood_impl == "fast"
+    with pytest.raises(ValueError, match="likelihood_impl"):
+        RunConfig(name="t", model={}, likelihood_impl="bogus")
+
+
+@pytest.mark.parametrize("common,nc,gp", [("freespec", 8, "mixed"), ("powerlaw", 5, "float64")])
+def test_make_likelihood_fast_matches_production(common, nc, gp):
+    """``likelihood_impl="fast"`` gives a FastPTALikelihood whose posterior potential and gradient
+    agree with production (budgets as tests/test_perf_likelihood.py: 2e-9 abs, 1e-8 rel; mixed
+    precision only perturbs the gradient, so its budget is looser there)."""
+    from synthetic import make_pta, tspan
+
+    from ptagwb.likelihood import PTALikelihood, precompute
+    from ptagwb.perf_likelihood import FastPTALikelihood
+    from ptagwb.sampling import make_likelihood
+
+    psrs, nd = make_pta(4, seed=3, n_epochs=40, signal=3e-7)
+    T = tspan(psrs)
+    terms = precompute(psrs, nd, T, n_modes=10)
+    spec = ModelSpec(orf="hd", common=common, n_common=nc, n_modes=10, grad_precision=gp)
+    prod, fast = make_likelihood(terms, T, spec), make_likelihood(terms, T, spec, "fast")
+    assert type(prod) is PTALikelihood and isinstance(fast, FastPTALikelihood)
+    assert (fast.reduce_name, fast.tri_inv) == ("hh", "levels")
+    with pytest.raises(ValueError, match="likelihood_impl"):
+        make_likelihood(terms, T, spec, "bogus")
+    pp, pf = Posterior(prod, spec), Posterior(fast, spec)
+    vg_p, vg_f = jax.jit(jax.value_and_grad(pp.potential_fn)), jax.jit(jax.value_and_grad(pf.potential_fn))
+    rng = np.random.default_rng(0)
+    for z in rng.uniform(-2, 2, (4, pp.transform.dim)):
+        v0, g0 = vg_p(jnp.asarray(z))
+        v1, g1 = vg_f(jnp.asarray(z))
+        assert abs(float(v0) - float(v1)) <= 2e-9
+        tol = 1e-8 if gp == "float64" else 1e-4
+        assert float(jnp.max(jnp.abs(g0 - g1))) <= tol * max(1.0, float(jnp.max(jnp.abs(g0))))
+
+
+def test_run_nuts_fixed_step_size(tmp_path, monkeypatch):
+    """``adapt_step_size=False`` keeps the configured step size (defaults keep numpyro's)."""
+    from ptagwb import sampling
+    from ptagwb.sampling import RunConfig, run_nuts
+
+    assert (RunConfig(name="t", model={}).step_size, RunConfig(name="t", model={}).adapt_step_size) == (1.0, True)
+    monkeypatch.setattr(sampling, "RUNS_DIR", tmp_path)
+    tr = _box(2)
+    post = Posterior.generic(tr, lambda x: -0.5 * jnp.sum(((x - tr.lo - 0.5 * (tr.hi - tr.lo)) / (0.1 * (tr.hi - tr.lo))) ** 2))
+    cfg = RunConfig(name="fixed", model={}, num_chains=2, num_warmup=5, num_samples=10, block=10, dense_mass=False,
+                    adapt_mass_matrix=False, step_size=0.123, adapt_step_size=False)
+    run_nuts(cfg, post, log=lambda s: None)
+    r = np.load(tmp_path / "fixed" / "samples.npz")
+    np.testing.assert_allclose(r["step_size"], 0.123)

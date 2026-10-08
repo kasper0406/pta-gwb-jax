@@ -1,0 +1,29 @@
+{
+ "name": "hd_fs30_v2_pilotE",
+ "model": {
+  "orf": "hd",
+  "common": "freespec",
+  "n_common": 30,
+  "position": "enterprise",
+  "grad_precision": "mixed"
+ },
+ "sampler": "nuts",
+ "num_chains": 8,
+ "num_warmup": 1,
+ "num_samples": 100,
+ "block": 25,
+ "seed": 31,
+ "init": "run:hd_fs30",
+ "init_radius": 4.0,
+ "metric": "run:hd_fs30",
+ "dense_mass": true,
+ "adapt_mass_matrix": false,
+ "target_accept": 0.8,
+ "max_tree_depth": 10,
+ "chain_method": "vectorized",
+ "notes": "PILOT E (docs/FS_PILOT.md): post-warmup mixing only. Pilots A-D were aborted under their pre-set rules because the warmup itself (step-size dual averaging; A/B also metric adaptation from the overdispersed init) drives at least one of the 8 lockstep chains to tree depth 10 (1023 steps, 164 s per 8-chain iteration) in most iterations after the first ~8, with unit, diagonal or dense metric alike. E skips adaptation: 8 chains from 8 random draws of the M2 run hd_fs30 (seed 31), fixed dense metric = hd_fs30's pooled z-covariance, FIXED step size 0.025 (M2 hd_fs30 adapted 0.026-0.030 with a similar dense metric), 1 non-adapting warmup iteration, 100 draws. Same model, fast exact likelihood, target tree depth. NOT independent of hd_fs30; measures 8-chain transition rates, ESS per gradient and IRN behaviour in the regime v2 would reach after a successful warmup (with a dense rather than diagonal metric). Stop rule (fixed before launch): stop at the last 25-draw checkpoint ending before 12:30 UTC on 2026-10-08 (~2 h total pilot GPU time A-E).",
+ "likelihood_impl": "fast",
+ "progress_bar": true,
+ "step_size": 0.025,
+ "adapt_step_size": false
+}

@@ -204,6 +204,7 @@ class Posterior:
         def logpost_z(z):
             return logL_x(tr.to_constrained(z)) + tr.log_jacobian(z) - tr.log_volume
 
+        self.logL_x_raw = logL_x
         self.logL_x = jax.jit(logL_x)
         self.logL_x_batched = jax.jit(jax.vmap(logL_x))
         self.logpost_z = logpost_z
@@ -233,6 +234,23 @@ class Posterior:
 
 # ---------------------------------------------------------------------- run driver
 
+LIKELIHOOD_IMPLS = ("production", "fast")
+
+
+def make_likelihood(terms, T, spec: ModelSpec, impl: str = "production"):
+    """The likelihood object for ``spec`` (``RunConfig.likelihood_impl``)."""
+    kw = {"n_modes": spec.n_modes, "n_common": spec.n_common, "orf": spec.orf, "common": spec.common, "grad_precision": spec.grad_precision}
+    if impl == "production":
+        from .likelihood import PTALikelihood
+
+        return PTALikelihood(terms, T, **kw)
+    if impl == "fast":
+        from .perf_likelihood import FastPTALikelihood
+
+        return FastPTALikelihood(terms, T, reduce="hh", tri_inv="levels", **kw)
+    raise ValueError(f"unknown likelihood_impl {impl!r}; one of {LIKELIHOOD_IMPLS}")
+
+
 
 @dataclass
 class RunConfig:
@@ -254,11 +272,31 @@ class RunConfig:
     # (parameters missing there get unit variance), optionally further adapted.
     metric: str = "adapt"
     adapt_mass_matrix: bool = True
+    # initial NUTS step size and whether warmup adapts it (numpyro defaults: 1.0, True). With
+    # adapt_step_size=False the given step size is used throughout (e.g. a value adapted earlier).
+    step_size: float = 1.0
+    adapt_step_size: bool = True
+    # exact hybrid kernel (``hybrid.HybridNUTS``): path (relative to the repo) of a frozen block
+    # proposal file (scripts/fs_fit_proposals.py); "" = plain NUTS. ``jump_sweeps`` block-MH sweeps
+    # follow every NUTS transition (warmup included).
+    jumps: str = ""
+    jump_sweeps: int = 1
+    # init "run:<name>" only: each free-spectrum bin of each chain is independently moved, with this
+    # probability, to a uniform draw in [lo + 0.5, -10] (deliberately diverse region starts)
+    init_rho_low_frac: float = 0.0
     progress_bar: bool = False
     # sampler backend; only "nuts" (numpyro) is implemented. The model/init/chain/draw fields above
     # are backend-independent; target_accept, max_tree_depth, dense_mass, metric are NUTS-specific.
     sampler: str = "nuts"
+    # likelihood implementation: "production" (``likelihood.PTALikelihood``, default) or "fast"
+    # (opt-in ``perf_likelihood.FastPTALikelihood(reduce="hh", tri_inv="levels")``: same
+    # quantities, exact within the budgets of tests/test_perf_likelihood.py; docs/PERF.md).
+    likelihood_impl: str = "production"
     notes: str = ""
+
+    def __post_init__(self):
+        if self.likelihood_impl not in LIKELIHOOD_IMPLS:
+            raise ValueError(f"unknown likelihood_impl {self.likelihood_impl!r}; one of {LIKELIHOOD_IMPLS}")
 
     @classmethod
     def from_json(cls, path: str | Path) -> RunConfig:
@@ -318,6 +356,14 @@ def _init_points(cfg: RunConfig, post: Posterior, rng: np.random.Generator):
                     z0[c, j] = np.log(u) - np.log1p(-u)
                 else:
                     z0[c, j] = rng.uniform(-cfg.init_radius, cfg.init_radius)
+        if cfg.init_rho_low_frac > 0:
+            for j, n in enumerate(names):
+                if n.startswith("gw_log10_rho_"):
+                    lo, hi = post.transform.lo[j], post.transform.hi[j]
+                    for c in range(C):
+                        if rng.uniform() < cfg.init_rho_low_frac:
+                            u = (rng.uniform(lo + 0.5, -10.0) - lo) / (hi - lo)
+                            z0[c, j] = np.log(u) - np.log1p(-u)
         return z0
     raise ValueError(f"unknown init {cfg.init!r}")
 
@@ -376,15 +422,24 @@ def run_nuts(cfg: RunConfig, post: Posterior, log=print) -> Path:
         np.save(out / "initial_inverse_mass_matrix.npy", imm0)
     elif cfg.metric != "adapt":
         raise ValueError(f"unknown metric {cfg.metric!r}")
-    kernel = NUTS(
-        potential_fn=post.potential_fn,
+    nuts_kw = dict(
         dense_mass=cfg.dense_mass,
         target_accept_prob=cfg.target_accept,
         max_tree_depth=cfg.max_tree_depth,
         adapt_mass_matrix=cfg.adapt_mass_matrix,
+        step_size=cfg.step_size,
+        adapt_step_size=cfg.adapt_step_size,
         **kw,
     )
     fields = ("potential_energy", "diverging", "num_steps", "accept_prob")
+    if cfg.jumps:
+        from .hybrid import BlockProposals, HybridNUTS
+
+        prop = BlockProposals.from_json(cfg.jumps, post.names)
+        kernel = HybridNUTS(post, prop, sweeps=cfg.jump_sweeps, **nuts_kw)
+        fields = fields + ("trajectory_length",)  # per-block accepted jumps (see hybrid.py)
+    else:
+        kernel = NUTS(potential_fn=post.potential_fn, **nuts_kw)
     mcmc = MCMC(
         kernel,
         num_warmup=cfg.num_warmup,
@@ -409,8 +464,11 @@ def run_nuts(cfg: RunConfig, post: Posterior, log=print) -> Path:
                 ("n_modes", "n_modes"),
                 ("convention", "convention"),
                 ("grad_precision", "grad_precision"),
+                ("reduce", "reduce_name"),
+                ("tri_inv", "tri_inv"),
             )
-        },
+        }
+        | {"class": type(post.like).__name__ if post.like is not None else None},
         "host": os.uname().nodename,
         "jax": jax.__version__,
         "backend": jax.default_backend(),
@@ -441,6 +499,9 @@ def run_nuts(cfg: RunConfig, post: Posterior, log=print) -> Path:
         warmup_divergences=int(np.sum(np.asarray(wx["diverging"]))),
         step_size=step_size.tolist(),
     )
+    if cfg.jumps:
+        wa = np.asarray(wx["trajectory_length"])
+        meta.update(warmup_jump_accept_rate=(wa.reshape(-1, wa.shape[-1]).mean(axis=0) / cfg.jump_sweeps).tolist())
     log(f"[{cfg.name}] warmup done in {t_warm:.0f} s, {warm_steps} grad evals, step sizes {np.round(step_size, 4)}")
 
     chunks: dict[str, list] = {k: [] for k in ("z",) + fields}
@@ -457,7 +518,7 @@ def run_nuts(cfg: RunConfig, post: Posterior, log=print) -> Path:
         chunks["z"].append(z)
         for k in fields:
             a = np.asarray(ex[k])
-            chunks[k].append(a if a.ndim == 2 else a[None])
+            chunks[k].append(a if a.ndim == (3 if k == "trajectory_length" else 2) else a[None])
         n_done += z.shape[1]
         samp_steps += int(np.sum(chunks["num_steps"][-1]))
         _save(out, chunks, post, meta, step_size, imm, t_samp, samp_steps, n_done)
@@ -491,6 +552,7 @@ def _save(out, chunks, post, meta, step_size, imm, t_samp, samp_steps, n_done):
         accept_prob=np.concatenate(chunks["accept_prob"], axis=1),
         step_size=step_size,
         inverse_mass_matrix=imm,
+        **({"jump_accept": np.concatenate(chunks["trajectory_length"], axis=1)} if "trajectory_length" in chunks else {}),
     )
     os.replace(out / "samples.tmp.npz", out / "samples.npz")
     meta.update(sampling_seconds=t_samp, sampling_grad_evals=samp_steps, n_samples_per_chain=n_done)

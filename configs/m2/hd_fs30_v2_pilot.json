@@ -1,0 +1,27 @@
+{
+ "name": "hd_fs30_v2_pilot",
+ "model": {
+  "orf": "hd",
+  "common": "freespec",
+  "n_common": 30,
+  "position": "enterprise",
+  "grad_precision": "mixed"
+ },
+ "sampler": "nuts",
+ "num_chains": 8,
+ "num_warmup": 100,
+ "num_samples": 75,
+ "block": 25,
+ "seed": 31,
+ "init": "prior",
+ "init_radius": 4.0,
+ "metric": "adapt",
+ "dense_mass": false,
+ "adapt_mass_matrix": true,
+ "target_accept": 0.8,
+ "max_tree_depth": 10,
+ "chain_method": "vectorized",
+ "notes": "PILOT for hd_fs30_v2 (~2 GPU-hours, docs/FS_PILOT.md). Same model, init (z ~ U(-4,4), seed 31, nothing from other runs), diagonal windowed adaptation, target_accept, tree depth and 8 vectorised chains as hd_fs30_v2; only the length differs, plus the opt-in exact FastPTALikelihood (likelihood_impl=fast) and a progress bar for monitoring. Sizing (measured before launch, RTX 5090): value+grad of the HD^free(30) potential, mixed-precision backward, B=8 vmapped = 159.5 ms per call (19.9 ms per chain; production 166.2 ms), so one 8-chain leapfrog step ~0.16 s; with lockstep tree lengths ~255-400 steps per iteration (curn_fs30: 213 mean / 267 lockstep-max of 4 chains per draw, 259 per warmup iteration) this is ~40-65 s per iteration, i.e. ~110-180 iterations in 2 h. 300 warmup + 250 draws would take ~6-8 h. numpyro schedule for 100 warmup: 15 initial buffer, one 75-iteration metric window, 10 terminal. Abort rule (fixed before launch): stop if warmup alone projects > 1.75 h; after warmup, stop at the last 25-draw checkpoint that ends before 2.5 h total wall time. Not a reproduction run: the freespec gate is expected to fail at this length.",
+ "likelihood_impl": "fast",
+ "progress_bar": true
+}

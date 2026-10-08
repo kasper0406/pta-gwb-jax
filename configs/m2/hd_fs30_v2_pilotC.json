@@ -1,0 +1,27 @@
+{
+ "name": "hd_fs30_v2_pilotC",
+ "model": {
+  "orf": "hd",
+  "common": "freespec",
+  "n_common": 30,
+  "position": "enterprise",
+  "grad_precision": "mixed"
+ },
+ "sampler": "nuts",
+ "num_chains": 8,
+ "num_warmup": 30,
+ "num_samples": 100,
+ "block": 25,
+ "seed": 31,
+ "init": "run:hd_fs30",
+ "init_radius": 4.0,
+ "metric": "run:hd_fs30",
+ "dense_mass": false,
+ "adapt_mass_matrix": false,
+ "target_accept": 0.8,
+ "max_tree_depth": 10,
+ "chain_method": "vectorized",
+ "notes": "PILOT C (docs/FS_PILOT.md): post-warmup mixing at v2-like settings without the v2 warmup. Pilots A (exact v2 recipe) and B (v2 + initial diagonal metric from hd_fs30) were both aborted under their pre-set rules: from warmup iteration ~8 on at least one of the 8 chains hits tree depth 10 (1023 steps, 164 s per 8-chain iteration) in nearly every iteration, projecting 3-4 h for 75-100 warmup iterations. Pilot C measures what v2 would see AFTER a long warmup: 8 vectorised chains started from 8 random draws of the M2 run hd_fs30, FIXED diagonal metric = diagonal of hd_fs30's pooled z-covariance (v2 adapts a diagonal metric), 30 step-size-only warmup iterations, 100 draws. Same model, likelihood (fast, exact), target_accept, tree depth. NOT independent of hd_fs30 (init and metric); its purpose is transition rates between the low-power and signal regions, ESS per gradient and IRN behaviour with 8 chains and a diagonal metric. Abort rule (fixed before launch): abort if the 30 warmup iterations take > 25 min; stop at the last 25-draw checkpoint ending before 12:53 UTC on 2026-10-08 (2.5 h of total pilot GPU time A + B + C).",
+ "likelihood_impl": "fast",
+ "progress_bar": true
+}

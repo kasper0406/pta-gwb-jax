@@ -1,0 +1,27 @@
+{
+ "name": "hd_fs30_v2_pilotD",
+ "model": {
+  "orf": "hd",
+  "common": "freespec",
+  "n_common": 30,
+  "position": "enterprise",
+  "grad_precision": "mixed"
+ },
+ "sampler": "nuts",
+ "num_chains": 8,
+ "num_warmup": 30,
+ "num_samples": 75,
+ "block": 25,
+ "seed": 31,
+ "init": "run:hd_fs30",
+ "init_radius": 4.0,
+ "metric": "run:hd_fs30",
+ "dense_mass": true,
+ "adapt_mass_matrix": false,
+ "target_accept": 0.8,
+ "max_tree_depth": 10,
+ "chain_method": "vectorized",
+ "notes": "PILOT D (docs/FS_PILOT.md): identical to pilot C (same 8 initial points = seed-31 draws of hd_fs30, same 30-iteration step-size-only warmup, 8 vectorised chains, fast exact likelihood) except the fixed metric is DENSE (hd_fs30's pooled z-covariance, as the M2 HD runs) instead of its diagonal. Pilot C (diagonal) was aborted under its rule: its warmup iterations 4-13 cost 255-1023 lockstep leapfrog steps (41-164 s each), projecting ~42 min for 30 warmup iterations. D measures the diagonal-vs-dense cost directly and, if it fits, post-warmup transition rates and ESS per gradient with 8 chains. NOT independent of hd_fs30. Abort rule (fixed before launch): abort if the 30 warmup iterations take > 20 min; stop at the last 25-draw checkpoint ending before 12:53 UTC on 2026-10-08 (2.5 h total pilot GPU time).",
+ "likelihood_impl": "fast",
+ "progress_bar": true
+}

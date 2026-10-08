@@ -1,0 +1,31 @@
+{
+ "name": "hd_fs30_hybrid_pilot",
+ "model": {
+  "orf": "hd",
+  "common": "freespec",
+  "n_common": 30,
+  "position": "enterprise",
+  "grad_precision": "mixed"
+ },
+ "sampler": "nuts",
+ "num_chains": 8,
+ "num_warmup": 1,
+ "num_samples": 100,
+ "block": 25,
+ "seed": 31,
+ "init": "run:hd_fs30",
+ "init_radius": 4.0,
+ "metric": "run:hd_fs30",
+ "dense_mass": true,
+ "adapt_mass_matrix": false,
+ "target_accept": 0.8,
+ "max_tree_depth": 10,
+ "chain_method": "vectorized",
+ "notes": "HD^free hybrid pilot (docs/FS_PILOT.md Sec. 7): pilot E (same seed-31 starts at hd_fs30 draws, fixed dense hd_fs30 metric, fixed step size 0.025, 1 non-adapting warmup iteration, 8 vectorised chains, fast exact likelihood) plus one block-MH sweep per iteration (30 bins + 6 IRN pairs, proposals frozen in configs/m2/proposals/hd_fs30_v1.json, fitted from hd_fs30 + hd_fs30_v2_pilotE draws, never the released chain). 100 draws. Stop rule (fixed before launch): stop at the last 25-draw checkpoint ending before 2 h of wall time after launch.",
+ "likelihood_impl": "fast",
+ "progress_bar": true,
+ "step_size": 0.025,
+ "adapt_step_size": false,
+ "jumps": "configs/m2/proposals/hd_fs30_v1.json",
+ "jump_sweeps": 1
+}
