@@ -5,7 +5,8 @@ Why
 In the HD/CURN free-spectrum posteriors several bins (and some IRN amplitudes) have a narrow
 likelihood peak and a broad prior-dominated shelf (docs/FS_PILOT.md). NUTS moves between the two
 only rarely. An independence proposal for one block (one bin, or one pulsar's IRN (log10_A,
-gamma) pair), drawn from a frozen continuous density with full prior support, can jump straight
+gamma) pair), drawn from a frozen continuous density covering the prior box (each uniform component
+trimmed by a relative 1e-12 at its ends; see _trim), can jump straight
 between the regions.
 
 Kernel
@@ -26,7 +27,9 @@ Proposal q_b (frozen before any measurement, fitted from pilot draws by
 ``scripts/fs_fit_proposals.py``): mixture of w_prior x uniform on the block's prior box and
 (1 - w_prior) x an equal-mass histogram of the pilot draws (1-D: K quantile bins; 2-D: K_a
 quantile bins of the first coordinate, each split into K_b conditional quantile bins of the
-second, uniform within cells). Continuous, full support, exact density.
+second, uniform within cells). Continuous, exact density; the support is the prior box minus
+relative 1e-12 trims at the component ends (outside it the independence move rejects, which leaves
+the composite kernel exact; NUTS provides the movement there).
 
 Bookkeeping: the number of accepted block moves of the iteration is stored in the
 ``trajectory_length`` field of numpyro's HMCState (unused by NUTS, passed through unchanged), as a
@@ -444,6 +447,11 @@ def make_grid_moves(posterior, bins, n_coarse: int = 48, n_fine: int = 32, half_
             r = rows[0]
             comp.append((jnp.asarray([ja, jb]), jnp.asarray(proposals.edges2a[r]), jnp.asarray(proposals.edges2b[r]),
                          jnp.asarray(proposals.lo2[r]), jnp.asarray(proposals.hi2[r])))
+        used = [j] + [int(v) for c_ in comp for v in np.asarray(c_[0])]
+        if len(set(used)) != len(used):
+            # a repeated companion would be drawn twice (the second draw overwriting the first) while the
+            # proposal ratio counted both: not the proposal density of the final state
+            raise ValueError(f"repeated companion parameters in the joint move of bin {k}")
         parts.append((j, build, jax.vmap(cond, in_axes=(None, 0)), lo + dl, hi - dl, comp))
     wq2 = proposals.w_prior if proposals is not None else 0.2
 

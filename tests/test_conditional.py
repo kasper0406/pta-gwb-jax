@@ -192,14 +192,11 @@ def test_hybrid_nuts_with_grid_moves_runs(like, tmp_path, monkeypatch):
     assert np.all(np.isfinite(r["x"]))
 
 
-@pytest.mark.slow  # ~1e6 likelihood evaluations for the exact 3-D reference
-def test_companion_grid_move_leaves_joint_conditional_invariant(like):
-    """Joint move of rho_k and one pulsar's IRN (log10_A, gamma): draws from the joint conditional
-    (fine 3-D grid of the production likelihood, cell-uniform jitter) stay distributed as before
-    (marginal KS); dropping the companion proposal ratio is detected."""
-    from scipy import stats
-
-    from ptagwb.hybrid import fit_proposals, make_grid_moves
+@pytest.fixture(scope="module")
+def joint_ref(like):
+    """Draws from the joint conditional of (rho_k, one pulsar's IRN pair) given the rest (fine 3-D grid
+    of the production likelihood, cell-uniform jitter), the grid marginals, and a frozen 2-D proposal."""
+    from ptagwb.hybrid import fit_proposals
     from ptagwb.sampling import ModelSpec, Posterior, build_transform
 
     spec = ModelSpec(orf="hd", common="freespec", n_common=NC, n_modes=NM)
@@ -230,12 +227,66 @@ def test_companion_grid_move_leaves_joint_conditional_invariant(like):
     fitX[:, ja], fitX[:, jg] = rng.normal(-14, 1.0, 3000).clip(-19.9, -11.1), rng.uniform(0.5, 6.5, 3000)
     prop = fit_proposals(fitX, list(tr.names), tr.lo, tr.hi, [], [(tr.names[ja], tr.names[jg])], k2a=6, k2b=5)
     psr = tr.names[ja][: -len("_red_noise_log10_A")]
-    keys = jax.random.split(jax.random.PRNGKey(3), n)
+    pmar = pr.reshape(len(cr), len(cA), len(cG))
+    margs = ((jr, gr, pmar.sum((1, 2))), (ja, gA, pmar.sum((0, 2))), (jg, gG, pmar.sum((0, 1))))
+    return post, k, psr, prop, Xd, lld, margs
+
+
+def _joint_ks(x1, margs):
+    from scipy import stats
+
+    out = []
+    for jcol, gg, m in margs:
+        cdf = np.concatenate([[0.0], np.cumsum(m)])
+        out.append(stats.kstest(x1[:, jcol], lambda t, gg=gg, cdf=cdf: np.interp(t, gg, cdf)).pvalue)
+    return out
+
+
+@pytest.mark.slow  # ~1e6 likelihood evaluations for the 3-D reference (shared by the next test)
+def test_companion_grid_move_leaves_joint_conditional_invariant(joint_ref):
+    """Joint move of rho_k and one pulsar's IRN (log10_A, gamma): draws from the joint conditional
+    stay distributed as before (marginal KS against the discretised reference)."""
+    from ptagwb.hybrid import make_grid_moves
+
+    post, k, psr, prop, Xd, lld, margs = joint_ref
+    keys = jax.random.split(jax.random.PRNGKey(3), len(Xd))
     mv = jax.jit(jax.vmap(make_grid_moves(post, [k], companions={k: [psr]}, proposals=prop)))
     x1, _, acc = mv(keys, jnp.asarray(Xd), lld)
-    x1 = np.asarray(x1)
     assert 0.05 < float(np.mean(acc)) < 0.98
-    pmar = pr.reshape(len(cr), len(cA), len(cG))
-    for jcol, gg, m in ((jr, gr, pmar.sum((1, 2))), (ja, gA, pmar.sum((0, 2))), (jg, gG, pmar.sum((0, 1)))):
-        cdf = np.concatenate([[0.0], np.cumsum(m)])
-        assert stats.kstest(x1[:, jcol], lambda t, gg=gg, cdf=cdf: np.interp(t, gg, cdf)).pvalue > 1e-3, jcol
+    assert min(_joint_ks(np.asarray(x1), margs)) > 1e-3
+
+
+@pytest.mark.slow
+def test_companion_ratio_negative_control(joint_ref, monkeypatch):
+    """Negative control: with the companion proposal density replaced by a constant (i.e. the
+    companion ratio q2(c) / q2(c') dropped from the acceptance; the companion draws are unchanged),
+    the same test detects the bias."""
+    from ptagwb import hybrid
+
+    post, k, psr, prop, Xd, lld, margs = joint_ref
+    monkeypatch.setattr(hybrid, "log_q2", lambda *a, **kw: jnp.zeros(()))
+    mv = jax.jit(jax.vmap(hybrid.make_grid_moves(post, [k], companions={k: [psr]}, proposals=prop)))
+    x1, l1 = jnp.asarray(Xd), lld
+    for r_ in range(3):
+        x1, l1, _ = mv(jax.random.split(jax.random.PRNGKey(20 + r_), len(Xd)), x1, l1)
+    assert min(_joint_ks(np.asarray(x1), margs)) < 1e-6
+
+
+def test_repeated_companions_rejected(like):
+    """A companion listed twice (or overlapping the bin) is rejected; repeating a bin as separate
+    sequential moves stays allowed."""
+    from ptagwb.hybrid import fit_proposals, make_grid_moves
+    from ptagwb.sampling import ModelSpec, Posterior, build_transform
+
+    spec = ModelSpec(orf="hd", common="freespec", n_common=NC, n_modes=NM)
+    post = Posterior(like, spec)
+    tr = build_transform(spec, like.names)
+    rng = np.random.default_rng(0)
+    X = tr.lo + (tr.hi - tr.lo) * rng.uniform(0.2, 0.8, (400, tr.dim))
+    pairs = [(tr.names[a], tr.names[like.P + a]) for a in (0, 1)]
+    prop = fit_proposals(X, list(tr.names), tr.lo, tr.hi, [], pairs, k2a=4, k2b=3)
+    p0, p1 = (n[: -len("_red_noise_log10_A")] for n, _ in pairs)
+    with pytest.raises(ValueError, match="repeated companion"):
+        make_grid_moves(post, [2], companions={2: [p0, p0]}, proposals=prop)
+    make_grid_moves(post, [2], companions={2: [p0, p1]}, proposals=prop)  # distinct: fine
+    make_grid_moves(post, [2, 2, 3], companions={2: [p0]}, proposals=prop)  # repeated bin moves: fine

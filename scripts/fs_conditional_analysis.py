@@ -5,7 +5,7 @@
 
 P(log10_rho_k < -10 | all other parameters) is computed by quadrature of the exact conditional
 (``ptagwb.conditional``; uniform prior on [-15.5, -1]) on a uniform grid (``--n-grid``, checked against
-4x refinement). States are saved draws of ``--run`` at fixed indices (chain c, draw n listed in the
+4x refinement; the threshold -10 is a grid node shared by the two integration pieces). States are saved draws of ``--run`` at fixed indices (chain c, draw n listed in the
 output). Controlled coordinate changes: at the state with the largest conditional low mass S* and at
 reference states T (the three states with median conditional mass), every other group (one bin, or
 one pulsar's IRN (log10_A, gamma) pair) is swapped between S* and T, one at a time, and the change
@@ -44,14 +44,23 @@ def setup(k):
 
 
 def p_low(cache, condv, n_grid):
-    g = np.linspace(LO, HI, n_grid)
-    ll = np.asarray(condv(cache, jnp.asarray(g)))
-    w = np.full(n_grid, g[1] - g[0])
-    w[[0, -1]] *= 0.5
-    lw = ll + np.log(w)
-    lw -= lw.max()
-    p = np.exp(lw)
-    return float(p[g < LOWCUT].sum() / p.sum())
+    """P(log10_rho_k < LOWCUT | rest): trapezoid quadrature of the conditional on two uniform grids
+    that share the node LOWCUT exactly ([LO, LOWCUT] and [LOWCUT, HI], ~n_grid nodes in total), so the
+    threshold is integrated as an explicit boundary (no node-selection error at the cut)."""
+    n1 = max(3, round(n_grid * (LOWCUT - LO) / (HI - LO)))
+    n2 = max(3, n_grid - n1 + 1)
+    g1, g2 = np.linspace(LO, LOWCUT, n1), np.linspace(LOWCUT, HI, n2)
+    ll = np.asarray(condv(cache, jnp.asarray(np.concatenate([g1, g2]))))
+    l1, l2 = ll[:n1], ll[n1:]
+    m = max(l1.max(), l2.max())
+
+    def trap(g, lv):
+        w = np.full(len(g), g[1] - g[0])
+        w[[0, -1]] *= 0.5
+        return float(np.sum(w * np.exp(lv - m)))
+
+    a, b = trap(g1, l1), trap(g2, l2)
+    return a / (a + b)
 
 
 def logodds(p):
@@ -98,11 +107,20 @@ def main():
     ap.add_argument("--n-grid", type=int, default=241)
     ap.add_argument("--validate", action="store_true")
     ap.add_argument("--top", type=int, default=12)
+    ap.add_argument("--at", default="", help="only print P(low | rest) (and 4x-refined) at run:chain:draw[,...]")
     args = ap.parse_args()
     k = args.bin
     spec, like, build, condv = setup(k)
     if args.validate:
         save_json(validate(spec, like), ROOT / "outputs" / "m2" / "fs_conditional_validate.json")
+        return
+    if args.at:
+        for item in args.at.split(","):
+            run, c, n = item.split(":")
+            x = load_run(run)["x"][int(c), int(n)]
+            cache = build(unpack(jnp.asarray(x), spec, like.P))
+            print(f"{run} chain {c} draw {n}: P(f_{k + 1} < {LOWCUT} | rest) = {p_low(cache, condv, args.n_grid):.9f} "
+                  f"(4x refined {p_low(cache, condv, 4 * args.n_grid - 3):.9f})", flush=True)
         return
     r = load_run(args.run)
     X, names = r["x"], r["names"]

@@ -285,8 +285,8 @@ class RunConfig:
     # (0-based), after the block sweep; ``grid_kw``: n_coarse, n_fine, half_width, w_uniform.
     grid_bins: list = field(default_factory=list)
     grid_kw: dict = field(default_factory=dict)
-    # hard cap on the sampling phase: stop after the first checkpoint block that ends beyond it
-    # (0 = none); the run then holds fewer than num_samples draws (meta: stopped_by_cap)
+    # sampling-time cap, checked BETWEEN checkpoint blocks (not a hard cap: the block running when
+    # it is reached completes); 0 = none. The run then holds fewer draws (meta: stopped_by_cap)
     max_sampling_seconds: float = 0.0
     # init "run:<name>" only: each free-spectrum bin of each chain is independently moved, with this
     # probability, to a uniform draw in [lo + 0.5, -10] (deliberately diverse region starts)

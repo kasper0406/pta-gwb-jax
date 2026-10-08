@@ -3,9 +3,8 @@
 **Status (revised after two rounds of independent review, 4b63e38 and d6e5c4c).** Scope of the
 claims: the headline power-law posteriors and the optimal statistic are reproduced, and the HD vs
 CURN Bayes factors are reproduced *provisionally* (estimator spread larger than the conditional
-bootstrap error, Sec. 6). **The HD free-spectrum (Fig. 1a) reproduction is INCOMPLETE /
-PRELIMINARY** (chains not converged, Sec. 10; re-run and an enforced acceptance gate prepared,
-not yet run). The free spectrum is not the only shortfall: **no run is fully convergence-certified**
+bootstrap error, Sec. 6). **HD free spectrum: Fig. 1a partially reproduced: principal peak locations agree; tail occupancies and full posterior convergence remain unestablished.** The campaign was closed on 2026-10-08 after three pilot rounds
+(docs/FS_PILOT.md); the chains are not converged and the fail-closed acceptance gate rejects every run (Sec. 10). The free spectrum is not the only shortfall: **no run is fully convergence-certified**
 against the paper's all-parameter R-hat < 1.01 criterion; several IRN nuisance parameters of the
 power-law runs have R-hat 1.01-1.03 (Sec. 4, Sec. 10 item 3). M2 is therefore not complete.
 
@@ -48,7 +47,7 @@ uncertainty; numbers with z use z = (ours - released) / sqrt(MCSE_ours^2 + MCSE_
 | CURN^13/3 log10 A | not quoted | -14.563 [-14.675, -14.480] (tutorial CURN^13/3-vs-HD^13/3 core, CURN samples) | -14.563 [-14.670, -14.474] | n/a (no positions) | agrees: z = (+0.7, -0.0, +1.4) |
 | CURN^gamma log10 A | not quoted (contours only) | -14.171 [-14.392, -13.977] (m2a) | -14.170 [-14.387, -13.966] | n/a | agrees: z = (+0.7, +0.1, +1.9) |
 | CURN^gamma gamma | not quoted | 3.351 [2.797, 3.877] (m2a) | 3.344 [2.784, 3.878] | n/a | agrees: z = (-0.9, -0.6, +0.1) |
-| HD^free (30 modes), Fig. 1a: **INCOMPLETE / PRELIMINARY** | excess power in bins 1-8 | released core (Fig. 1a) | bins f_1-f_3 and f_8 (log10 rho): -6.57, -6.82, -7.16, -7.58 vs released -6.57, -6.81, -7.15, -7.59; first 10 bins |z(50)| <= 1.6, KS D <= 0.047 (Fig. 1a) | not run | **not converged**: 36 parameters with R-hat > 1.01 (max 1.08), min bulk / tail ESS 31 / 19; 10 of 30 bins fail the mode-occupancy gate (e.g. f_8: chains spend 14/0/0/0% below -9 vs 6.0% released). Peaks/medians look similar but this does not validate the posterior |
+| HD^free (30 modes), Fig. 1a: **partially reproduced** (peak locations agree; tail occupancies and convergence unestablished) | excess power in bins 1-8 | released core (Fig. 1a) | bins f_1-f_3 and f_8 (log10 rho): -6.57, -6.82, -7.16, -7.58 vs released -6.57, -6.81, -7.15, -7.59; first 10 bins |z(50)| <= 1.6, KS D <= 0.047 (Fig. 1a) | not run | **not converged**: 36 parameters with R-hat > 1.01 (max 1.08), min bulk / tail ESS 31 / 19; 10 of 30 bins fail the mode-occupancy gate (e.g. f_8: chains spend 14/0/0/0% below -9 vs 6.0% released). Peaks/medians look similar but this does not validate the posterior |
 | BF HD^gamma / CURN^gamma, 14 modes | ~200; Fig. 2: 226 +- 70 (tutorial: hypermodel 202 +- 3, TI 198 +- 45) | - | **178** (bridge; conditional bootstrap sd 6.6, 3.5-8.7 over block lengths 1-300); reweighting 183, reverse reweighting 228 | 172 (ln BF -0.0125 +- 0.0005 vs enterprise positions) | compatible with 226 +- 70. Provisional: the spread between estimators (178-228) exceeds the bootstrap error and is itself not a calibrated interval (Sec. 6) |
 | BF HD^13/3 / CURN^13/3, 14 modes | "similar" | - | **212** (bridge; conditional bootstrap sd 7.6, up to 9.5 over block lengths); reweighting 225, reverse 214 | 236 vs 239 on the same draws (ln BF -0.011) | consistent with "similar" |
 | BF HD^gamma / CURN^gamma, 5 modes | ~1000; Fig. 2: 965 | - | **894** (bridge; conditional bootstrap sd 29, up to 34 over block lengths); reweighting 834, reverse 1081 | not computed | comparable to 965 (the paper quotes no error for the 5-mode value; no agreement claim) |
@@ -452,7 +451,7 @@ Pilots (CURN diagonal vs dense metric, HD step-size-only warmup) are described i
 
 ## 10. Deviations and open issues
 
-1. **HD^free: INCOMPLETE / PRELIMINARY.** The marginals of bins that are partly signal and
+1. **HD^free: Fig. 1a partially reproduced: principal peak locations agree; tail occupancies and full posterior convergence remain unestablished (campaign closed 2026-10-08, docs/FS_PILOT.md Sec. 15).** The marginals of bins that are partly signal and
    partly prior-dominated are bimodal ("power present" near log10 rho ~ -7.5 vs a low-power
    plateau down to the prior edge -15.5), and NUTS crosses between the two regions slowly.
    hd_fs30 (4 x 250 draws; initialised from draws of the unconverged curn_fs30 run, whose metric
@@ -469,8 +468,11 @@ Pilots (CURN diagonal vs dense metric, HD step-size-only warmup) are described i
    evidence" at f_3; exit status 1).
    The auxiliary CURN^free run shows the same behaviour (R-hat 1.15 at f_4, bulk ESS 20).
 
-   **Re-run prepared, then stopped by a pilot** (docs/FS_PILOT.md: v2-style warmup saturates the tree depth; plain NUTS
-   crosses the bins' low-power/signal regions rarely; an exact NUTS + block-MH hybrid kernel is the candidate):
+   **Re-run prepared, then stopped by pilots; campaign closed** (docs/FS_PILOT.md). The v2-style warmup saturated the
+   tree depth, and plain NUTS rarely crosses the bins' low-power / signal regions. An exact NUTS + block-MH hybrid kernel
+   fixed CURN^free (max R-hat 1.47 -> 1.007) but gave only ~2x on HD. Conditional-grid moves first reached f_3's
+   low-power region (2 entries / exits) without passing the gate. Lessons and open ideas are in FS_PILOT Sec. 15.
+   The original plan follows:
    `configs/m2/hd_fs30_v2.json`
    via `scripts/m2_rerun_fs30.sh`. 8 chains, 500 warmup + 750 draws each; **independent,
    overdispersed initialisation**: every coordinate z ~ U(-4, 4) in the unconstrained (logistic)

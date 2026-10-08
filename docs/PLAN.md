@@ -149,14 +149,14 @@ likelihood agrees with both to below 4e-7 absolute (`docs/M1_VALIDATION.md`).
 - *PTA likelihoods.* CURN (block-diagonal) and HD (dense 67 x 28 inter-pulsar block)
   on the GPU. Match discovery to float64 precision and the m2a chain `logl` (float32).
   Time per evaluation.
-- **M2 (in progress; HD^free INCOMPLETE / PRELIMINARY after review of 4b63e38; covers sampling
+- **M2 (in progress; HD^free closed 2026-10-08 as partially reproduced; covers sampling
   plus the BF/OS parts of M3 below)**: NumPyro NUTS
   for CURN^13/3, CURN^gamma (14 and 5 modes), HD^13/3, HD^gamma (14 and 5 modes, enterprise and
   ICRS positions) and HD^free (30 modes); HD vs CURN Bayes factors (reweighting, reverse
   reweighting, bridge); OS (fixed and noise-marginalised), pair-covariance-aware binned
   correlations; Figs. 1a-c and 4. Fixed-gamma amplitude prior resolved to U[-18,-11]. See
-  `docs/M2_RESULTS.md`. Open: HD^free chains not converged (re-run `configs/m2/hd_fs30_v2.json`
-  prepared, needs ~13-21 GPU hours); several IRN nuisance parameters at R-hat 1.01-1.03 (paper
+  `docs/M2_RESULTS.md`. HD^free: Fig. 1a partially reproduced: principal peak locations agree; tail occupancies and full posterior convergence remain unestablished (campaign closed after
+  three pilot rounds, no further GPU runs; `docs/FS_PILOT.md` Sec. 15 has lessons for M3 and open sampler ideas); several IRN nuisance parameters at R-hat 1.01-1.03 (paper
   criterion < 1.01); BF uncertainty is conditional (estimator spread larger). Not in scope: CURN
   vs IRN BF, multi-component OS, phase-shift / sky-scramble backgrounds. The original M2 plan was:
 - *M2: sampling.* CURN^13/3, CURN^gamma, HD^13/3, HD^gamma, CURN^free/HD^free (30f).

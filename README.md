@@ -15,8 +15,9 @@ with our own JAX analysis pipeline on a single GPU.
   likelihood values. They are never imported by `src/ptagwb`.
 
 Status: **M1 (deterministic pipeline and likelihood) done; M2 (sampling, Bayes factors,
-optimal statistic) largely done, but the HD free-spectrum reproduction (Fig. 1a) is
-INCOMPLETE / PRELIMINARY** (unconverged chains; a re-run is prepared). M1 covers the PINT
+optimal statistic) largely done; HD free spectrum: Fig. 1a partially reproduced: principal peak locations agree; tail occupancies and full posterior convergence remain unestablished** (campaign closed 2026-10-08 with
+unconverged chains; see [`docs/FS_PILOT.md`](docs/FS_PILOT.md) for the pilots, the fail-closed gate, the exact hybrid
+sampler and lessons for M3). M1 covers the PINT
 ingestion into a hashed cache, fixed white noise, Fourier bases, ORFs, and the JAX float64 CURN / HD
 likelihoods with gradients, validated against discovery, enterprise and the released chains
 ([`docs/M1_VALIDATION.md`](docs/M1_VALIDATION.md)). M2 adds NumPyro NUTS sampling, Bayes-factor

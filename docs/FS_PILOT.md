@@ -5,12 +5,15 @@ independent overdispersed init z ~ U(-4, 4), diagonal windowed adaptation) pass 
 acceptance gate (docs/M2_RESULTS.md Sec. 10), and at what cost? Budget: ~2 GPU-hours (RTX 5090),
 abort above 2.5 h. **Used: 1.93 GPU-hours** (five pilots, 10:23-12:21 UTC on 2026-10-08, including setup).
 
+**FINAL STATUS (campaign closed 2026-10-08; no further GPU runs).** Fig. 1a partially reproduced: principal
+peak locations agree; tail occupancies and full posterior convergence remain unestablished. Lessons learned
+and open sampler ideas: Sec. 15.
+
 **Status after review round 1 (2026-10-08, afternoon).** Round 1 (Secs. 1-6, corrected below) stopped v2.
 Round 2 (Secs. 7-11) fixed the acceptance gate, built and tested an exact hybrid kernel (NUTS + block
 Metropolis-Hastings jumps), and compared it with plain NUTS on CURN^free and HD^free.
 Round 2 used **~2.6 GPU-hours** (budget 3.5). Round 3 (Secs. 13-15, ~3.0 GPU-h) added proposal validation, the exact
-conditional-grid move, a controlled analysis of what drives f_3, and an enhanced HD pilot. Current recommendation:
-Sec. 15.
+conditional-grid move, a controlled analysis of what drives f_3, and an exploratory HD pilot. Close-out: Sec. 15.
 
 **Round-1 findings that stand.** Do not launch v2 as planned:
 1. The v2-style warmup was expensive in every attempt. From warmup iteration ~8 on, at least one of the 8 lockstep
@@ -186,7 +189,7 @@ J0645+5158 1.057; J1713+0747 1.055. Funnel indicators (pulsar-wise, both runs):
   "f_3 >= 650 draws" figures are withdrawn. The two-state formula also assumes stationarity and a Poisson crossing
   process, which paired entries / exits from inherited starts do not satisfy.
 
-## 6. Round-1 recommendation (superseded by Sec. 15; kept with corrections)
+## 6. Round-1 recommendation (superseded; see Sec. 15; kept with corrections)
 
 **Corrections (review round 1).**
 * *Shelf warp:* the benefit has to be evaluated in the **final NUTS coordinate**
@@ -277,7 +280,9 @@ of block Metropolis-Hastings independence moves. The blocks are each of the 30 f
 and J1713+0747, chosen from pilot E / M2 R-hat, not from the released chain.
 * **Proposal q_b:** 20% uniform on the block's prior box + 80% equal-mass histogram of pilot draws. 1-D blocks
   use 40 quantile bins; 2-D blocks use 12 quantile bins in log10_A, each split into 8 conditional quantile
-  bins in gamma, uniform within cells. The density is continuous and exact with full support. Proposals are
+  bins in gamma, uniform within cells. The density is continuous and exact. Its support is the prior box minus
+  relative 1e-12 trims at the ends of each uniform component (round 3); outside it the independence move rejects,
+  which leaves the composite kernel exact (NUTS moves there). Proposals are
   fitted by `scripts/fs_fit_proposals.py` from our own draws only:
   * CURN: from curn_fs30;
   * HD: from hd_fs30 + pilot E.
@@ -456,7 +461,7 @@ That comparison did not establish the cost of an 8-chain grid move and is withdr
 cost of the JAX implementation is in Sec. 13.) The cache is valid only for the current values of all other parameters
 and must be rebuilt per state.
 
-## 12. Round-2 recommendation (superseded by Sec. 15)
+## 12. Round-2 recommendation (superseded; see Sec. 15)
 
 **Recommendation: (b), modified: do not launch a full HD run yet. Adopt the hybrid kernel, then a short, targeted round of
 kernel work and one more 2-h HD pilot before committing GPU-days.**
@@ -528,7 +533,10 @@ builds per move.
 * grid density normalisation and its sampler (KS);
 * invariance of the one-bin move from exact conditional draws (KS), also with a deliberately coarse grid;
 * a q-ratio-free variant fails the same test (p < 1e-6);
-* joint-move invariance against a 3-D grid reference (marked slow);
+* joint-move invariance against a 3-D grid reference, and (added at close-out) a negative control in which dropping
+  the companion proposal ratio is detected by the same test (both marked slow);
+* (close-out) repeated companion parameters within one joint move are rejected; repeating a bin as separate
+  sequential moves stays allowed. The saved pilot's three companions were distinct, so it is unaffected;
 * an end-to-end HybridNUTS run with grid bins.
 
 **Complete 8-chain update** (GPU, `bench/bench_grid.py`, `bench/results/grid_update_hd_fs30_grid_pilot.json`). Cost per
@@ -545,8 +553,12 @@ At posterior draws, one-bin grid moves accept 0.88-1.0 and the joint f_3 move ab
 
 **What controls P(f_3 < -10 | rest)?** (`scripts/fs_conditional_analysis.py --bin 2`, CPU, 40 hybrid-pilot states
 (chain c, draw n = 20, 39, 59, 79, 99); output `outputs/m2/fs_conditional_hd_fs30_hybrid_pilot_bin2.json`.)
-* **Quadrature:** at S* = (chain 6, draw 99), 241 nodes give 0.4127 and 961 give 0.4110.
-* **The reviewer's f_4 check, reproduced:** P = 0.413 at the saved f_4 vs 0.519 at f_4 = -7.5.
+* **Quadrature (corrected at close-out):** the first version selected grid nodes below -10 (241 nodes: 0.4127,
+  961: 0.4110). It now integrates with an explicit boundary at -10 (a node shared by two trapezoid pieces). At
+  S* = (chain 6, draw 99) this gives 0.410619716, and 4x refinement 0.410619713, matching the reviewer. At the two
+  f_3-low states of the round-3 pilot (Sec. 14), P(f_3 < -10 | rest) = 0.210513 (chain 3, draw 118) and 0.263871
+  (chain 7, draw 4). `--at run:chain:draw` computes these.
+* **The reviewer's f_4 check, reproduced:** P = 0.41 at the saved f_4 vs 0.52 at f_4 = -7.5.
 * **Controlled swaps:** every other group (29 bins, 67 IRN pairs) was swapped between S* and three reference states T
   with median conditional mass (P ~ 2-4e-9: (2, 99), (1, 79), (5, 20)). Changes are in the log-odds of the conditional
   low mass.
@@ -558,21 +570,24 @@ At posterior draws, one-bin grid moves accept 0.88-1.0 and the joint f_3 move ab
 | J0030+0451 IRN | -6.5 / - / - | +5.1 / - / - |
 | f_1, f_4, f_5 (bins) | ~+0.1-0.5 | -60 / -15 / -9 (f_1, f_4, f_5 at T (2, 99)) |
 
-  The two best-timed pulsars dominate. In S*, J1713+0747 and J1909-3744 have IRN amplitudes at the top of their
-  pilot distributions (log10_A = -14.3 and -14.5 vs pilot medians -15.6 and -17.2; gamma ~ 3), so their intrinsic noise
-  can absorb the f_3 power. Inserting S*'s values of these two pairs, plus J0030+0451 / J1744-1134 and some bins,
+  In these swaps the IRN pairs of the two best-timed pulsars have the largest single effects. In S*, J1713+0747 and
+  J1909-3744 have IRN amplitudes at the top of their pilot distributions (log10_A = -14.3 and -14.5 vs pilot medians
+  -15.6 and -17.2; gamma ~ 3). Inserting S*'s values of these two pairs, plus J0030+0451 / J1744-1134 and some bins,
   cumulatively into T raises P from ~1e-9 to 0.17-0.46.
 * **Strong interactions:** S*'s low f_1 / f_4 / f_5 values *lower* the f_3 low mass when inserted alone into T, so
   the effect is not additive.
-* **Conclusion:** the controlling coordinates are mainly the IRN of J1713+0747 and J1909-3744 (secondarily J0030+0451
-  and J1744-1134), conditional on the low-frequency bins. This is evidence from three state pairs around one
-  exceptional state, not a complete map. It motivates the joint f_3 + IRN moves used in the pilot.
+* **Conclusion (narrowed at close-out):** these are strong, **state-dependent IRN interactions**, not necessary
+  coordinates and not an established transport remedy. One of the round-3 pilot's two f_3-low states had J1909-3744
+  at log10_A = -16.72, the 58th percentile of that pilot, not its high tail. This is evidence from three state pairs
+  around one exceptional state. It motivated the joint f_3 + IRN moves of the round-3 pilot; their effect is not
+  demonstrated (Sec. 14).
 * **Same analysis for f_8** (`--bin 7`; `outputs/m2/fs_conditional_hd_fs30_hybrid_pilot_bin7.json`). The f_8 conditional
   low mass is far less concentrated: mean 0.050, largest single state 25% of the sum, median 1.3e-3. Again
-  J1713+0747's IRN dominates in all three swap pairs (+4.0 to +5.5 log-odds into T), followed by J2043+1711.
+  J1713+0747's IRN has the largest single swap effect in all three pairs (+4.0 to +5.5 log-odds into T), followed by
+  J2043+1711 (again a state-dependent interaction, not a necessary coordinate).
   Setting f_4 to -14.78 / -7.5 at S* gives P = 0.43 / 0.51, so f_4 does not control f_8 either.
 
-## 14. Enhanced HD pilot
+## 14. Enhanced HD pilot (exploratory, protocol-deviating)
 
 **Rules fixed before launch.** The configs were committed first (e5f8311, 67db032). The relevance declaration and
 the proposals (`hd_fs30_v2.json`, fitted from hd_fs30 + pilot E + the hybrid pilot, never the released chain) were
@@ -582,22 +597,30 @@ frozen. Success = replicated f_3 entries and exits (>= 2 chains) plus improved o
 the workable 0.025, with the same starts and fixed dense metric as before. The pre-set rule was to abort if warmup
 took more than 35 min. Per-iteration times were 171, 8, 29, 173, 90, 91, 49, 173, 91, 173, 90, 173, 90, 90, 172, 172,
 90, 90 s: most iterations ran 511-1023 lockstep leapfrog steps. The rule fired at 18/25 iterations (38 min of GPU).
-So on HD, even starting near a workable step size, dual-averaging adaptation of 8 vectorised chains repeatedly
-drives some chain to tree depth 9-10. This resolves the round-1 confounder: the poor 1.0 start was not the
-cause. (CURN^free did not show this, Sec. 9.)
+So *this* dual-averaging configuration (8 vectorised chains, fixed dense metric, 25 iterations) stayed expensive
+from 0.025. That disproves "the poor 1.0 start was the sole explanation" of pilots A-D. It does not establish that
+HD step-size adaptation fails in general. (CURN^free did not show this, Sec. 9.)
 
-**Attempt 2: `hd_fs30_grid_pilot_fixed`, the result.** The attempt-1 config said "relaunch nothing". I deviated from
-that and documented it in the new config before launch: it is the same pilot with a **fixed step size 0.025** and no
-adaptation, exactly matching pilot E and the hybrid pilot. Run at the clean SHA 67db032:
+**Attempt 2: `hd_fs30_grid_pilot_fixed` — an exploratory, protocol-deviating pilot.** The attempt-1 config said
+"relaunch nothing". Committing a replacement config (67db032) documented the deviation but did not satisfy that
+rule, so this is not a successful completion of the pre-registered experiment. It is the same pilot with a **fixed
+step size 0.025** and no adaptation, matching pilot E and the hybrid pilot. Neither deviation changes the likelihood
+or the MH acceptance rule. Run at the clean SHA 67db032:
 * 140 draws per chain;
-* the 2-h sampling cap is checked between 10-draw blocks, so sampling actually ran 2.11 h (6.5 min over);
+* the "2-h cap" is not a hard cap: it is checked between 10-draw blocks, so sampling ran 2.11 h. Both f_3
+  entries and exits already occurred within the first 130 draws (7,001 s);
 * 54 s per iteration (hybrid pilot: 48.5 s), 0 divergences, acceptance 0.942.
+
+**What the joint moves actually were.** Each of the three f_3 grid moves redraws **all three** IRN pairs
+(J1713+0747, J1909-3744, J0030+0451) together with f_3: one 7-dimensional block, attempted three times per
+iteration. They are not three single-companion moves, and the pilot had **no standalone f_3 conditional-grid
+move**. f_3 was otherwise updated by NUTS and by its ordinary histogram/prior block proposal.
 
 Grid-move acceptance: 0.95-0.96 for the one-bin moves (f_1, f_2, f_4, f_8) and 0.24 for the three joint f_3 + IRN moves.
 
 | | hybrid pilot, 8 x 100 | grid pilot, first 8 x 100 | grid pilot, 8 x 140 |
 |---|---|---|---|
-| sampling wall [h] | 1.35 | 1.53 (pro rata) | 2.11 |
+| sampling wall [h] | 1.35 | 1.53 (measured at the 100-draw checkpoint: 5,497 s) | 2.11 |
 | max R-hat / parameters >= 1.01 | 1.062 / 58 | 1.079 / 51 | 1.066 / 25 |
 | worst min(bulk, tail) ESS (parameter) | 140 (f_1) | 73 (J1944+0907 log10_A) | 89 (J1944+0907 log10_A) |
 | median parameter min ESS | 560 | 555 | 754 |
@@ -614,44 +637,77 @@ Exit 1.
 
 **Against the pre-set success criterion:**
 * **f_3 entries/exits: met only at the literal minimum.** There were 2 entries and 2 exits in 2 chains, each a
-  single-draw visit (chain 3, draw 118; chain 7, draw 4). Both visits occur with J1713+0747 at a high IRN amplitude
-  (-14.1, -14.5), consistent with Sec. 13. The f_3 low occupancy (0.18%, from 2 of 1,120 draws) is far too poorly
-  determined to compare with the released 0.7%.
+  single-draw visit (chain 3, draw 118; chain 7, draw 4).
+  * **Both entries came from accepted ordinary f_3 histogram/prior block proposals.** On both entry iterations all
+    three joint-grid proposals were rejected (`jump_accept`). Earlier joint updates may have prepared the
+    conditioning state, but the records do not show that the joint moves made the transitions.
+  * At those states P(f_3 < -10 | rest) = 0.21 and 0.26. J1909-3744 sat at its 58th and 98th percentiles.
+  * The f_3 low occupancy (0.18%, from 2 of 1,120 draws) is far too poorly determined to compare with the
+    released 0.7%.
 * **Occupancy MCSE: improved for f_1 and f_8.** At matched length, f_1 went 0.044 -> 0.025 and f_8 0.016 -> 0.010,
   with ~1.4-1.6x more excursions per draw at f_4 / f_8 / f_13 / f_28. f_4 was mixed (0.018 -> 0.021 matched, 0.014 at
   140 draws). f_3's MCSE rises (0.009 -> 0.017-0.026), because the sparse-count SE grows once the region is visited
   at all.
-* **Not improved:** the worst-parameter ESS (an IRN amplitude, J1944+0907) and the ESS per hour (iterations are ~11%
-  more expensive).
+* **Not improved, regressed:** J1944+0907's IRN amplitude went from bulk / tail ESS 229 / 445 and R-hat 1.039
+  (hybrid pilot) to 89 / 305 and 1.066. The worst ESS per sampling hour went from 104 to 42 (iterations ~11% more
+  expensive). These are noisy single-run comparisons, not proof of an intrinsic regression, but they rule out
+  "better where it matters most".
 
-**Indicative projection with this kernel** (from one 8 x 140 run; not a calibrated budget):
-* f_3 needs >= 10 entries and exits; at 2 per 1,120 draws that is ~700 draws per chain (~10.5 h);
-* f_1's occupancy MCSE 0.029 at 140 draws scales to 0.01 at ~1,200 draws per chain (~18 h);
-* the gate would therefore need **~18-20 GPU-h at least**, with f_3's rate resting on two events.
+**Indicative projection with this kernel** (from one 8 x 140 run; a plug-in planning estimate, **not a lower bound and
+not a reliable pass budget**):
+* f_1's occupancy MCSE 0.029 at 140 draws scales to 0.01 at ~1,210 draws per chain (~18 h of sampling). At 600
+  draws it would still be ~0.014.
+* f_3 needs >= 10 entries and exits; the plug-in rate (2 entries in 2.1 h) gives ~10.5 h. Under an optimistic
+  homogeneous Poisson model the 95% rate interval is 0.12-3.4 entries per hour, i.e. **~3-87 h** for 10 entries,
+  and stationarity is unverified.
+* So **~18-20 GPU-h** is a plug-in figure. The IRN bottleneck (J1944+0907) and transport per GPU-hour would also
+  have to pass.
 
 GPU time this round: complete-update benchmarks ~10 min, attempt 1 38 min, attempt 2 2.15 h (setup + 1 iteration +
 2.11 h sampling), **~3.0 GPU-h** in total.
 
-## 15. Recommendation (round 3)
+## 15. Close-out: final status, lessons for M3, open ideas
 
-**(b), modified again: do not launch a full HD run yet.**
+**Final status.** Fig. 1a partially reproduced: principal peak locations agree; tail occupancies and full posterior
+convergence remain unestablished. On the user's decision (2026-10-08), the Fig. 1a campaign is closed with no
+further GPU runs. The figure stays labelled preliminary in docs/M2_RESULTS.md.
 
-* **Use this kernel next:** NUTS + block sweep + Metropolised conditional grids is exact, tested, and better than the
-  hybrid baseline where it matters most. f_3's low region is visited for the first time (2 independent entries and
-  exits), and f_1 / f_8 occupancy MCSE drops by ~40% at matched length. It does not change the worst IRN ESS.
-* **f_3 is still the bottleneck.** Its conditional low mass is ~0 except where J1713+0747 and J1909-3744 (and
-  J0030+0451, J1744-1134) sit at high IRN amplitude together with particular low-frequency bins (Sec. 13). Joint
-  moves built from marginal histograms rarely propose such a configuration. Two candidates, to be benchmarked
-  before any longer run:
-  1. a joint f_3 move whose companion proposals are the *conditional* grids of those IRN amplitudes (rebuilt per
-     state), not frozen histograms;
-  2. parallel tempering (2-4 temperatures), now that a multi-coordinate bottleneck is evidenced. Judge it by
-     cold-chain f_3 excursions and temperature round trips.
-* **Warmup:** on HD, dual-averaging step-size adaptation with 8 lockstep chains saturates the tree depth even when it
-  starts at 0.025 (attempt 1). Use a fixed step size from a short pilot (0.025 works, acceptance 0.94), or adapt one
-  shared step size from pooled acceptance, which still needs a test.
-* **Full-run decision:** launch only after a ~2 GPU-h pilot shows f_3 entries/exits at a rate projecting >= 10 within
-  ~600 draws per chain. The current kernel projects >= 18-20 GPU-h with a fragile f_3 estimate.
+**What worked (for M3):**
+* **Exact hybrid MH on CURN^free** (NUTS + frozen block-MH independence jumps, Sec. 9). In a matched A/B it took max
+  R-hat from 1.470 to 1.007 and the worst ESS from 15 to 793, ~70x the observed ESS per recorded hour (the NUTS arm
+  had GPU contention). The kernel is cheap, tested for invariance with negative controls, and reusable.
+* **The fail-closed gate** (Sec. 7): predeclared and frozen relevance, region transport evidence, occupancy MCSE,
+  agreement precision. It turned "peaks look right" into explicit FAILs and caught the f_3 loophole. Freezing the
+  relevance declaration with the reference identity (sha256, burn-in) before measuring is worth keeping.
+* **Small, pre-registered pilots** with abort rules and committed configs. They stopped two expensive plans (v2,
+  and a full run on the round-2 projection) at about 7.5 GPU-h in total. The per-kernel spread of rates
+  (Sec. 5) showed why single-pilot projections must be quoted as ranges.
+* **Validated building blocks:** the cached one-bin conditional (`ptagwb.conditional`, checked against production
+  and a long-double reference), and conditional-grid moves with the MH acceptance on the production likelihood.
+
+**What did not work (or is not demonstrated):**
+* Plain NUTS on HD^free: rare crossings between the low-power shelf and the signal peak in several bins. No f_3
+  low-region visit in 2,200 draws before round 3.
+* v2-style warmup: tree-depth saturation of 8 lockstep chains, with confounded causes (Sec. 3, Sec. 14).
+* Round-1 reparameterisation ideas: the shelf warp gains much less in the final coordinate; the pivot cancels.
+* Joint f_3 + IRN grid moves: their effect is not demonstrated. Both f_3 entries came from ordinary block
+  proposals (Sec. 14). Mechanism claims about which coordinates "control" f_3 had to be narrowed twice.
+* On HD the hybrid's gains were ~2x at matched length, far below CURN's. The round-3 kernel improved f_1 / f_8
+  occupancy MCSE but regressed on J1944+0907.
+
+**Open sampler ideas (future work, not scheduled):**
+* a standalone f_3 conditional-grid move (none existed in the round-3 pilot);
+* update balance: more targeted MH / grid updates per expensive NUTS transition. The post-NUTS work cost 7.9 s of
+  a ~54-s iteration, so this has a concrete cost rationale. Benchmark first;
+* a frozen 2-D pair proposal for J1944+0907;
+* 8 vs 16 vectorised chains: compare aggregate useful samples per second of the complete update. More chains
+  do not fix initialisation bias or poor transport;
+* lower priority: conditional-grid IRN companions (conditioning on a high f_3 can preserve the dependence),
+  proposals informed by integrating over f_3, and parallel tempering (no measured ladder or cold-chain
+  throughput yet).
+
+The round-3 reviewer's subjective estimates, not calibrated: 20-40% that such a ~2-GPU-h experiment finds a
+~2x bottleneck-efficiency gain; <5% that it passes the full gate within 2 h.
 
 ## 16. Reproduction
 
