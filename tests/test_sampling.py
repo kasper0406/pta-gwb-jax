@@ -193,3 +193,19 @@ def test_make_likelihood_fast_matches_production(common, nc, gp):
         assert abs(float(v0) - float(v1)) <= 2e-9
         tol = 1e-8 if gp == "float64" else 1e-4
         assert float(jnp.max(jnp.abs(g0 - g1))) <= tol * max(1.0, float(jnp.max(jnp.abs(g0))))
+
+
+def test_run_nuts_fixed_step_size(tmp_path, monkeypatch):
+    """``adapt_step_size=False`` keeps the configured step size (defaults keep numpyro's)."""
+    from ptagwb import sampling
+    from ptagwb.sampling import RunConfig, run_nuts
+
+    assert (RunConfig(name="t", model={}).step_size, RunConfig(name="t", model={}).adapt_step_size) == (1.0, True)
+    monkeypatch.setattr(sampling, "RUNS_DIR", tmp_path)
+    tr = _box(2)
+    post = Posterior.generic(tr, lambda x: -0.5 * jnp.sum(((x - tr.lo - 0.5 * (tr.hi - tr.lo)) / (0.1 * (tr.hi - tr.lo))) ** 2))
+    cfg = RunConfig(name="fixed", model={}, num_chains=2, num_warmup=5, num_samples=10, block=10, dense_mass=False,
+                    adapt_mass_matrix=False, step_size=0.123, adapt_step_size=False)
+    run_nuts(cfg, post, log=lambda s: None)
+    r = np.load(tmp_path / "fixed" / "samples.npz")
+    np.testing.assert_allclose(r["step_size"], 0.123)

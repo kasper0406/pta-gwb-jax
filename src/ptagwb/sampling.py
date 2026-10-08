@@ -271,6 +271,10 @@ class RunConfig:
     # (parameters missing there get unit variance), optionally further adapted.
     metric: str = "adapt"
     adapt_mass_matrix: bool = True
+    # initial NUTS step size and whether warmup adapts it (numpyro defaults: 1.0, True). With
+    # adapt_step_size=False the given step size is used throughout (e.g. a value adapted earlier).
+    step_size: float = 1.0
+    adapt_step_size: bool = True
     progress_bar: bool = False
     # sampler backend; only "nuts" (numpyro) is implemented. The model/init/chain/draw fields above
     # are backend-independent; target_accept, max_tree_depth, dense_mass, metric are NUTS-specific.
@@ -407,6 +411,8 @@ def run_nuts(cfg: RunConfig, post: Posterior, log=print) -> Path:
         target_accept_prob=cfg.target_accept,
         max_tree_depth=cfg.max_tree_depth,
         adapt_mass_matrix=cfg.adapt_mass_matrix,
+        step_size=cfg.step_size,
+        adapt_step_size=cfg.adapt_step_size,
         **kw,
     )
     fields = ("potential_energy", "diverging", "num_steps", "accept_prob")
