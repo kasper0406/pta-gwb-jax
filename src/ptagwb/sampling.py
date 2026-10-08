@@ -233,6 +233,23 @@ class Posterior:
 
 # ---------------------------------------------------------------------- run driver
 
+LIKELIHOOD_IMPLS = ("production", "fast")
+
+
+def make_likelihood(terms, T, spec: ModelSpec, impl: str = "production"):
+    """The likelihood object for ``spec`` (``RunConfig.likelihood_impl``)."""
+    kw = {"n_modes": spec.n_modes, "n_common": spec.n_common, "orf": spec.orf, "common": spec.common, "grad_precision": spec.grad_precision}
+    if impl == "production":
+        from .likelihood import PTALikelihood
+
+        return PTALikelihood(terms, T, **kw)
+    if impl == "fast":
+        from .perf_likelihood import FastPTALikelihood
+
+        return FastPTALikelihood(terms, T, reduce="hh", tri_inv="levels", **kw)
+    raise ValueError(f"unknown likelihood_impl {impl!r}; one of {LIKELIHOOD_IMPLS}")
+
+
 
 @dataclass
 class RunConfig:
@@ -258,7 +275,15 @@ class RunConfig:
     # sampler backend; only "nuts" (numpyro) is implemented. The model/init/chain/draw fields above
     # are backend-independent; target_accept, max_tree_depth, dense_mass, metric are NUTS-specific.
     sampler: str = "nuts"
+    # likelihood implementation: "production" (``likelihood.PTALikelihood``, default) or "fast"
+    # (opt-in ``perf_likelihood.FastPTALikelihood(reduce="hh", tri_inv="levels")``: same
+    # quantities, exact within the budgets of tests/test_perf_likelihood.py; docs/PERF.md).
+    likelihood_impl: str = "production"
     notes: str = ""
+
+    def __post_init__(self):
+        if self.likelihood_impl not in LIKELIHOOD_IMPLS:
+            raise ValueError(f"unknown likelihood_impl {self.likelihood_impl!r}; one of {LIKELIHOOD_IMPLS}")
 
     @classmethod
     def from_json(cls, path: str | Path) -> RunConfig:
@@ -409,8 +434,11 @@ def run_nuts(cfg: RunConfig, post: Posterior, log=print) -> Path:
                 ("n_modes", "n_modes"),
                 ("convention", "convention"),
                 ("grad_precision", "grad_precision"),
+                ("reduce", "reduce_name"),
+                ("tri_inv", "tri_inv"),
             )
-        },
+        }
+        | {"class": type(post.like).__name__ if post.like is not None else None},
         "host": os.uname().nodename,
         "jax": jax.__version__,
         "backend": jax.default_backend(),

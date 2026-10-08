@@ -17,25 +17,16 @@ import jax
 jax.config.update("jax_enable_x64", True)
 
 from ptagwb.data import get_tspan, load_pulsars
-from ptagwb.likelihood import PTALikelihood, precompute
+from ptagwb.likelihood import precompute
 from ptagwb.noise import load_noise_dict
-from ptagwb.sampling import Posterior, RunConfig, run_nuts
+from ptagwb.sampling import Posterior, RunConfig, make_likelihood, run_nuts
 
 
-def build_posterior(spec):
+def build_posterior(spec, likelihood_impl="production"):
     psrs = load_pulsars(verbose=False)
     T = get_tspan(psrs)
     terms = precompute(psrs, load_noise_dict(), T, n_modes=spec.n_modes, position=spec.position)
-    like = PTALikelihood(
-        terms,
-        T,
-        n_modes=spec.n_modes,
-        n_common=spec.n_common,
-        orf=spec.orf,
-        common=spec.common,
-        grad_precision=spec.grad_precision,
-    )
-    return Posterior(like, spec)
+    return Posterior(make_likelihood(terms, T, spec, likelihood_impl), spec)
 
 
 def main():
@@ -52,7 +43,7 @@ def main():
         d["notes"] = (d.get("notes", "") + f" [overrides: {args.set}]").strip()
     cfg = RunConfig(**d)
     t0 = time.time()
-    post = build_posterior(cfg.spec)
+    post = build_posterior(cfg.spec, cfg.likelihood_impl)
     print(f"[{cfg.name}] D = {post.transform.dim}, setup {time.time() - t0:.0f} s", flush=True)
     run_nuts(cfg, post, log=lambda s: print(s, flush=True))
 
