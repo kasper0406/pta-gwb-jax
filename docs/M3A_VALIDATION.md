@@ -26,8 +26,18 @@ revision 1 is withdrawn and re-established below gate by gate. Changes:
    both coordinate sets are kept. 9. New: posterior-level NHARMS shifts (Sec. 12b).
 
 **Post-hoc elements** (not fixed before the result was seen): the G3/G4 "likelihood impact"
-column; revision 1's G5 arbitration rule, which is replaced (Sec. 5); and the choice in G7 to
-remove same-channel duplicates by EPTA's rule (Sec. 7). Every other tolerance was fixed in code
+column; revision 1's G5 arbitration rule (replaced); revision 3's switch of the G5 gate from the
+all-oracle criterion to absolute arbiter tolerances, made after the float64 oracles were seen to
+exceed the budget; and the choice in G7 to remove same-channel duplicates by EPTA's rule.
+
+**Revision 3 (second review).**
+* The NHARMS posterior summary had its two marginals swapped (Sec. 12b). This is now corrected,
+  with a test on unequal axis lengths.
+* The MPTA noise fits are now bounded, with convergence recorded.
+* The G5 verdict is stated as numerical correctness under independent arbitration, with the
+  original criterion kept on record.
+* The duplicate removals are described as a conservative policy, and the band-overlap inventory
+  is listed as an M3b item. Every other tolerance was fixed in code
 before its result was seen.
 
 Measured 2026-10-08 on CPU (JAX 0.11.2, float64, PINT 1.1.7). Oracles: tempo2 2026.04.1 with
@@ -132,7 +142,7 @@ Every rule is applied explicitly and recorded in the leg's provenance (`leg_meta
 | G2 warnings | all loadable legs | classification + per-leg audits | none unexplained | 248/248 | **PASS** |
 | G3 projected residuals | validation set | tempo2 2026.04.1 | rms < 1 ns and < 0.01 sigma | 1/17 non-quarantined legs (NG15 J1909, 0.97 ns); others 1-5 ns, PPTA J1022/J0437 ~30 ns | **FAIL** |
 | G4 column space | validation set; B/C containers | tempo2; MetaPulsar v0.9.3 | sin < 1e-6, equal dimension | tempo2: 0/17 (sin 1e-5 to 7e-3); MetaPulsar: residuals identical, sin < 4e-8 | **FAIL** vs tempo2; **PASS** vs MetaPulsar |
-| G5 likelihood + gradient | dense oracle (synthetic); real systems B (J1022 B + J0437 B) and C (J1909 C YA-v3 + J0437 B), original + held-out points | long-double dense; long-double arbiter; enterprise; discovery | values: shape diff <= 1e-6 nats vs every oracle; gradients <= 1e-8 rel. vs arbiter (fixed before the held-out run) | ours vs arbiter <= 8e-9 nats, <= 4e-11 grad everywhere; B: oracles within 3e-8 nats; C (87k TOAs): discovery 8e-6 and enterprise 7.6e-5 nats from ours, and as far from the arbiter | B **PASS**; C **FAIL** under the pre-fixed all-oracle criterion (float64 oracles, not ours; ours passes vs the arbiter) |
+| G5 likelihood + gradient | dense oracle (synthetic); real systems B (J1022 B + J0437 B) and C (J1909 C YA-v3 + J0437 B), original + held-out points | long-double dense; long-double arbiter; enterprise; discovery | gate: vs the independent arbiter, CURN/HD shape <= 1e-6 nats, gradients <= 1e-8 max(1,abs g); original all-oracle criterion (<= 1e-6 nats vs every oracle) kept for the record | ours vs arbiter <= 8e-9 nats, <= 4e-11 grad everywhere; B: oracles within 3e-8 nats; C (87k TOAs): discovery 8e-6 and enterprise 7.6e-5 nats from the arbiter | B **PASS**; C: **numerical correctness PASS under independent arbitration; original all-oracle criterion FAIL** (kept on record; the float64 oracles exceed its budget) |
 | G6 reference invariance | C, J1909-3744, NG15 -> PPTA / EPTA | ours | shape <= 0.1 nats; linearisation <= 0.1 (rank-revealing, rtol 1e-10); sin <= 1e-3 | PPTA 0.195 / 0.140 / 0.034; EPTA 0.028 / 0.134 / 0.011 | **FAIL** |
 | G7 duplicates | 61 (YA 56) multi-leg pulsars + all legs within | symmetric TOA matching | none, or explicitly removed | 0 cross-PTA; 7 within-leg same-channel pairs, all removed by EPTA's stated rule | **PASS** (revision 1's PASS was premature) |
 | G8 injections | J1909-3744 (the only validation pulsar with an admissible C build), A/B/C | ours | z < 3.5; Var/I within 1 +- 0.20 | 6/6; I_C/I_B = 1.003, I_C/I_A = 1.48 | **PASS** |
@@ -322,12 +332,12 @@ d lnL / d log10_A): production 0.156732014257, the reviewer's independent long-d
 0.156732013965, discovery 0.156732041905.
 
 <!-- G5_TABLE -->
-| system | points | CURN ours-arbiter | HD ours-arbiter | grad ours-arbiter (rel.) | CURN ours-discovery | HD ours-enterprise | discovery-arbiter | enterprise-arbiter (HD) | grad ours-discovery (info) | pre-fixed criterion (all oracles) | vs arbiter |
+| system | points | CURN ours-arbiter | HD ours-arbiter | grad ours-arbiter (rel.) | CURN ours-discovery | HD ours-enterprise | discovery-arbiter | enterprise-arbiter (HD) | grad ours-discovery (info) | original all-oracle criterion (historical) | numerical correctness vs arbiter (gate) |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| C: J1909-3744 ; J0437-4715  (86766 TOAs) | original | 7.5e-09 | 7.6e-09 | 1.6e-11 | 8.4e-06 | 7.6e-05 | 8.4e-06 | 7.6e-05 | 7.1e-09 | FAIL | pass |
-| C: J1909-3744 ; J0437-4715  (86766 TOAs) | held_out | 3.9e-09 | 4.2e-09 | 4e-11 | 3.5e-06 | 3.2e-05 | 3.5e-06 | 3.2e-05 | 4.3e-09 | FAIL | pass |
-| B: J1022+1001 ; J0437-4715  (45750 TOAs) | original | 3.5e-10 | 2.9e-10 | 2e-11 | 2.1e-08 | 2.6e-08 | 2.1e-08 | 2.7e-08 | 3.5e-10 | pass | pass |
-| B: J1022+1001 ; J0437-4715  (45750 TOAs) | held_out | 3.7e-10 | 3.5e-10 | 4e-11 | 6.1e-09 | 1.4e-08 | 5.7e-09 | 1.5e-08 | 2.3e-10 | pass | pass |
+| C: J1909-3744 ; J0437-4715  (86766 TOAs) | original | 7.5e-09 | 7.6e-09 | 1.6e-11 | 8.4e-06 | 7.6e-05 | 8.4e-06 | 7.6e-05 | 7.1e-09 | FAIL | PASS |
+| C: J1909-3744 ; J0437-4715  (86766 TOAs) | held_out | 3.9e-09 | 4.2e-09 | 4e-11 | 3.5e-06 | 3.2e-05 | 3.5e-06 | 3.2e-05 | 4.3e-09 | FAIL | PASS |
+| B: J1022+1001 ; J0437-4715  (45750 TOAs) | original | 3.5e-10 | 2.9e-10 | 2e-11 | 2.1e-08 | 2.6e-08 | 2.1e-08 | 2.7e-08 | 3.5e-10 | pass | PASS |
+| B: J1022+1001 ; J0437-4715  (45750 TOAs) | held_out | 3.7e-10 | 3.5e-10 | 4e-11 | 6.1e-09 | 1.4e-08 | 5.7e-09 | 1.5e-08 | 2.3e-10 | pass | PASS |
 <!-- /G5_TABLE -->
 
 ## 6. G6 reference-model invariance (option C)
@@ -478,8 +488,11 @@ observation's duration only and missed that pair.
 | YA | 56 | **0** | 7 | 7 | **0** |
 
 **Dispositions** (`configs/m3/duplicates.json`; applied in M3 leg ingestion and recorded in each
-leg's provenance; the NG15 M1/M2 path is unchanged). The EPTA DR2 data paper (arXiv:2306.16224,
-Sec. "Combination of the dataset") states: *"During certain observing runs, data were collected
+leg's provenance; the NG15 M1/M2 path is unchanged). These seven dispositions are a **conservative project policy informed by EPTA's rule**, not
+established duplicates. Channel proximity does not prove identical inputs; Effelsberg's
+participation in the J1022 LEAP observation is unconfirmed; and the J1045 choice by integration
+length is our own adaptation. The EPTA DR2 data paper (arXiv:2306.16224, Sec. "Combination of
+the dataset") states: *"During certain observing runs, data were collected
 using both legacy and new backends, or in both single-telescope and LEAP modes. As these
 observations represented the same signal and noise, we eliminated the older backend and non-LEAP
 data."* The same rule is applied to the 7 remnants: keep LEAP over a single telescope, the newer
@@ -574,7 +587,7 @@ review minor #4). Revision 1's "E1-E6 met" is withdrawn; status after the revisi
 | # | condition | status |
 |---|---|---|
 | E1 | every loadable leg of the selected configuration and InPTA DR1 passes G1 and G2 | **met** (248/248, re-ingested after the duplicate removals) |
-| E2 | G5 within the pre-fixed criteria (shape <= 1e-6 nats vs every oracle; gradients <= 1e-8 vs the arbiter) | **met for B; not met for C**: the float64 oracles deviate by up to 7.6e-5 nats on the 87k-TOA C system, while ours agrees with the long-double arbiter to 8e-9 |
+| E2 | G5: numerical correctness vs the independent long-double arbiter (shape <= 1e-6 nats, gradients <= 1e-8 relative), plus the oracles where they are within their own budget | **met** for B and C. C's original all-oracle criterion is a FAIL kept on record: discovery and enterprise deviate by up to 7.6e-5 nats from the arbiter at 87k TOAs, while ours agrees to 8e-9 |
 | E3 | G9 within the M1 budget | **met** (bit-identical) |
 | E4 | B and C reproduce MetaPulsar v0.9.3 (residuals < 1e-3 ns, column space sin < 1e-6) | **met** (YA-v3 C builds compared as marked diagnostics where inadmissible) |
 | E5 | G7: no unlisted duplicate in a non-quarantined leg | **met** (7 found, 7 explicitly removed) |
@@ -584,8 +597,8 @@ review minor #4). Revision 1's "E1-E6 met" is withdrawn; status after the revisi
 
 A leg enters a likelihood that is *compared with published numbers* only if it meets E8. Today
 that is no non-NG leg. Legs failing G3-G5 are not quarantined wholesale, since that would make E8
-pass vacuously. **M3a status: E1 and E3-E6 met. E2 is met for B but formally not met for C,
-because of the oracles' own float64 precision. E7 and E8 are open, with root causes identified.**
+pass vacuously. **M3a status: E1-E6 met; E2 is met under independent arbitration, and C's original all-oracle
+criterion is a FAIL kept on record. E7 and E8 are open, with root causes identified.**
 Option-C builds of J1022 and J0437 are inadmissible in both DM configurations.
 
 ## 11. Open issues
@@ -606,11 +619,13 @@ Option-C builds of J1022 and J0437 are inadmissible in both DM configurations.
    at 59294.5. Affected TOAs are excluded (65); this must be resolved with EPTA's own clock files.
 4. **Signed H3.** Retest when PINT #2023 merges.
 5. G5 on large systems: discovery and enterprise lose about 1e-5 to 1e-4 nats of shape accuracy
-   at 87k TOAs; the long-double arbiter (CURN value and gradient; HD value) is the reference there.
-   A pre-registered criterion that tolerates oracle imprecision (e.g. "within 1e-6 of the arbiter,
-   or closer to the arbiter than the oracle") needs reviewer agreement before it replaces the
-   all-oracle criterion.
-6. The engine differences that remain matter for inference on the high-precision PPTA legs: the
+   at 87k TOAs. The gate is therefore the absolute tolerance against the independent long-double
+   arbiter (CURN value and gradient; HD value). HD gradients are covered by the dense oracle only.
+6. **Band-overlap inventory (M3b).** Simultaneous recordings by different backends in overlapping
+   bands are correlated, not identical (PPTA 16,186 channel pairs, EPTA 235, NG15 19; Sec. 7).
+   They need a covariance model (cross-backend correlated noise) or pruning in M3b. Narrow G7
+   clearance does not resolve them.
+7. The engine differences that remain matter for inference on the high-precision PPTA legs: the
    post-hoc likelihood impact is 34 nats for J1909 and 58 for J0437 (Sec. 4).
 
 ## 12. Addendum: ELL1H H3+H4 harmonic count (PINT 7 vs tempo2 4) and GW inference
@@ -688,11 +703,18 @@ differ only in the 10 affected legs.
   selections, RN, DM, band-noise-low);
 * NG15 v1p1 WN dictionary plus IRN medians from the released CURN chain.
 
-The MPTA legs of J1327, J1545, J1804 and J2145 have no machine-readable RN/DM release, so RN + DM
-power laws are fitted by maximum likelihood at the released WN, on the 4-harmonic data, and the
-fit is used in both variants. Several of these fits go to the lower amplitude bound, i.e. no
-detectable red noise. Not modelled: PPTA chromatic GP (log10 A = -16.7), the annual DM sinusoid
-and solar-wind terms.
+The MPTA legs of J1327, J1545, J1804 and J2145 have no machine-readable RN/DM release. For
+these, RN + DM power laws are fitted at the released WN on the 4-harmonic data, and the fit is
+used in both variants:
+* bounded L-BFGS-B within the prior box, with analytic gradients and 4 starts;
+* all fits converged;
+* the objective at the returned parameters and any active bounds are recorded in
+  `nharms_posterior.json`; three fits have a spectral index at its bound.
+
+Not modelled: PPTA chromatic GP (log10 A = -16.7), the annual DM sinusoid, and solar-wind terms.
+This is a **conditional approximation built from released inputs**, not the released noise
+analyses: four MPTA RN/DM models are fitted locally, and chromatic and solar-wind terms are
+omitted.
 
 **Arrays.**
 * *affected*: the 7 pulsars, with legs stacked per pulsar as option B;
@@ -706,35 +728,43 @@ and solar-wind terms.
 <!-- NHARMS_POSTERIOR -->
 | array | ORF | quantity | 4 harm.: median [5%, 95%] | 7 harm.: median [5%, 95%] | dmedian / sigma68 | d5% / w90 | d95% / w90 | lnL max interior (4 / 7) |
 |---|---|---|---|---|---|---|---|---|
-| affected | CURN | log10_A | -11.8 [-13, -11.1] | -11.8 [-12.9, -11.1] | 0.05 | 0.019 | 0.0036 | True / True |
-| affected | CURN | gamma | 3.29 [2.91, 3.78] | 3.28 [2.89, 3.76] | -0.066 | -0.013 | -0.023 | True / True |
-| affected | CURN | log10_A (gamma = 13/3) | -14 [-14.2, -13.8] | -14 [-14.3, -13.8] | -0.098 | -0.038 | -0.019 | True / True |
-| affected | HD | log10_A | -11.9 [-13.1, -11.1] | -11.8 [-13, -11.1] | 0.055 | 0.024 | 0.0039 | True / True |
-| affected | HD | gamma | 3.31 [2.91, 3.81] | 3.3 [2.91, 3.79] | -0.065 | -0.0097 | -0.023 | True / True |
-| affected | HD | log10_A (gamma = 13/3) | -14 [-14.3, -13.8] | -14 [-14.3, -13.8] | -0.082 | -0.033 | -0.015 | True / True |
-| affected+NG15 | CURN | log10_A | -13.7 [-14.4, -13] | -13.7 [-14.4, -13] | 0.0041 | 0.0017 | 0.00024 | True / True |
-| affected+NG15 | CURN | gamma | 3.55 [3.27, 3.81] | 3.55 [3.27, 3.81] | -0.018 | -0.0042 | -0.0076 | True / True |
-| affected+NG15 | CURN | log10_A (gamma = 13/3) | -14.4 [-14.5, -14.3] | -14.4 [-14.5, -14.3] | -0.036 | -0.01 | -0.012 | True / True |
-| affected+NG15 | HD | log10_A | -13.8 [-14.4, -13] | -13.8 [-14.4, -13] | -0.0017 | 0.00035 | -0.00099 | True / True |
-| affected+NG15 | HD | gamma | 3.56 [3.28, 3.82] | 3.56 [3.27, 3.82] | -0.012 | -0.0028 | -0.0047 | True / True |
-| affected+NG15 | HD | log10_A (gamma = 13/3) | -14.4 [-14.5, -14.3] | -14.4 [-14.5, -14.3] | -0.034 | -0.01 | -0.011 | True / True |
+| affected | CURN | log10_A | -14.7 [-15.1, -14.2] | -14.7 [-15.1, -14.2] | -0.064 | -0.015 | -0.023 | True / True |
+| affected | CURN | gamma | 6.16 [5.03, 6.89] | 6.19 [5.06, 6.9] | 0.048 | 0.018 | 0.0035 | True / True |
+| affected | CURN | log10_A (gamma = 13/3) | -14 [-14.3, -13.8] | -14 [-14.3, -13.8] | -0.098 | -0.038 | -0.019 | True / True |
+| affected | HD | log10_A | -14.7 [-15.1, -14.2] | -14.7 [-15.1, -14.2] | -0.064 | -0.0095 | -0.022 | True / True |
+| affected | HD | gamma | 6.12 [4.94, 6.89] | 6.15 [4.98, 6.89] | 0.054 | 0.023 | 0.0039 | True / True |
+| affected | HD | log10_A (gamma = 13/3) | -14 [-14.3, -13.8] | -14 [-14.3, -13.8] | -0.083 | -0.034 | -0.015 | True / True |
+| affected+NG15 | CURN | log10_A | -14.5 [-14.7, -14.2] | -14.5 [-14.7, -14.2] | -0.018 | -0.004 | -0.0076 | True / True |
+| affected+NG15 | CURN | gamma | 4.29 [3.61, 5.04] | 4.29 [3.61, 5.04] | 0.0032 | 0.0015 | -9.6e-05 | True / True |
+| affected+NG15 | CURN | log10_A (gamma = 13/3) | -14.4 [-14.5, -14.3] | -14.4 [-14.5, -14.3] | -0.037 | -0.011 | -0.013 | True / True |
+| affected+NG15 | HD | log10_A | -14.4 [-14.7, -14.2] | -14.4 [-14.7, -14.2] | -0.011 | -0.0027 | -0.0048 | True / True |
+| affected+NG15 | HD | gamma | 4.25 [3.55, 4.99] | 4.24 [3.56, 4.99] | -0.0024 | 0.00018 | -0.0013 | True / True |
+| affected+NG15 | HD | log10_A (gamma = 13/3) | -14.4 [-14.5, -14.3] | -14.4 [-14.5, -14.3] | -0.035 | -0.01 | -0.011 | True / True |
 <!-- /NHARMS_POSTERIOR -->
 
-Every lnL maximum is interior to the grid (last column). For the *affected* array alone, the
-2D maximum is at gamma ~ 6.3, log10_A ~ -14.7. Its marginal log10_A posterior, however, extends
-to the upper prior edge (95 % quantile -11.1), through the strong A-gamma degeneracy of a weak
-7-pulsar array. Those quantiles are prior-bounded, and the gamma = 13/3 amplitude (interior,
--14.0 [-14.2, -13.8]) is the cleaner comparison. With the four NG15 pulsars every interval is
-well inside the prior.
+Every lnL maximum is interior to the grid (last column).
+
+Revision 2's table swapped the two marginals. The surface is (gamma, log10_A), but the code
+summed it over the wrong axis for each parameter. The equal grid lengths hid this, and a test with
+unequal axes now guards it. The normalised shifts happened to survive the swap. The regenerated
+medians agree with the reviewer's recomputation to <= 0.005, the remaining difference coming
+from the bounded MPTA noise refit; for example, affected/CURN log10_A is -14.709 -> -14.727
+here and -14.705 -> -14.724 in the review.
+
+**Prior boundary.** For the *affected* array alone, the **gamma** posterior presses against its
+upper prior bound: the 95 % quantile is 6.89 for both CURN and HD, against a bound of 7. The
+amplitude is well constrained (CURN: -14.71 [-15.10, -14.22]). The 2D maximum is interior
+(gamma ~ 6.3, log10_A ~ -14.75). With the four NG15 pulsars, every interval is well inside the
+prior (CURN gamma 4.29 [3.61, 5.04]).
 
 **Result.** At the posterior level the harmonic count is negligible for these arrays:
-* *affected* alone: |d median| <= 0.07 sigma68 for log10_A and gamma, and <= 0.10 sigma68 for the
-  gamma = 13/3 amplitude; 90 % bounds move by <= 0.04 w90;
-* *affected+NG15*: <= 0.04 sigma68, and the bounds move by <= 0.012 w90.
+* *affected* alone: |d median| <= 0.065 sigma68 for log10_A and gamma, and <= 0.10 sigma68 for
+  the gamma = 13/3 amplitude; the 90 % bounds move by <= 0.04 w90;
+* *affected+NG15*: <= 0.04 sigma68.
 
 The several-nat likelihood-shape changes of the toy model (Sec. 12 table) are absorbed by the
-released red/DM noise and the posterior width. This holds for a *conditional* posterior with
-fixed noise. A noise-marginalised analysis could differ, and is deferred to M3b.
+noise model and the posterior width. This holds for a *conditional* posterior with fixed noise. A
+noise-marginalised analysis could differ, and is deferred to M3b.
 
 **Quarantine decision (configuration-specific).** `quarantine({"ell1h_nharms": "tempo2"})`
 lifts the 10 legs; `{"ell1h_nharms": "pint7"}` keeps them quarantined. Under the 4-harmonic

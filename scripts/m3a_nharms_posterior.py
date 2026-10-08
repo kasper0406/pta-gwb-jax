@@ -18,7 +18,10 @@ Noise (fixed; absorbed in stage 1)
     modes on the PPTA leg span); NG15 strong pulsars (IRN medians of the released CURN chain, 30
     modes, NG15 span). MPTA legs (J1327, J1545, J1804, J2145): no machine-readable RN/DM release,
     so IRN + DM power laws (30 modes each, MPTA span) are fitted by maximum likelihood at the
-    released white noise on the 4-harmonic data and used in BOTH variants. Not modelled: PPTA chromatic
+    released white noise on the 4-harmonic data (bounded L-BFGS-B within the prior box, convergence
+    and the objective at the returned parameters recorded) and used in BOTH variants. This is a
+    conditional approximation built from released inputs, not the released noise analyses.
+    Not modelled: PPTA chromatic
     GP (log10 A = -16.7), annual DM sinusoid, solar-wind GP; MPTA chromatic terms.
 Common process: power law, 14 modes on the array span; uniform priors log10_A in [-18, -11],
 gamma in [0, 7]; grid 141 x 141 (CURN and HD) and a 1401-point log10_A grid at gamma = 13/3.
@@ -170,23 +173,35 @@ def fit_red_dm(mp, wn):
     like = GeneralPTALikelihood([precompute_general(mp, wn, PulsarGPModel(sampled={"rn": rn, "dm": dm}))],
                                 orf=None, common=None)
 
-    def nll(x):
-        p = {"rn_log10_A": jnp.asarray([x[0]]), "rn_gamma": jnp.asarray([x[1]]), "dm_log10_A": jnp.asarray([x[2]]),
-             "dm_gamma": jnp.asarray([x[3]])}
-        return -float(like.logL(p))
+    import jax
 
+    def nll_and_grad(x):
+        def f(v):
+            p = {"rn_log10_A": v[0:1], "rn_gamma": v[1:2], "dm_log10_A": v[2:3], "dm_gamma": v[3:4]}
+            return -like._logL(p)
+
+        val, g = jax.value_and_grad(f)(jnp.asarray(x, dtype=jnp.float64))
+        return float(val), np.asarray(g, dtype=np.float64)
+
+    bounds = [(-20.0, -11.0), (0.0, 7.0), (-20.0, -11.0), (0.0, 7.0)]
     best = None
-    for x0 in ([-14.5, 3.0, -13.5, 2.5], [-13.5, 1.5, -13.0, 1.0], [-16.0, 5.0, -14.0, 4.0]):
-        r = minimize(nll, x0, method="Nelder-Mead", options={"xatol": 1e-3, "fatol": 1e-4, "maxiter": 4000})
+    for x0 in ([-14.5, 3.0, -13.5, 2.5], [-13.5, 1.5, -13.0, 1.0], [-16.0, 5.0, -14.0, 4.0], [-18.0, 3.0, -18.0, 3.0]):
+        r = minimize(nll_and_grad, x0, jac=True, method="L-BFGS-B", bounds=bounds,
+                     options={"maxiter": 2000, "ftol": 1e-12, "gtol": 1e-8})
         if best is None or r.fun < best.fun:
             best = r
-    x = np.clip(best.x, [-20, 0, -20, 0], [-11, 7, -11, 7])
+    x = np.asarray(best.x)
+    f_at_x, g_at_x = nll_and_grad(x)  # objective and gradient at the returned (bounded) parameters
+    at_bound = [bool(abs(xi - lo) < 1e-6 or abs(xi - hi) < 1e-6) for xi, (lo, hi) in zip(x, bounds, strict=True)]
+    proj_grad = [0.0 if ab else float(gi) for ab, gi in zip(at_bound, g_at_x, strict=True)]
     out = []
     for b, A, g in ((rn, x[0], x[1]), (dm, x[2], x[3])):
         f, df = b.frequencies()
         out.append((b, powerlaw(f, df, A, g)))
     return out, {"rn_log10_A": float(x[0]), "rn_gamma": float(x[1]), "dm_log10_A": float(x[2]), "dm_gamma": float(x[3]),
-                 "nll": float(best.fun)}
+                 "nll_at_returned": f_at_x, "optimizer": "L-BFGS-B (bounded, analytic JAX gradient, 4 starts)",
+                 "success": bool(best.success), "message": str(best.message), "nit": int(best.nit),
+                 "at_bound": at_bound, "max_abs_free_gradient": float(np.max(np.abs(proj_grad)))}
 
 
 def summarize(grid_A, grid_g, lnL):
@@ -195,7 +210,11 @@ def summarize(grid_A, grid_g, lnL):
 
     post = np.exp(lnL - lnL.max())
     out = {}
-    for axis, x, name in ((1, grid_A, "log10_A"), (0, grid_g, "gamma")):
+    # lnL has shape (len(grid_g), len(grid_A)): the log10_A marginal sums over gamma (axis 0), the
+    # gamma marginal over log10_A (axis 1) (review M3a r2 #1: these were swapped)
+    if lnL.shape != (len(grid_g), len(grid_A)):
+        raise ValueError(f"lnL shape {lnL.shape} != (len(gamma), len(log10_A)) = {(len(grid_g), len(grid_A))}")
+    for axis, x, name in ((0, grid_A, "log10_A"), (1, grid_g, "gamma")):
         m = post.sum(axis=axis)
         c = np.cumsum(m) / m.sum()
         q = {f"q{int(p * 100):02d}": float(np.interp(p, c, x)) for p in (0.05, 0.16, 0.5, 0.84, 0.95)}
@@ -271,7 +290,7 @@ def main():
         fixed = red_dm_released(mp4, psr, legs_by_pta)
         if fixed is None:
             fixed, fit = fit_red_dm(mp4, wn)
-            noise_info[psr] = {"red_dm": "ML fit at released WN (4-harmonic data)", **fit}
+            noise_info[psr] = {"red_dm": "bounded ML fit at released WN (4-harmonic data), used in both variants", **fit}
         else:
             noise_info[psr] = {"red_dm": "released", "blocks": [(b.name, b.n_modes, round(b.T / 3.15576e7, 2)) for b, _ in fixed]}
         model = PulsarGPModel(common=common, fixed=fixed)

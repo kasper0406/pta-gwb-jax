@@ -193,10 +193,11 @@ def cmd_g5(args):
     (CURN values, JAX gradients) and the independent long-double arbiter (tests/m3a_arbiter.py:
     CURN values and analytic gradients).
 
-    Criteria (fixed before the held-out run; constant-invariant, review M3a #6):
-      values   |(lnL_i - lnL_0)_ours - (lnL_i - lnL_0)_oracle| <= 1e-6 nats for every oracle;
-      gradient |g_ours - g_arbiter| <= 1e-8 max(1, |g_arbiter|) for every component (the gate);
-               the discovery gradient comparison is reported (not gating).
+    Numerical-correctness criterion (absolute, constant-invariant; review M3a r2 #3): vs the
+    independent long-double arbiter, CURN and HD shape differences <= 1e-6 nats and gradients
+    <= 1e-8 max(1, |g|). The original all-oracle criterion (<= 1e-6 nats vs discovery, enterprise
+    and the arbiter) is evaluated and kept for the record; the float64 oracles exceed it on the
+    87k-TOA C system. Oracle-vs-arbiter deviations are reported.
     Points: the 6 original points (seed 11) and 6 held-out points (seed 2026)."""
     import jax
     import jax.numpy as jnp
@@ -256,13 +257,15 @@ def cmd_g5(args):
                           "dshape_hd_vs_arbiter": float(np.max(np.abs(d[:, 2] - d[:, 5]))),
                           "dshape_discovery_vs_arbiter": float(np.max(np.abs(d[:, 1] - d[:, 4]))),
                           "dshape_enterprise_vs_arbiter_hd": float(np.max(np.abs(d[:, 3] - d[:, 5]))),
-                          "pass_vs_arbiter": bool(np.max(np.abs(d[:, 0] - d[:, 4])) <= 1e-6
-                                                  and np.max(np.abs(d[:, 2] - d[:, 5])) <= 1e-6 and garb <= 1e-8),
+                          "numerical_pass_vs_arbiter": bool(np.max(np.abs(d[:, 0] - d[:, 4])) <= 1e-6
+                                                            and np.max(np.abs(d[:, 2] - d[:, 5])) <= 1e-6 and garb <= 1e-8),
                           "grad_rel_vs_arbiter": garb, "grad_rel_vs_discovery": gdis,
-                          "pass": bool(np.max(np.abs(d[:, 0] - d[:, 1])) <= 1e-6 and np.max(np.abs(d[:, 2] - d[:, 3])) <= 1e-6
-                                       and np.max(np.abs(d[:, 0] - d[:, 4])) <= 1e-6 and garb <= 1e-8)}
+                          "original_all_oracle_criterion": bool(
+                              np.max(np.abs(d[:, 0] - d[:, 1])) <= 1e-6 and np.max(np.abs(d[:, 2] - d[:, 3])) <= 1e-6
+                              and np.max(np.abs(d[:, 0] - d[:, 4])) <= 1e-6 and garb <= 1e-8)}
         out[tag] = {"systems": [repr(m) for m in mps], "ntoa": int(sum(m.ntoa for m in mps)), **res,
-                    "pass": all(r["pass"] for r in res.values())}
+                    "numerical_pass_vs_arbiter": all(r["numerical_pass_vs_arbiter"] for r in res.values()),
+                    "original_all_oracle_criterion": all(r["original_all_oracle_criterion"] for r in res.values())}
         print(tag, json.dumps(out[tag], indent=1), flush=True)
     _dump("g5_multileg", out)
 

@@ -55,7 +55,7 @@ def g5():
     d = _load("g5_multileg")
     if d is None:
         return "(g5_multileg.json missing)"
-    out = ["| system | points | CURN ours-arbiter | HD ours-arbiter | grad ours-arbiter (rel.) | CURN ours-discovery | HD ours-enterprise | discovery-arbiter | enterprise-arbiter (HD) | grad ours-discovery (info) | pre-fixed criterion (all oracles) | vs arbiter |",
+    out = ["| system | points | CURN ours-arbiter | HD ours-arbiter | grad ours-arbiter (rel.) | CURN ours-discovery | HD ours-enterprise | discovery-arbiter | enterprise-arbiter (HD) | grad ours-discovery (info) | original all-oracle criterion (historical) | numerical correctness vs arbiter (gate) |",
            "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for tag in ("C", "B"):
         r = d.get(tag)
@@ -67,7 +67,7 @@ def g5():
                        f" ({r['ntoa']} TOAs) | {lab} | {_f(x['dshape_curn_vs_arbiter'], '.2g')} | {_f(x.get('dshape_hd_vs_arbiter'), '.2g')} | "
                        f"{_f(x['grad_rel_vs_arbiter'], '.2g')} | {_f(x['dshape_curn_vs_discovery'], '.2g')} | {_f(x['dshape_hd_vs_enterprise'], '.2g')} | "
                        f"{_f(x.get('dshape_discovery_vs_arbiter'), '.2g')} | {_f(x.get('dshape_enterprise_vs_arbiter_hd'), '.2g')} | "
-                       f"{_f(x['grad_rel_vs_discovery'], '.2g')} | {'pass' if x['pass'] else 'FAIL'} | {'pass' if x.get('pass_vs_arbiter') else 'FAIL'} |")
+                       f"{_f(x['grad_rel_vs_discovery'], '.2g')} | {'pass' if x['original_all_oracle_criterion'] else 'FAIL'} | {'PASS' if x['numerical_pass_vs_arbiter'] else 'FAIL'} |")
     return "\n".join(out)
 
 
