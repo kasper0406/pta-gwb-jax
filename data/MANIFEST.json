@@ -28,7 +28,7 @@
   "metapulsar_zenodo": "Zenodo 10.5281/zenodo.17626664 (MetaPulsar) returned HTTP 403 ('unusual traffic') on 2026-10-08; the GitHub tags are used instead.",
   "epta_dr2_commit_1506123": "Yu & Allen used EPTA GitLab commit 1506123 (2023-08-23). Between it and our commit 2911d0e only noise files, GWB scripts, tutorials and README changed (GitLab compare API, 2026-10-08): DR2new par/tim are identical, so no separate fetch."
  },
- "updated_at": "2026-10-08T09:59:45+00:00",
+ "updated_at": "2026-10-08T10:48:44+00:00",
  "datasets": {
   "ng15_v2.1.0": {
    "group": "ng15",
@@ -3013,52 +3013,52 @@
   "m3_paper_sources": {
    "group": "m3",
    "kind": "arxiv_src",
-   "description": "arXiv LaTeX sources holding machine-readable noise tables or methods we need: 2412.01148 (MPTA data release + noise paper; longtable 'MPTA noise models' = the only public MPTA noise model: MAP and 68% intervals of EFAC, EQUAD, ECORR, red/DM/chromatic/solar-wind power laws, chromatic index, n_earth; plus the deterministic-model table), 2512.20455 (InPTA DR2 II customised noise models; no machine-readable noise files are released, the paper table is the source), 2608.02808 (InPTA DR2 III GWB search), 2512.08666 v3 (Yu & Allen five-PTA search).",
+   "description": "arXiv LaTeX sources holding machine-readable noise tables or methods we need: 2412.01148 (MPTA data release + noise paper; longtable 'MPTA noise models' = the only public MPTA noise model: MAP and 68% intervals of EFAC, EQUAD, ECORR, red/DM/chromatic/solar-wind power laws, chromatic index, n_earth; plus the deterministic-model table), 2512.20455 (InPTA DR2 II customised noise models; no machine-readable noise files are released, the paper table is the source), 2608.02808 (InPTA DR2 III GWB search), 2512.08666 v3 (Yu & Allen five-PTA search). Versions are pinned in the URLs.",
    "status": "fetched",
-   "fetched_at": "2026-10-08T09:59:45+00:00",
+   "fetched_at": "2026-10-08T10:48:44+00:00",
    "dest": "data/raw/m3_paper_sources",
-   "source_url": "https://arxiv.org/abs/2412.01148,2512.20455,2608.02808,2512.08666",
+   "source_url": "https://arxiv.org/abs/2412.01148v1,2512.20455v2,2608.02808v1,2512.08666v3",
    "doi": null,
    "files": [
     {
-     "name": "2412.01148.tar.gz",
-     "path": "data/raw/m3_paper_sources/2412.01148.tar.gz",
-     "url": "https://arxiv.org/e-print/2412.01148",
+     "name": "2412.01148v1.tar.gz",
+     "path": "data/raw/m3_paper_sources/2412.01148v1.tar.gz",
+     "url": "https://arxiv.org/e-print/2412.01148v1",
      "size": 3401212,
      "sha256": "5ea580b38b13e045e68ea7249bca7993146d34b72329d2119257edf3c90128f1",
      "md5": "f997d0289ab901450ddd7c6b3460c6e3",
      "checksum_verified": null,
-     "extracted_to": "data/raw/m3_paper_sources/extracted/2412.01148"
+     "extracted_to": "data/raw/m3_paper_sources/extracted/2412.01148v1"
     },
     {
-     "name": "2512.20455.tar.gz",
-     "path": "data/raw/m3_paper_sources/2512.20455.tar.gz",
-     "url": "https://arxiv.org/e-print/2512.20455",
+     "name": "2512.20455v2.tar.gz",
+     "path": "data/raw/m3_paper_sources/2512.20455v2.tar.gz",
+     "url": "https://arxiv.org/e-print/2512.20455v2",
      "size": 44696287,
      "sha256": "7e886feb8c6b7c927c307a80329106d7bec12b007c36ee532821603b07fb4a77",
      "md5": "d946b0fee7cb85a3095d78c35687fb14",
      "checksum_verified": null,
-     "extracted_to": "data/raw/m3_paper_sources/extracted/2512.20455"
+     "extracted_to": "data/raw/m3_paper_sources/extracted/2512.20455v2"
     },
     {
-     "name": "2608.02808.tar.gz",
-     "path": "data/raw/m3_paper_sources/2608.02808.tar.gz",
-     "url": "https://arxiv.org/e-print/2608.02808",
+     "name": "2608.02808v1.tar.gz",
+     "path": "data/raw/m3_paper_sources/2608.02808v1.tar.gz",
+     "url": "https://arxiv.org/e-print/2608.02808v1",
      "size": 3456873,
      "sha256": "0fe4e83625a4279295451291418a428639e0e38ee7609d63a1398ac3c2a40570",
      "md5": "60da0c0d2822e89376ec616a3bea7fd3",
      "checksum_verified": null,
-     "extracted_to": "data/raw/m3_paper_sources/extracted/2608.02808"
+     "extracted_to": "data/raw/m3_paper_sources/extracted/2608.02808v1"
     },
     {
-     "name": "2512.08666.tar.gz",
-     "path": "data/raw/m3_paper_sources/2512.08666.tar.gz",
-     "url": "https://arxiv.org/e-print/2512.08666",
+     "name": "2512.08666v3.tar.gz",
+     "path": "data/raw/m3_paper_sources/2512.08666v3.tar.gz",
+     "url": "https://arxiv.org/e-print/2512.08666v3",
      "size": 1663421,
      "sha256": "6ccf05333fd18205827026e3082df333d39020442ac6428539faf670d859bf68",
      "md5": "a9dfbd64970b7199cd8d1ffaf171e72c",
      "checksum_verified": null,
-     "extracted_to": "data/raw/m3_paper_sources/extracted/2512.08666"
+     "extracted_to": "data/raw/m3_paper_sources/extracted/2512.08666v3"
     }
    ],
    "total_size": 53217793

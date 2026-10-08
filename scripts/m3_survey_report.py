@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SURVEY = ROOT / "data" / "processed" / "m3_survey" / "survey.json"
 ORDER = ["ng15", "epta_dr2new", "epta_dr2full", "epta_dr2new+", "ppta_dr3", "ppta_dr3_gh", "inpta_dr2",
          "inpta_dr1", "mpta"]
-MAIN = ["ng15", "epta_dr2new", "ppta_dr3", "inpta_dr2", "mpta"]
+MAIN = ["ng15", "epta_dr2new", "ppta_dr3_gh", "inpta_dr2", "mpta"]  # selected configuration
 YA = ["ng15", "epta_dr2new", "ppta_dr3_gh", "inpta_dr1", "mpta"]
 
 
@@ -37,7 +37,7 @@ def category(err: str) -> str:
         (r"Pulse numbers missing", "TRACK -2 in par but no pulse numbers in tim"),
         (r"Flags and flag-values should be given in pairs", "valueless tim flag (-cycle_post34)"),
         (r"FBn parameters are set but FB0", "PB + FBn (tempo2) without FB0"),
-        (r"M2 cannot be negative", "negative M2/H3 (DDH)"),
+        (r"M2 cannot be negative", "signed (negative) H3 in DDH: unsupported by PINT 1.1.7"),
         (r"DMX_ parameters do not match DMXR1_", "DMXR ranges without DMX value"),
         (r"unfittable parameters", "fit flag on DMXR range bound"),
         (r"has no attribute 'mjd'", "DMX present but no DMX_0001 (PINT template)"),
@@ -121,6 +121,77 @@ def main() -> None:
     tim_missing = [f"{r['dataset']}/{r['psr']}" for r in rows if not r.get("tim_exists")]
     if tim_missing:
         w("Par without tim: " + ", ".join(tim_missing) + "\n")
+
+    # ------------------------------------------------------------ TOA identity
+    w("### TOA identity (canonicalised PINT load vs tempo2-semantics text records)\n")
+    w("Per leg, PINT's TOAs (clock corrections removed, TIME/-to offsets kept) are compared with "
+      "the records of the released tim tree read with tempo2 semantics (INCLUDE, SKIP, END per "
+      "file, TIME, -to): count, arrival time (< 2 ns), frequency, uncertainty and system flag "
+      "(-group, else -sys, else -f).\n")
+    w("| data set | legs checked | identical | max dt [ns] | failures |")
+    w("|---|---|---|---|---|")
+    for ds in ORDER:
+        sub = [r for r in by.get(ds, []) if r.get("canon_pint_ok")]
+        if not sub:
+            continue
+        okn = sum(1 for r in sub if r.get("canon_id_ok"))
+        mdt = max((r.get("canon_id_max_dt_ns") or 0.0) for r in sub)
+        fails = [f"{r['psr']} (n {r.get('canon_id_n_pint')}/{r.get('canon_id_n_text')}, dt "
+                 f"{(r.get('canon_id_max_dt_ns') or 0):.3g} ns, sys {r.get('canon_id_n_sys_mismatch')}"
+                 f"{', ' + r['canon_id_error'] if r.get('canon_id_error') else ''})"
+                 for r in sub if not r.get("canon_id_ok")]
+        w(f"| {ds} | {len(sub)} | {okn} | {mdt:.2f} | {'; '.join(fails) or '-'} |")
+    w("")
+
+    # ------------------------------------------------------------ evaluator audit
+    w("### Binary-model evaluator audit (selected configuration and Yu & Allen set)\n")
+    w("Legs whose binary parameterisation PINT and tempo2 evaluate differently or that needed a "
+      "rewrite. None of these is validated against tempo2 yet (M3a gates).\n")
+    w("| class | consequence | legs |")
+    w("|---|---|---|")
+    sel = [r for r in rows if r["dataset"] in set(MAIN) | set(YA)]
+
+    def legs(pred):
+        return ", ".join(sorted({f"{r['dataset']}/{r['psr']}" for r in sel if pred(r)})) or "-"
+
+    def neg(r):
+        try:
+            return float(r.get("bin_h3") or 0) < 0
+        except ValueError:
+            return False
+
+    w(f"| signed (negative) H3 | PINT 1.1.7 rejects (DDH converts to M2 < 0); zeroing H3 would delete "
+      f"the STIG column: **blocking**, needs a signed-H3 evaluator (PINT PR #2023) or tempo2 | "
+      f"{legs(neg)} |")
+    w(f"| ELL1H H3 + H4, no NHARMS | PINT uses >= 7 harmonics, tempo2 defaults to 4 (reviewer measured "
+      f"56 ns-1.6 us Shapiro differences): **quarantined** | "
+      f"{legs(lambda r: r['binary'] in ('ELL1H', 'T2') and r.get('bin_h4') and not r.get('bin_nharms'))} |")
+    w(f"| ELL1H H3 + STIG | evaluated with ell1h_shapiro='absorbed' (tempo2 eq. 28) | "
+      f"{legs(lambda r: (r.get('canon_pint_binary') == 'ELL1H') and r.get('bin_stig'))} |")
+    w(f"| DDH | full DD Shapiro expression; not affected by the ELL1H switch; unvalidated | "
+      f"{legs(lambda r: r.get('canon_pint_binary') == 'DDH')} |")
+    w(f"| DDK | Kopeikin terms; unvalidated | {legs(lambda r: r.get('canon_pint_binary') == 'DDK')} |")
+    w(f"| PB + FB1..FBn (no FB0) | rewritten to FB0 = 1/PB; derivative structure unvalidated | "
+      f"{legs(lambda r: r.get('bin_pb_fb'))} |")
+    t2 = Counter(r.get("canon_pint_binary") for r in sel if r["binary"] == "T2")
+    w(f"| BINARY T2 | resolved by PINT allow_T2 to {dict(t2)} | "
+      f"{sum(1 for r in sel if r['binary'] == 'T2')} legs |")
+    w("")
+
+    # ------------------------------------------------------------ warnings
+    w("### PINT warnings (canonicalised load; all legs)\n")
+    w("Every loguru and Python warning is recorded per leg (`canon_pint_warnings` in survey.json). "
+      "Counts of legs per normalised message:\n")
+    wc = Counter()
+    for r in rows:
+        for m in set((r.get("canon_pint_warnings") or "").split(" || ")):
+            if m:
+                wc[re.sub(r"[0-9][0-9.e+-]*", "#", m)[:120]] += 1
+    w("| legs | message |")
+    w("|---|---|")
+    for m, n in wc.most_common(30):
+        w(f"| {n} | {m.replace('|', '/')} |")
+    w("")
 
     # ------------------------------------------------------------ consistency flags
     w("### Consistency flags (canonicalised PINT load)\n")

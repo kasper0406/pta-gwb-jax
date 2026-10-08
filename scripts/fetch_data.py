@@ -341,8 +341,8 @@ SOURCES: list[Source] = [
         "chromatic index, n_earth; plus the deterministic-model table), 2512.20455 (InPTA DR2 II "
         "customised noise models; no machine-readable noise files are released, the paper table is "
         "the source), 2608.02808 (InPTA DR2 III GWB search), 2512.08666 v3 (Yu & Allen five-PTA "
-        "search).",
-        {"ids": ["2412.01148", "2512.20455", "2608.02808", "2512.08666"]},
+        "search). Versions are pinned in the URLs.",
+        {"ids": ["2412.01148v1", "2512.20455v2", "2608.02808v1", "2512.08666v3"]},
     ),
 ]
 
@@ -665,7 +665,8 @@ def fetch_datacentral(src: Source, dest: Path) -> dict[str, Any]:
 
 
 def fetch_arxiv_src(src: Source, dest: Path) -> dict[str, Any]:
-    """arXiv e-print (LaTeX source) tarballs; used for machine-readable paper tables."""
+    """arXiv e-print (LaTeX source) tarballs, pinned to explicit versions (``<id>vN``); used for
+    machine-readable paper tables."""
     files = []
     for aid in src.params["ids"]:
         url = f"https://arxiv.org/e-print/{aid}"

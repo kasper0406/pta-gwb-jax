@@ -19,6 +19,11 @@ OMP_NUM_THREADS=1 python scripts/m3_survey.py --canonical  # -> data/processed/m
 python scripts/m3_survey_report.py > data/processed/m3_survey/report.md
 ```
 
+**Revision 2 (after review of 256c0be).** The negative-H3 rewrite (old F9) is withdrawn; the
+survey now records every warning, checks TOA identity per leg against a tempo2-semantics
+reader, audits binary-model evaluator classes, fixes a TIME-offset leak (F14) and generates the
+inventory from the selected configuration (PPTA from GitHub). See Sec. 5.
+
 All numbers from papers were taken from the arXiv LaTeX sources (fetched to
 `data/raw/m3_paper_sources` for the noise tables; the other sources were read from arXiv
 e-prints). Literature extraction was done with an independent reader and spot-checked
@@ -40,7 +45,7 @@ New sources in `scripts/fetch_data.py` (group `m3`), with sha256 in `data/MANIFE
 | `inpta_dr1` | InPTA DR1 @ 2c400d5, the commit Yu & Allen cite (14 pulsars, NB + WB) | 6.4 MB | commit sha |
 | `ppta_dr3_github` | danielreardon/PPTA-DR3 @ fdbe6eb (Yu & Allen's PPTA source): par/tim, max-likelihood noise JSONs, single-pulsar noise chains, CRN/HD/free-spectrum/spline-ORF chains (DE421/438/440, BayesEphem), time-slice chains, pairwise correlation chains, analysis code | 357 MB | commit sha |
 | `metapulsar_v0.9.3`, `metapulsar_main` | vhaasteren/metapulsar, the "direct combination" code of Yu & Allen (v0.9.3, 2025-11-17, closest tag to their Zenodo record 17626664) and main @ 5adf316 (current METHOD_DESCRIPTION) | 10.5 + 12.1 MB | commit sha |
-| `m3_paper_sources` | arXiv LaTeX of 2412.01148 (MPTA noise table), 2512.20455 (InPTA DR2 noise table), 2608.02808 (InPTA DR2 GWB), 2512.08666 v3 (Yu & Allen) | 53 MB | sha256 |
+| `m3_paper_sources` | arXiv LaTeX of 2412.01148v1 (MPTA noise table), 2512.20455v2 (InPTA DR2 noise table), 2608.02808v1 (InPTA DR2 GWB), 2512.08666v3 (Yu & Allen); versions pinned in the fetch URLs | 53 MB | sha256 |
 
 **MPTA noise models and chains: none are released.** The data availability statement of
 2412.01148/2412.01153 lists sub-banded TOAs, archives, ephemerides and portraits only. The
@@ -80,8 +85,8 @@ Numbers are from our text parse of the released par/tim files (Appendix A) unles
 
 ### EPTA DR2 (GitLab 2911d0e; Zenodo 8300645)
 
-* 25 pulsars in four configurations: **DR2full** (24.5 yr, legacy + new backends, 56,377
-  TOAs), **DR2new** (10.2 yr, modern backends only, 45,428), and the "+" versions with InPTA
+* 25 pulsars in four configurations: **DR2full** (24.5 yr, legacy + new backends, 56,202
+  TOAs read with tempo2 semantics), **DR2new** (10.2 yr, modern backends only, 45,428), and the "+" versions with InPTA
   DR1 appended for 10 pulsars (DR2new+: 50,597). The GWB headline is DR2new.
 * Telescopes: Effelsberg (`effix`, `eff`, old `g`), Jodrell Bank (`jbroach`, `jbmk2roach`,
   old `jb`/`8`), Nancay (`ncyobs`, old `ncy`), WSRT, LEAP; median 14 systems (`-group`) per
@@ -90,10 +95,13 @@ Numbers are from our text parse of the released par/tim files (Appendix A) unles
   DM1/DM2, **no DMX**, NE_SW = 7.9 (fixed; J1022+1001 fitted), T2 binary for 13 pulsars,
   326 JUMP lines (DR2new), no FD (sub-band templates), no noise keywords in the par.
   The corrected Nancay clock file is shipped (`EPTA-DR2/clockfiles`).
-* tim quirks: `TIME` offsets in 5 (DR2new) / 11 (DR2full) files; `END` inside 12 INCLUDEd
-  files per configuration (tempo2 ends that file only; PINT stops reading everything);
-  indented `C` comment lines; DR2full has a broken continuation line (61 orphan `-padd`
-  lines in J1738+0333) and comment lines with non-ASCII bytes.
+* tim quirks: `TIME` offsets (+-0.001 s to +-60 s, some with trailing flags); `-padd` phase
+  additions; `-pn` pulse numbers on part of J1911+1347's TOAs (PINT: "Some TOAs are missing
+  pulse numbers, they will not be used"). `END` statements sit inside INCLUDEd files of
+  five DR2full legs (none in the DR2new/DR2new+ trees that are actually INCLUDEd); tempo2
+  ends only that file, PINT stops reading all TOAs. Indented `C` comment lines; DR2full also
+  has a broken continuation line (61 orphan `-padd` lines in J1738+0333), comment lines with
+  non-ASCII bytes, and one INCLUDEd file whose TIME statements do not sum to zero (F14).
 * Noise: per-pulsar customised RN / DM GP / scattering (nu^-4) selection on each pulsar's own
   span, counts in `*_dict.json` (10-151 modes); WN = EFAC + TNEQUAD per `-group`, **no
   ECORR**; J1713+0747 two exponential dips. See Sec. 3.7.
@@ -142,6 +150,16 @@ Numbers are from our text parse of the released par/tim files (Appendix A) unles
 
 ### Clock, ephemeris and time units across PTAs
 
+Checks done for this revision: (i) MPTA pars say TT(BIPM2020) (81 of 83; J0931-1902 says
+BIPM2019, one says BIPM2022), the paper says BIPM2022. Over the MPTA span the two realisations
+differ by 4.3 ns rms (11 ns peak to peak, mean removed; PINT's global BIPM files); BIPM2022 vs
+BIPM2023 differ by 0.6 ns rms. Unresolved; see the plan's clock profiles. (ii) EPTA's shipped,
+corrected Nancay clock file agrees with PINT's current global `ncyobs2obspm.clk` to <= 3.1 ns
+(rms 0.1 ns) over DR2new; it will still be pinned. (iii) PINT warns that the Effelsberg clock
+files (`leap2effix.clk` 36 legs, `effix2gps.clk` 18, `eff2gps.clk` 3) and `tai2tt_bipm2019.clk`
+(MPTA J0931-1902) do not cover all TOAs; these must be resolved before any EPTA or MPTA leg is
+used.
+
 | | NG15 | EPTA DR2 | PPTA DR3 | InPTA DR2 / DR1 | MPTA |
 |---|---|---|---|---|---|
 | Timing package | PINT | tempo2 | tempo2 | tempo2 | tempo2 |
@@ -151,6 +169,7 @@ Numbers are from our text parse of the released par/tim files (Appendix A) unles
 | Solar wind in par | NE_SW 0 (SWM 0) | NE_SW 7.9 | NE_SW 0 (+ noise model) | NE_SW 0 | NE_SW 0 (+ noise model) |
 | DM in timing model | DMX | DM, DM1, DM2 | DM, DM1, DM2 | DMX | DM, DM1, DM2 |
 | EQUAD convention of the noise model | T2 | TN | TN | T2 | TN |
+| Clock files shipped | release `clock/` | corrected `ncyobs2obspm.clk`, BIPM2020/2021 | `pks2gps.clk` (+ `tai2tt_bipm2021.clk` in CSIRO) | none | none |
 | ECORR | yes | no | band/group ECORRs | some pulsars | some pulsars |
 
 ---
@@ -198,6 +217,10 @@ Amplitudes are at f_ref = 1/yr.
 
 ### 3.2 MetaPulsar (vhaasteren/metapulsar, METHOD_DESCRIPTION.md)
 
+The description below is of the **current main** (5adf316, 2026-09-16). It differs from v0.9.3
+(2025-11-17, the tag closest to YA's Zenodo record) at least in the DM handling; the M3 plan
+therefore pins a versioned YA configuration (plan Sec. 3.2) instead of "what MetaPulsar does".
+
 Two strategies: **shared** (YA) and **per_pta** (= FrankenStat). Shared mode strips
 deterministic terms that PINT and tempo2 do not both support (DMMODEL, CM/CMX/chromatic events,
 WAVE/IFUNC, glitches, exponential dips, NE_SW_SIN, SWX, DMWaveX, ...). It converts to explicit
@@ -205,8 +228,10 @@ UNITS TDB and transforms ecliptic astrometry numerically to IERS2003 for mixed e
 forces a common profile for PINT + tempo2 stacks (T2CMETHOD IAU2000B, TIMEEPH FB90,
 DILATEFREQ N, CORRECT_TROPOSPHERE N, PLANET_SHAPIRO N, SWM 0, explicit NE_SW; tempo2's
 implicit NE_SW is 4). It aligns ELL1H Shapiro conventions (Freire & Wex eq. 28 vs 29) and
-converts ELL1 to DD above a 1-ns gate. DM stays per PTA (`DM_<pta>`), DMX is removed and
-DM1/DM2 are added free. A zero-information column cull, position matching within 10 arcsec,
+converts ELL1 to DD above a 1-ns gate. In the current main, DM stays per PTA (`DM_<pta>`,
+`exclude_from_shared=("DM",)`, a CHANGELOG change); **v0.9.3, the version closest to YA,
+copies the reference DM and DMEPOCH into every leg**. DMX is removed and DM1/DM2 are added free
+in both. A zero-information column cull, position matching within 10 arcsec,
 and narrowband TOAs only. "Statistical equivalence" argument: same column space of M as a
 manual combination.
 
@@ -366,102 +391,140 @@ manual combination.
 ## 4. Pulsar overlap
 
 Pulsars matched by sky position (30 arcsec; B1855+09 = J1857+0943, B1937+21 = J1939+2134).
+All counts below are generated by `scripts/m3_survey.py`
+(`data/processed/m3_survey/inventory_*.json`, `overlap_*.md`).
 
-**Main set (NG15, EPTA DR2new, PPTA DR3, InPTA DR2, MPTA): 122 unique pulsars**; by number of
-PTAs: 62 in one, 34 in two, 10 in three, 6 in four, 10 in all five (mean 1.92).
+**Selected configuration (NG15, EPTA DR2new, PPTA DR3 GitHub, InPTA DR2, MPTA): 122 unique
+pulsars, 235 legs, 61 pulsars in two or more PTAs, 1,164,803 TOAs**; by number of PTAs: 61 in
+one, 35 in two, 10 in three, 6 in four, 10 in all five (mean 1.93).
 
-| | NG15 | EPTA DR2new | PPTA DR3 | InPTA DR2 | MPTA |
+| | NG15 | EPTA DR2new | PPTA DR3 (GitHub) | InPTA DR2 | MPTA |
 |---|---|---|---|---|---|
-| NG15 | 68 | 21 | 17 | 24 | 32 |
+| NG15 | 68 | 21 | 18 | 24 | 32 |
 | EPTA DR2new | 21 | 25 | 12 | 16 | 18 |
-| PPTA DR3 | 17 | 12 | 31 | 16 | 28 |
+| PPTA DR3 | 18 | 12 | 32 | 16 | 28 |
 | InPTA DR2 | 24 | 16 | 16 | 27 | 16 |
 | MPTA | 32 | 18 | 28 | 16 | 83 |
 
-(PPTA counts use the 31 pulsars with a tim file in the CSIRO variant; with GitHub's 32,
-NG15 x PPTA = 18.)
+(With the CSIRO PPTA variant, which has no J1741+1351 tim file: 234 legs, 60 multi-PTA
+pulsars.)
 
-**Yu & Allen set (InPTA DR1, PPTA GitHub): 121 unique pulsars**, exactly as in the paper;
-65 / 32 / 10 / 7 / 7 in 1 / 2 / 3 / 4 / 5 PTAs (mean 1.83, paper "1.8"). Pairwise:
-NG15 x EPTA 21, NG15 x PPTA 18, NG15 x InPTA 13, NG15 x MPTA 32, EPTA x PPTA 12,
-EPTA x InPTA 10, EPTA x MPTA 18, PPTA x InPTA 12, PPTA x MPTA 28, InPTA x MPTA 10.
+**Yu & Allen set (InPTA DR1, PPTA GitHub): 121 unique pulsars, 222 legs, 56 multi-PTA
+pulsars, 1,090,212 TOAs**, matching the paper's 121 pulsars; 65 / 32 / 10 / 7 / 7 in
+1 / 2 / 3 / 4 / 5 PTAs (mean 1.835, paper "1.8"). Pairwise: NG15 x EPTA 21, NG15 x PPTA 18,
+NG15 x InPTA 13, NG15 x MPTA 32, EPTA x PPTA 12, EPTA x InPTA 10, EPTA x MPTA 18,
+PPTA x InPTA 12, PPTA x MPTA 28, InPTA x MPTA 10.
 
-In all five PTAs (main set, 10): J0030+0451, J0613-0200, J1022+1001, J1024-0719,
-J1600-3053, J1713+0747, J1730-2304, J1744-1134, J1909-3744, J2124-3358 (YA set: 7, without
-J0030+0451, J1024-0719, J1730-2304, which are not in InPTA DR1). Single-PTA pulsars (main
-set): 36 MPTA-only (southern), 24 NG15-only (northern, Arecibo/GBT), 1 PPTA-only, 1
-InPTA-only; every EPTA DR2 pulsar is also timed by another PTA. Appendix A has the
-per-pulsar matrix with TOA counts and spans.
+In all five PTAs (selected configuration, 10): J0030+0451, J0613-0200, J1022+1001,
+J1024-0719, J1600-3053, J1713+0747, J1730-2304, J1744-1134, J1909-3744, J2124-3358 (YA set: 7,
+without J0030+0451, J1024-0719, J1730-2304, which are not in InPTA DR1). Single-PTA pulsars
+(selected configuration): 36 MPTA-only (southern), 24 NG15-only (northern, Arecibo/GBT), 1
+InPTA-only; every EPTA DR2 and PPTA DR3 (GitHub) pulsar is also timed by another PTA.
+Appendix A has the per-pulsar matrix with TOA counts and spans.
 
 ---
 
-## 5. PINT smoke load
+## 5. PINT ingestion audit
 
 `scripts/m3_survey.py` loads every par/tim pair with PINT 1.1.7
 (`get_model_and_toas(planets=True, allow_tcb=True, allow_T2=True)`, PINT's global clock
-repository, pre-fit residuals and design matrix), first **as released**, then after a
-minimal, logged **canonicalisation** (`--canonical`; copies in
-`data/processed/m3_survey/canon/`). Outcome (Appendix A has the per-data-set table):
+repository), first **as released**, then after a logged **canonicalisation** (`--canonical`;
+copies in `data/processed/m3_survey/canon/`; tempo2 pars loaded with
+`ell1h_shapiro="absorbed"`). For the canonical load it records:
 
-| data set | as released ok / fail | canonicalised ok / fail |
-|---|---|---|
-| NG15 | 68 / 0 | 68 / 0 |
-| EPTA DR2new | 19 / 6 | 25 / 0 |
-| EPTA DR2full | 16 / 9 | 25 / 0 |
-| EPTA DR2new+ | 19 / 6 | 25 / 0 |
-| PPTA DR3 (CSIRO) | 3 / 28 | 31 / 0 |
-| PPTA DR3 (GitHub) | 3 / 29 | 32 / 0 |
-| InPTA DR2 | 8 / 19 | 27 / 0 |
-| InPTA DR1 | 13 / 1 | 14 / 0 |
-| MPTA | 70 / 13 | 83 / 0 |
+* **every warning** (PINT's loguru messages and Python warnings, including those PINT's
+  TCB->TDB path would otherwise hide, e.g. "PINT does not support 'DILATEFREQ Y'");
+* a **TOA-identity check** against an independent reader of the *released* tim tree with
+  tempo2 semantics (INCLUDE recursion, SKIP/NOSKIP, END ending only the current file, TIME
+  offsets local to a file, the `-to` flag): count, arrival time without clock corrections
+  (< 2 ns), radio frequency, uncertainty and system flag per TOA;
+* a binary-model **evaluator audit** (Appendix A);
+* the pre-fit weighted RMS against the par file's TRES (a screen only: TRES is tempo2's
+  post-fit value with its own weighting and selection, so agreement is not an equivalence
+  test and disagreement is not proof of an error).
 
-### Failure categories and fixes (all implemented in `canon_par`/`canon_tim`)
+Outcome (Appendix A has the per-data-set tables). Every loadable leg (329 of 330) passes the
+TOA-identity check (max |dt| 0.81 ns, identical frequencies, uncertainties and system flags):
 
-| # | Category | Where | Cause | Fix (canonicaliser) | Equivalence argument |
-|---|---|---|---|---|---|
-| F1 | TOA line misparsed (`could not convert string to float`, `invalid literal for int`) | PPTA (22 x 2 variants), EPTA (6 DR2new, 9 DR2full) | PINT classifies TOA lines by their first characters: a leading blank with '.' in column 42 is read as Parkes format, `[0-9a-z@] ` as Princeton, a name starting with a command word as a command. Free-form archive names (`n2004-02-06-...dzTpf4`, ` C /export/...`) trip this | rename the archive token to `toaNNNNNNN`, strip leading blanks | the archive name is metadata only |
-| F2 | Indented comment ` C ...` read as a TOA | EPTA (2 pulsars) | tempo2 comment rule vs PINT's column-based detection | write comments unindented | tempo2 already treats them as comments (TOA counts then match the par's NTOA) |
-| F3 | `END` inside an INCLUDEd file | EPTA (12 files per configuration) | tempo2 stops reading **that file**; PINT stops reading **all** TOAs (silently: e.g. DR2full J1744-1134 gave 392 of 1,931 TOAs) | comment out END and the rest of that file | reproduces tempo2's semantics |
-| F4 | Orphan flag line / non-ASCII comment marker | EPTA DR2full (J1738+0333: 61 `-padd` continuation lines; `C<0xA0>` lines) | broken lines in the release | comment them out | tempo2 cannot attach them either; TOA count matches the par's NTOA |
-| F5 | `TRACK -2` without pulse numbers | PPTA (6-7), MPTA (12) | par asks for pulse-number tracking, tims have no `-pn` | drop TRACK; PINT tracks the nearest pulse | holds if the data are phase-connected: checked by pre-fit wrms vs TRES (Appendix A). Robust fix for production: generate pulse numbers from the leg's own model (as YA did) |
-| F6 | No UNITS line | PPTA (29-31 pars) | tempo2 defaults to TCB, PINT to TDB; without the fix F0 is mis-scaled (J1909-3744 pre-fit wrms 850 us vs TRES 0.33 us; 0.39 us after the fix) | add `UNITS TCB` to tempo2 pars (EPHVER present) without UNITS | restores tempo2 semantics |
-| F7 | Valueless tim flag | InPTA DR2 (`-cycle_post34`/`-cycle_pre34`, all 27) | PINT requires flag/value pairs | value `1` | flag only used for selection |
-| F8 | PB + FB1..FB17 without FB0 | PPTA J2241-5236 | tempo2 accepts PB with FBn; PINT requires FB0 | FB0 = 1/(PB x 86400 s), same fit flag | identical orbital phase model |
-| F9 | Negative H3 / M2 | MPTA J1825-0319 (DDH, H3 = -2.98e-7) | PINT rejects M2 < 0 | set to 0, keep the fit flag | Shapiro delay is linear in H3 (M2) at fixed STIG (SINI): the design column absorbs it exactly in the marginalised likelihood (pre-fit wrms 4.6 -> 5.7 us) |
-| F10 | DMXR ranges without DMX value | InPTA DR2 J0751+1807 (5) | inconsistent par | add `DMX_xxxx 0` frozen | tempo2 ignores such ranges |
-| F11 | Fit flag on a DMXR bound | InPTA DR1 J0751+1807 | PINT: unfittable parameter | freeze | range bounds are not parameters |
-| F12 | DMX present but no DMX_0001 | InPTA DR2 J1600-3053, J1614-2230 | PINT's DMX component always holds a template DMX_0001 with no range | add an empty frozen DMX_0001 range | no TOA in the range |
-| F13 | **Silent model mismatch: ELL1H Shapiro delay** (loads, but pre-fit wrms 2-3.7x TRES) | MPTA J1802-2124 (11.0 us vs TRES 3.0), J1757-5322 (7.1 vs 2.4), J1525-5545 (8.6 vs 4.6), J1435-6100; PPTA J1545-4550 (2.4 vs 1.1), J1902-5105 (3.4 vs 1.6) | PINT's default `ell1h_shapiro="full"` evaluates Freire & Wex (2010) eq. 29; tempo2 evaluates eq. 28 for the same (H3, STIG) | load tempo2 pars with `ell1h_shapiro="absorbed"` (as MetaPulsar does) | reproduces tempo2: wrms 3.00 / 2.41 / 4.63 / 1.18 / 1.55 us, equal to TRES within 4 % |
-
-F1-F12 make PINT load the files; F13 is the first instance of the more dangerous class, where
-PINT loads the file but evaluates a different model. The pre-fit wrms / TRES ratio (Appendix A,
-"Consistency flags") is the screen for that class. With F1-F13 applied, PINT's TOA count equals
-the text count for all 330 pairs, and in the five data sets we combine only these legs keep a
-ratio outside [0.67, 1.5] (Stage-0 work items):
-
-| leg | binary (par) | pre-fit wrms / TRES [us] | suspected cause |
+| data set | as released ok / fail | canonical ok / fail | TOA identity: identical / checked |
 |---|---|---|---|
-| EPTA DR2new J1600-3053 (also DR2new+) | T2 (M2, SINI, PBDOT, XDOT, OMDOT) -> PINT DD | 1.46 / 0.87 | tempo2-T2 vs PINT-DD evaluation, to be checked against tempo2 |
-| PPTA J1600-3053 | DDH | 2.28 / 1.47 | DDH H3/STIG convention (the DD analogue of F13), to be checked |
-| PPTA J1713+0747 | T2 -> DDK | 0.43-0.44 / 0.25 | DDK (Kopeikin) terms or the exponential dips absent from the par; PPTA fits them in the noise model |
-| PPTA J2241-5236 | ELL1 + FB0..FB17 | 0.54 / 0.22 | the PB -> FB0 rewrite (F8) or FB-series evaluation differs; check against tempo2 |
-| PPTA J1824-2452A | isolated | 30.9 / 15.8 | strong steep red noise with TRACK removed; excluded from the PPTA GW search anyway |
-| PPTA J1741+1351 (GitHub only) | ELL1 | 1.67 / 0.83 | TRACK -2 removed (F5); 111 TOAs; excluded from the PPTA GW search |
-| MPTA J1514-4946 | ELL1H | 1.48 / 2.30 (ratio 0.64) | the par was fitted with 1,017 TOAs, the release has 713 |
+| NG15 | 68 / 0 | 68 / 0 | 68 / 68 |
+| EPTA DR2new | 19 / 6 | 25 / 0 | 25 / 25 |
+| EPTA DR2full | 16 / 9 | 25 / 0 | 25 / 25 |
+| EPTA DR2new+ | 19 / 6 | 25 / 0 | 25 / 25 |
+| PPTA DR3 (CSIRO) | 3 / 28 | 31 / 0 | 31 / 31 |
+| PPTA DR3 (GitHub) | 3 / 29 | 32 / 0 | 32 / 32 |
+| InPTA DR2 | 8 / 19 | 27 / 0 | 27 / 27 |
+| InPTA DR1 | 13 / 1 | 14 / 0 | 14 / 14 |
+| MPTA | 70 / 13 | 82 / 1 (J1825-0319, signed H3) | 82 / 82 |
 
-EPTA DR2full (not used in M3) additionally has nine legs with ratios of 1.8-4000 (e.g.
-J1713+0747 965 us, J1744-1134 27 us, J1857+0943 47 us). These are legacy-backend data; likely
-causes are phase-tracking or `-padd` conventions in the old tims, and they are left as an open
-item. NTOA mismatches between par and tim (Appendix A) are expected where the par was fitted
+### Canonicalisation rules
+
+None of these rules is yet validated against tempo2 beyond TOA identity; they are intended to
+reproduce tempo2's reading of the files. Equivalence of the *timing model* (residuals, column
+space, likelihood) is the subject of the M3a gates (plan Sec. 5.1).
+
+| # | Category | Where | Cause | Rewrite | Status |
+|---|---|---|---|---|---|
+| F1 | TOA line misparsed (`could not convert string to float`, `invalid literal for int`) | PPTA (22 per variant), EPTA (6 DR2new, 9 DR2full) | PINT classifies lines by their first characters (leading blank + '.' in column 42 = Parkes format; `[0-9a-z@] ` = Princeton; a command word = command); free-form archive names trip this | archive token -> `toaNNNNNNN`, leading blanks stripped | metadata only; TOA identity passes |
+| F2 | Indented comment ` C ...` read as a TOA | EPTA (2 legs per configuration) | tempo2 comment rule vs PINT's column detection | comments written unindented | TOA identity passes |
+| F3 | `END` inside an INCLUDEd file | EPTA DR2full (5 legs) | tempo2 ends that file only; PINT stops reading all TOAs (silently: DR2full J1744-1134 gave 392 of 1,949 TOAs) | END and the rest of that file commented out | TOA identity passes |
+| F4 | Orphan flag line / non-ASCII comment marker | EPTA DR2full (J1738+0333: 61 `-padd` continuation lines; `C<0xA0>` lines) | broken lines | commented out | TOA identity passes |
+| F5 | `TRACK -2` without pulse numbers | PPTA (6 CSIRO, 7 GitHub), MPTA (12) | par requests pulse-number tracking, tims have no `-pn` | TRACK dropped; PINT tracks the nearest pulse | **phase connection unverified**; production must add pulse numbers from each leg's own model |
+| F6 | No UNITS line | PPTA (29 CSIRO / 31 GitHub pars) | tempo2 default TCB, PINT default TDB (J1909-3744 pre-fit wrms 850 us without, 0.39 us with the fix; TRES 0.33 us) | `UNITS TCB` added to tempo2 pars (EPHVER present) without UNITS | restores tempo2's reading; PINT then converts TCB->TDB "approximately" (its warning) |
+| F7 | Valueless tim flag | InPTA DR2 (`-cycle_post34`/`-cycle_pre34`, all 27) | PINT requires flag/value pairs | value `1` | flag used for selection only |
+| F8 | PB + FB1..FB17 without FB0 | PPTA J2241-5236 | tempo2 uses 1/PB as FB0; PINT requires FB0 | FB0 = 1/(PB x 86400 s) | loads, but pre-fit wrms 2.4x TRES: **unvalidated**, FB-series values and derivatives to be checked (PINT PR #2023 targets this class) |
+| ~~F9~~ | ~~Negative H3 / M2~~ | MPTA J1825-0319 (DDH, H3 = -2.98e-7, H3 and STIG fitted) | | **withdrawn**: zeroing H3 also zeroes the STIG design column (the Shapiro delay is H3 g(STIG, t)), which changes the marginalised likelihood | leg not loadable with PINT 1.1.7: **blocking** for that leg; needs a signed-H3 evaluator (PR #2023) or tempo2 |
+| F10 | DMXR ranges without DMX value | InPTA DR2 J0751+1807 (5) | inconsistent par | `DMX_xxxx 0` frozen added | tempo2 ignores such ranges |
+| F11 | Fit flag on a DMXR bound | InPTA DR1 J0751+1807 | PINT: unfittable parameter | frozen | bounds are not parameters |
+| F12 | DMX present but no DMX_0001 | InPTA DR2 J1600-3053, J1614-2230 | PINT's DMX component always holds a template DMX_0001 | empty frozen DMX_0001 range added | no TOA in the range |
+| F13 | ELL1H with H3 + STIG: different Shapiro expression | MPTA J1802-2124 (pre-fit 11.0 us vs TRES 3.0), J1757-5322 (7.1 vs 2.4), J1525-5545 (8.6 vs 4.6), J1435-6100; PPTA J1545-4550 (2.4 vs 1.1), J1902-5105 (3.4 vs 1.6) | PINT's default `ell1h_shapiro="full"` = Freire & Wex eq. 29, tempo2 = eq. 28 | tempo2 pars loaded with `"absorbed"` | wrms then equals TRES within 4 % (3.00 / 2.41 / 4.63 / 1.18 / 1.55 us). **Does not cover** ELL1H with H3 + H4 (harmonic count, below) or DDH. In a combination the reference and target legs must use the same convention before parameter values are copied |
+| F14 | TIME offsets leaking across INCLUDEs | EPTA DR2full J1713+0747 (`WSRT.P1.2273.tim` ends at a net -2 ms) | tempo2 keeps TIME local to the file; PINT carries the running offset into later INCLUDEd files (all later TOAs shifted by 2 ms) | compensating `TIME` appended to any file with a non-zero net offset; trailing tokens after a TIME value dropped | TOA identity passes; pre-fit wrms of that leg 965 us -> 1.76 us |
+
+### Evaluator classes not fixed by canonicalisation
+
+From the audit table in Appendix A (selected configuration and YA set):
+
+* **Signed H3** (MPTA J1825-0319): blocking (above).
+* **ELL1H with H3 + H4 and no NHARMS** (MPTA J0613-0200, J1327-0755, J1545-4550,
+  J1804-2717, J2145-0750; PPTA J0613-0200; EPTA DR2new J0751+1807, J1012+5307; InPTA DR2
+  J0751+1807, J1012+5307): PINT always uses at least 7 harmonics (checked: an explicit
+  `NHARMS 4` in the par is raised to 7), tempo2 defaults to 4. The reviewer measured 56 ns to
+  1.6 us RMS Shapiro-delay differences on MPTA pars. **Quarantined** until an evaluator with an
+  explicit harmonic count passes parity.
+* **DDH** (21 legs), **DDK** (10 legs) and **T2 -> {ELL1, ELL1H, DD, DDK}** resolutions (43
+  legs): not affected by the ELL1H switch; to be validated against tempo2.
+
+### Legs whose pre-fit wrms still differs from TRES (screen only)
+
+In the selected configuration (and the YA set) after F1-F14:
+
+| leg | PINT binary | pre-fit wrms / TRES [us] | note |
+|---|---|---|---|
+| EPTA DR2new J1600-3053 (also DR2new+) | T2 -> DD (M2, SINI, PBDOT, XDOT, OMDOT) | 1.46 / 0.87 | **blocks** EPTA reproduction and YA acceptance until parity passes |
+| PPTA J1600-3053 | DDH | 2.28 / 1.47 | **blocks** as above |
+| PPTA J1713+0747 | T2 -> DDK | 0.44 / 0.25 | **blocks** as above; exponential dips are in PPTA's noise model, not the par |
+| PPTA J2241-5236 | ELL1 + FB0..FB17 | 0.54 / 0.22 | **blocks** as above (F8) |
+| PPTA J1824-2452A | isolated | 30.9 / 15.8 | strong red noise, TRACK dropped; not in the PPTA GW search but in YA |
+| PPTA J1741+1351 (GitHub only) | ELL1 | 1.67 / 0.83 | TRACK dropped; 111 TOAs; not in the PPTA GW search but in YA |
+| MPTA J1514-4946 | ELL1H | 1.48 / 2.30 | par fitted to 1,017 TOAs, release has 713 |
+
+EPTA DR2full (not used in M3) keeps eight legs with ratios of 1.8-48 after F14 (e.g.
+J1744-1134 27 us, J1857+0943 47 us; legacy backends, `-padd` and phase-tracking conventions are
+suspects). Par NTOA vs tim count mismatches (Appendix A) are expected where the par was fitted
 before the final TOA selection (e.g. MPTA J2241-5236 6,688 vs 3,405; PPTA J0437-4715 20,836 vs
 11,637).
 
-**Not covered by the smoke load** (to be handled in M3 Stage 0, `M3_PLAN.md` Sec. 5):
-PINT-vs-tempo2 parity of the delays (TCB conversion, T2 binary resolution via `allow_T2`,
-ELL1H conventions, DE436 vs DE440, clock realisations); pulse numbering; and a
-common clock/ephemeris. PINT emitted warnings for many legs (recorded per leg in
-`survey.json`, field `canon_pint_warnings`), mostly about unrecognised or unset parameters
-and clock corrections.
+### Warnings that need action (Appendix A has all of them)
+
+* Clock coverage: `leap2effix.clk` (36 legs), `effix2gps.clk` (18), `eff2gps.clk` (3),
+  `tai2tt_bipm2019.clk` (MPTA J0931-1902): "Data points out of range".
+* Ignored tempo2 settings: `DILATEFREQ Y`, `TIMEEPH IF99` (262 legs).
+* "Some TOAs are missing pulse numbers, they will not be used" (EPTA J1911+1347 in DR2new,
+  DR2new+, DR2full: only part of its TOAs carry `-pn`).
+* "overflow encountered in conversion from string" (14 MPTA/InPTA legs) and "divide by zero"
+  (MPTA J0955-6150): not yet traced.
+* "EFAC ... has no TOAs" (InPTA DR1 J1857+0943, J1939+2134), DMX range overlaps (8 legs).
 
 ---
 
@@ -484,7 +547,7 @@ Generated by `scripts/m3_survey_report.py` from the `--canonical` survey run (PI
 | ppta_dr3_gh | 32 | 32 | 113,951 | 113,951 | 2004.10-2022.18 | 18.08 | 17.75 | 15 | pks | 662-3853 | 0 |
 | inpta_dr2 | 27 | 27 | 83,120 | 83,120 | 2017.04-2024.24 | 7.20 | 5.85 | 4 | gmrt | 301-1457 | 0 |
 | inpta_dr1 | 14 | 14 | 8,529 | 8,529 | 2018.36-2021.77 | 3.40 | 3.39 | 5 | gmrt | 302-1451 | 0 |
-| mpta | 83 | 83 | 245,907 | 245,907 | 2019.11-2023.58 | 4.46 | 4.27 | 1 | meerkat | 900-1660 | 0 |
+| mpta | 83 | 83 | 245,907 | 242,863 | 2019.11-2023.58 | 4.46 | 4.27 | 1 | meerkat | 900-1660 | 0 |
 
 ### Par-file conventions (counts of pulsars)
 
@@ -506,15 +569,80 @@ Generated by `scripts/m3_survey_report.py` from the `--canonical` survey run (PI
 |---|---|---|---|---|
 | ng15 | 68 / 0 | 68 / 0 | - | tim:archive-name (31) |
 | epta_dr2new | 19 / 6 | 25 / 0 | tim line misparsed (archive name / indented comment / continuation line) (6) | tim:archive-name (25); tim:indented-comment (2) |
-| epta_dr2full | 16 / 9 | 25 / 0 | tim line misparsed (archive name / indented comment / continuation line) (9) | tim:archive-name (25); tim:END-in-file (5); tim:unparseable-line(commented) (3); tim:orphan-flag-line(dropped) (2); tim:indented-comment (1) |
+| epta_dr2full | 16 / 9 | 25 / 0 | tim line misparsed (archive name / indented comment / continuation line) (9) | tim:archive-name (25); tim:END-in-file (5); tim:unparseable-line(commented) (3); tim:TIME-trailing-tokens(dropped) (2); tim:orphan-flag-line(dropped) (2); tim:indented-comment (1); tim:TIME-reset-at-end-of-file (1) |
 | epta_dr2new+ | 19 / 6 | 25 / 0 | tim line misparsed (archive name / indented comment / continuation line) (6) | tim:archive-name (25); tim:indented-comment (2) |
 | ppta_dr3 | 3 / 28 | 31 / 0 | tim line misparsed (archive name / indented comment / continuation line) (22); TRACK -2 in par but no pulse numbers in tim (5); PB + FBn (tempo2) without FB0 (1) | tim:archive-name (31); par:explicit-UNITS-TCB (29); tim:valueless-flag (18); par:drop-TRACK (6); par:PB->FB0 (1) |
 | ppta_dr3_gh | 3 / 29 | 32 / 0 | tim line misparsed (archive name / indented comment / continuation line) (22); TRACK -2 in par but no pulse numbers in tim (6); PB + FBn (tempo2) without FB0 (1) | tim:archive-name (32); par:explicit-UNITS-TCB (31); tim:valueless-flag (18); par:drop-TRACK (7); par:PB->FB0 (1) |
 | inpta_dr2 | 8 / 19 | 27 / 0 | valueless tim flag (-cycle_post34) (18); DMXR ranges without DMX value (1) | tim:valueless-flag (27); par:empty-DMX_0001-template (2); par:missing-DMX-value (1) |
 | inpta_dr1 | 13 / 1 | 14 / 0 | fit flag on DMXR range bound (1) | tim:archive-name (13); par:freeze-DMXR (1) |
-| mpta | 70 / 13 | 83 / 0 | TRACK -2 in par but no pulse numbers in tim (12); negative M2/H3 (DDH) (1) | tim:archive-name (83); par:drop-TRACK (12); par:negative-H3 (1) |
+| mpta | 70 / 13 | 82 / 1 | TRACK -2 in par but no pulse numbers in tim (12); signed (negative) H3 in DDH: unsupported by PINT 1.1.7 (1) | tim:archive-name (83); par:drop-TRACK (12); par:signed-H3(unsupported (1); kept) (1) |
+
+Still failing after canonicalisation: mpta/J1825-0319 (ValueError: Companion mass M2 cannot be negative (-0.4480919945782575 solMass))
 
 Par without tim: ppta_dr3/J1741+1351
+
+### TOA identity (canonicalised PINT load vs tempo2-semantics text records)
+
+Per leg, PINT's TOAs (clock corrections removed, TIME/-to offsets kept) are compared with the records of the released tim tree read with tempo2 semantics (INCLUDE, SKIP, END per file, TIME, -to): count, arrival time (< 2 ns), frequency, uncertainty and system flag (-group, else -sys, else -f).
+
+| data set | legs checked | identical | max dt [ns] | failures |
+|---|---|---|---|---|
+| ng15 | 68 | 68 | 0.81 | - |
+| epta_dr2new | 25 | 25 | 0.80 | - |
+| epta_dr2full | 25 | 25 | 0.80 | - |
+| epta_dr2new+ | 25 | 25 | 0.80 | - |
+| ppta_dr3 | 31 | 31 | 0.63 | - |
+| ppta_dr3_gh | 32 | 32 | 0.63 | - |
+| inpta_dr2 | 27 | 27 | 0.63 | - |
+| inpta_dr1 | 14 | 14 | 0.71 | - |
+| mpta | 82 | 82 | 0.80 | - |
+
+### Binary-model evaluator audit (selected configuration and Yu & Allen set)
+
+Legs whose binary parameterisation PINT and tempo2 evaluate differently or that needed a rewrite. None of these is validated against tempo2 yet (M3a gates).
+
+| class | consequence | legs |
+|---|---|---|
+| signed (negative) H3 | PINT 1.1.7 rejects (DDH converts to M2 < 0); zeroing H3 would delete the STIG column: **blocking**, needs a signed-H3 evaluator (PINT PR #2023) or tempo2 | mpta/J1825-0319 |
+| ELL1H H3 + H4, no NHARMS | PINT uses >= 7 harmonics, tempo2 defaults to 4 (reviewer measured 56 ns-1.6 us Shapiro differences): **quarantined** | epta_dr2new/J0751+1807, epta_dr2new/J1012+5307, inpta_dr2/J0751+1807, inpta_dr2/J1012+5307, mpta/J0613-0200, mpta/J1327-0755, mpta/J1545-4550, mpta/J1804-2717, mpta/J2145-0750, ppta_dr3_gh/J0613-0200 |
+| ELL1H H3 + STIG | evaluated with ell1h_shapiro='absorbed' (tempo2 eq. 28) | epta_dr2new/J0613-0200, inpta_dr1/J0751+1807, inpta_dr2/J0613-0200, mpta/J1036-8317, mpta/J1435-6100, mpta/J1514-4946, mpta/J1525-5545, mpta/J1543-5149, mpta/J1757-5322, mpta/J1802-2124, ppta_dr3_gh/J1545-4550, ppta_dr3_gh/J1902-5105 |
+| DDH | full DD Shapiro expression; not affected by the ELL1H switch; unvalidated | epta_dr2new/J1022+1001, epta_dr2new/J1640+2224, epta_dr2new/J1918-0642, inpta_dr1/J1022+1001, inpta_dr1/J1600-3053, inpta_dr2/J1022+1001, inpta_dr2/J1640+2224, mpta/J0900-3144, mpta/J1017-7156, mpta/J1022+1001, mpta/J1101-6424, mpta/J1125-5825, mpta/J1421-4409, mpta/J1455-3330, mpta/J1811-2405, mpta/J1903-7051, mpta/J1918-0642, mpta/J2150-0326, ppta_dr3_gh/J1017-7156, ppta_dr3_gh/J1022+1001, ppta_dr3_gh/J1600-3053 |
+| DDK | Kopeikin terms; unvalidated | epta_dr2new/J1713+0747, inpta_dr1/J0437-4715, inpta_dr1/J1713+0747, inpta_dr2/J0437-4715, inpta_dr2/J1713+0747, mpta/J0437-4715, mpta/J2222-0137, ng15/J1713+0747, ppta_dr3_gh/J0437-4715, ppta_dr3_gh/J1713+0747 |
+| PB + FB1..FBn (no FB0) | rewritten to FB0 = 1/PB; derivative structure unvalidated | ppta_dr3_gh/J2241-5236 |
+| BINARY T2 | resolved by PINT allow_T2 to {'ELL1H': 7, 'ELL1': 18, 'DD': 11, 'DDK': 7} | 43 legs |
+
+### PINT warnings (canonicalised load; all legs)
+
+Every loguru and Python warning is recorded per leg (`canon_pint_warnings` in survey.json). Counts of legs per normalised message:
+
+| legs | message |
+|---|---|
+| 262 | UserWarning: PINT does not support 'DILATEFREQ Y' |
+| 262 | UserWarning: PINT only supports 'TIMEEPH FB#' |
+| 261 | PINT does not support 'UNITS TCB' internally. Reading this par file nevertheless because the `allow_tcb` option was give |
+| 260 | Converting this timing model from TCB to TDB. Please note that the TCB to TDB conversion is only approximate and the res |
+| 259 | UserWarning: Unrecognized parfile line 'EPHVER #' |
+| 163 | UserWarning: Unrecognized parfile line 'DM_SERIES TAYLOR' |
+| 36 | UserWarning: Data points out of range in clock file 'leap#ffix.clk' |
+| 36 | Found T# binary model. Gracefully converting T# to: ELL# |
+| 21 | Found T# binary model. Gracefully converting T# to: DD. |
+| 18 | UserWarning: Data points out of range in clock file 'effix#gps.clk' |
+| 14 | UserWarning: DDK model uses KIN as inclination angle. SINI will not be used. This happens every time a DDK model is cons |
+| 14 | Found T# binary model. Gracefully converting T# to: ELL#H. |
+| 14 | RuntimeWarning: overflow encountered in conversion from string |
+| 11 | Found T# binary model. Gracefully converting T# to: DDK. |
+| 8 | Start of DMX_# (#) overlaps with DMX_# (#) |
+| 8 | End of DMX_# (#) overlaps with DMX_# (#) |
+| 4 | Invalid altitude calculated for # TOAS |
+| 3 | UserWarning: Data points out of range in clock file 'eff#gps.clk' |
+| 3 | Some TOAs are missing pulse numbers, they will not be used. |
+| 2 | UserWarning: Unrecognized parfile line 'EPHVER # #' |
+| 2 | UserWarning: EFAC maskParameter(EFAC# -sys GM_GWB_#_#_b# # () frozen=True) has no TOAs |
+| 1 | UserWarning: Unrecognized parfile line 'FDJUMP_SCALE LOG' |
+| 1 | UserWarning: Using A#DOT with a DDK model is not advised. |
+| 1 | TZRMJD is not set.  Setting TZRMJD to first TOA after PEPOCH or last TOA before PEPOCH.  This may leave your residuals w |
+| 1 | UserWarning: Data points out of range in clock file 'tai#tt_bipm#clk' |
+| 1 | RuntimeWarning: divide by zero encountered in divide |
 
 ### Consistency flags (canonicalised PINT load)
 
@@ -528,7 +656,7 @@ TOA counts: PINT vs text count of the tim tree (INCLUDE/SKIP/END honoured) vs th
 | epta_dr2full | J1022+1001 | 2453 | 2453 | 2445 | 9.892 | 1.022 | 9.68 | NTOA != PINT, wrms/TRES |
 | epta_dr2full | J1024-0719 | 2522 | 2522 | 2515 | 1.284 | 1.139 | 1.13 | NTOA != PINT |
 | epta_dr2full | J1640+2224 | 2006 | 2006 | 2007 | 1.277 | 1.142 | 1.12 | NTOA != PINT |
-| epta_dr2full | J1713+0747 | 5011 | 5011 | 4991 | 964.882 | 0.228 | 4231.94 | NTOA != PINT, wrms/TRES |
+| epta_dr2full | J1713+0747 | 5011 | 5011 | 4991 | 1.757 | 0.228 | 7.70 | NTOA != PINT, wrms/TRES |
 | epta_dr2full | J1730-2304 | 1329 | 1329 | 1315 | 10.783 | 0.974 | 11.07 | NTOA != PINT, wrms/TRES |
 | epta_dr2full | J1738+0333 | 1024 | 1024 | 1019 | 2.801 | 2.722 | 1.03 | NTOA != PINT |
 | epta_dr2full | J1744-1134 | 1949 | 1949 | 1931 | 26.936 | 0.567 | 47.51 | NTOA != PINT, wrms/TRES |
@@ -572,11 +700,11 @@ TOA counts: PINT vs text count of the tim tree (INCLUDE/SKIP/END honoured) vs th
 | mpta | J2317+1439 | 1948 | 1948 | 2293 | 1.532 | 1.654 | 0.93 | NTOA != PINT |
 | mpta | J2322+2057 | 1756 | 1756 | 2025 | 2.030 | 2.185 | 0.93 | NTOA != PINT |
 
-### Per-pulsar overlap, main set (ng15, epta_dr2new, ppta_dr3, inpta_dr2, mpta)
+### Per-pulsar overlap, main set (ng15, epta_dr2new, ppta_dr3_gh, inpta_dr2, mpta)
 
-122 unique pulsars; number of PTAs per pulsar: {1: 62, 2: 34, 3: 10, 4: 6, 5: 10}. Cells: TOAs / span in yr.
+122 unique pulsars; number of PTAs per pulsar: {1: 61, 2: 35, 3: 10, 4: 6, 5: 10}. Cells: TOAs / span in yr.
 
-| pulsar | ng15 | epta_dr2new | ppta_dr3 | inpta_dr2 | mpta | n | combined span [yr] |
+| pulsar | ng15 | epta_dr2new | ppta_dr3_gh | inpta_dr2 | mpta | n | combined span [yr] |
 |---|---|---|---|---|---|---|---|
 | J0030+0451 | 19571 / 15.5 | 3347 / 9.8 | 593 / 3.2 | 530 / 1.8 | 2880 / 3.7 | 5 | 19.1 |
 | J0613-0200 | 17124 / 15.0 | 1750 / 10.1 | 4927 / 18.1 | 5028 / 7.2 | 3067 / 4.3 | 5 | 20.1 |
@@ -602,7 +730,7 @@ TOA counts: PINT vs text count of the tim tree (INCLUDE/SKIP/END honoured) vs th
 | J1832-0836 | 7739 / 7.1 |  | 385 / 9.2 |  | 1949 / 4.3 | 3 | 10.7 |
 | J1843-1113 | 4595 / 3.5 | 736 / 10.1 |  |  | 2886 / 4.3 | 3 | 12.4 |
 | J1918-0642 | 18875 / 15.5 | 1138 / 10.1 |  |  | 3123 / 4.0 | 3 | 18.8 |
-| J1939+2134 | 23023 / 15.9 |  | 2456 / 17.8 | 18191 / 5.9 |  | 3 | 20.0 |
+| J1939+2134 | 23023 / 15.9 |  | 1473 / 17.8 | 18191 / 5.9 |  | 3 | 20.0 |
 | J2322+2057 | 3088 / 5.4 | 674 / 9.7 |  |  | 1756 / 3.7 | 3 | 12.1 |
 | J0125-2327 |  |  | 2706 / 3.2 |  | 3170 / 4.3 | 2 | 4.6 |
 | J0610-2100 | 4885 / 3.4 |  |  |  | 2758 / 3.8 | 2 | 6.7 |
@@ -621,6 +749,7 @@ TOA counts: PINT vs text count of the tim tree (INCLUDE/SKIP/END honoured) vs th
 | J1603-7202 |  |  | 5141 / 18.1 |  | 3121 / 4.4 | 2 | 19.5 |
 | J1719-1438 | 6356 / 3.4 |  |  |  | 2659 / 4.3 | 2 | 6.8 |
 | J1738+0333 | 8790 / 10.7 | 749 / 10.0 |  |  |  | 2 | 11.3 |
+| J1741+1351 | 5582 / 11.0 |  | 111 / 2.6 |  |  | 2 | 12.5 |
 | J1747-4036 | 11055 / 8.1 |  |  |  | 3098 / 4.1 | 2 | 11.4 |
 | J1801-1417 |  | 384 / 9.7 |  |  | 3069 / 4.3 | 2 | 12.3 |
 | J1802-2124 | 6796 / 3.5 |  |  |  | 3039 / 4.4 | 2 | 6.8 |
@@ -676,7 +805,6 @@ TOA counts: PINT vs text count of the tim tree (INCLUDE/SKIP/END honoured) vs th
 | J1721-2457 |  |  |  |  | 2112 / 3.3 | 1 | 3.3 |
 | J1732-5049 |  |  |  |  | 4442 / 4.5 | 1 | 4.5 |
 | J1737-0811 |  |  |  |  | 3258 / 4.3 | 1 | 4.3 |
-| J1741+1351 | 5582 / 11.0 |  |  |  |  | 1 | 11.0 |
 | J1745+1017 | 3017 / 4.5 |  |  |  |  | 1 | 4.5 |
 | J1757-5322 |  |  |  |  | 3323 / 4.2 | 1 | 4.2 |
 | J1804-2858 |  |  |  |  | 2167 / 4.0 | 1 | 4.0 |

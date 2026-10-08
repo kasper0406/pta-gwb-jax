@@ -129,7 +129,7 @@ DATASETS = {
     "mpta": ("MPTA", "MeerKAT PTA 4.5-yr partim (Data Central)", ds_mpta),
 }
 # the five-PTA set of this project (overlap matrix) and Yu & Allen's set
-MAIN_SET = ["ng15", "epta_dr2new", "ppta_dr3", "inpta_dr2", "mpta"]
+MAIN_SET = ["ng15", "epta_dr2new", "ppta_dr3_gh", "inpta_dr2", "mpta"]  # selected configuration
 YU_ALLEN_SET = ["ng15", "epta_dr2new", "ppta_dr3_gh", "inpta_dr1", "mpta"]
 
 
@@ -183,6 +183,15 @@ def parse_par(path: Path) -> dict:
         "n_wave": sum(v for k, v in keys.items() if k.startswith("WAVE")),
         "n_glitch": sum(v for k, v in keys.items() if k.startswith("GLEP")),
         "has_cm": any(k.startswith(("CM", "TNChrom")) for k in keys),
+        # binary parameterisation audit (evaluator conventions differ between PINT and tempo2)
+        "bin_h3": get("H3"),
+        "bin_h4": "H4" in keys,
+        "bin_stig": any(k in keys for k in ("STIG", "STIGMA", "VARSIGMA")),
+        "bin_nharms": get("NHARMS", "NHARM"),
+        "bin_m2_sini": "M2" in keys and "SINI" in keys,
+        "bin_kin_kom": "KIN" in keys or "KOM" in keys,
+        "bin_pb_fb": "PB" in keys and any(re.fullmatch(r"FB[1-9]\d*", k) for k in keys) and "FB0" not in keys,
+        "bin_n_fb": sum(1 for k in keys if re.fullmatch(r"FB\d+", k)),
         "noise_keys": ",".join(noise),
         "tempo2_constructs": ",".join(t2only),
         "pos": par_position(vals),
@@ -281,6 +290,59 @@ def parse_tim(path: Path, _seen=None) -> dict:
     return agg
 
 
+def tim_records(path: Path, offset: float = 0.0, _seen=None) -> list[tuple]:
+    """Per-TOA records of a tempo2 FORMAT 1 tim tree, as tempo2 reads it: INCLUDE recursion,
+    SKIP/NOSKIP, END ending only the current file, ``TIME`` offsets (cumulative seconds; an
+    INCLUDEd file starts from the parent's running offset and its changes do not propagate
+    back) and the ``-to`` flag (seconds). Returns (day, sec, freq_MHz, err_us, system) with
+    sec the seconds of day including offsets. Used as the reference for the TOA-identity check.
+    """
+    _seen = _seen if _seen is not None else set()
+    path = path.resolve()
+    if path in _seen:
+        return []
+    _seen.add(path)
+    out: list[tuple] = []
+    skipping = False
+    for raw in path.read_text(errors="replace").splitlines():
+        line = raw.strip()
+        if not line or line.startswith(("C ", "#", "c ", "CC ")) or line == "C":
+            continue
+        tok = line.split()
+        key = tok[0].upper()
+        if key == "SKIP":
+            skipping = True
+            continue
+        if key == "NOSKIP":
+            skipping = False
+            continue
+        if skipping:
+            continue
+        if key == "END":
+            break
+        if key == "INCLUDE":
+            out += tim_records(path.parent / tok[1], offset, _seen)
+            continue
+        if key == "TIME":
+            offset += float(tok[1])
+            continue
+        if key in TIM_DIRECTIVES or tok[0].startswith("-"):
+            continue
+        if len(tok) < 5:
+            continue
+        try:
+            freq, err = float(tok[1]), float(tok[3])
+            day_s, _, frac_s = tok[2].partition(".")
+            day, frac = int(day_s), float("0." + (frac_s or "0"))
+        except ValueError:
+            continue
+        fl = dict(zip(tok[5::2], tok[6::2], strict=False))
+        to = float(fl.get("-to", 0.0)) if _is_float(fl.get("-to", "0")) else 0.0
+        system = fl.get("-group") or fl.get("-sys") or fl.get("-f") or ""
+        out.append((day, frac * 86400.0 + offset + to, freq, err, system))
+    return out
+
+
 def tim_summary(path: Path) -> dict:
     a = parse_tim(path)
     if not a or a["ntoa"] == 0:
@@ -345,11 +407,15 @@ def canon_tim(src: Path, dst: Path, fixes: Counter, counter: list[int]) -> None:
       line that is neither a directive nor a parseable TOA (EPTA DR2full ``C<non-ASCII> ...``);
     * ``END`` and everything after it in that file is commented out (tempo2 ends only the
       current INCLUDEd file at END, PINT stops reading all TOAs: EPTA DR2full);
-    * everything else (directives, comments, TIME offsets, flags) is copied unchanged.
+    * a file whose TIME statements do not sum to zero gets a compensating ``TIME`` at its end
+      (tempo2 keeps TIME local to the file; PINT carries it into later INCLUDEd files);
+      trailing tokens after the TIME value (``TIME -1 -group ...``) are dropped;
+    * everything else (directives, comments, flags) is copied unchanged.
     """
     dst.parent.mkdir(parents=True, exist_ok=True)
     out = []
     ended = False
+    net_time = 0.0
     for raw in src.read_text(errors="replace").splitlines():
         line = raw.strip()
         tok = line.split()
@@ -374,6 +440,12 @@ def canon_tim(src: Path, dst: Path, fixes: Counter, counter: list[int]) -> None:
         if key == "INCLUDE":
             canon_tim(src.parent / tok[1], dst.parent / tok[1], fixes, counter)
             out.append(line)
+            continue
+        if key == "TIME" and len(tok) >= 2 and _is_float(tok[1]):
+            net_time += float(tok[1])
+            out.append(f"TIME {tok[1]}")
+            if len(tok) > 2:
+                fixes["tim:TIME-trailing-tokens(dropped)"] += 1
             continue
         if key in TIM_CMDS:
             out.append(line)
@@ -406,21 +478,26 @@ def canon_tim(src: Path, dst: Path, fixes: Counter, counter: list[int]) -> None:
             out.append(" ".join([f"toa{counter[0]:07d}"] + tok[1:5] + new))
             continue
         out.append(line)
+    if abs(net_time) > 0:
+        # tempo2 keeps TIME offsets local to the file that sets them; PINT carries the running
+        # offset into the files INCLUDEd after it (EPTA DR2full J1713+0747: WSRT.P1.2273.tim ends
+        # at -2 ms, which PINT applied to every later file). Reset it explicitly.
+        out.append(f"TIME {-net_time:+.12g}")
+        fixes["tim:TIME-reset-at-end-of-file"] += 1
     dst.write_text("\n".join(out) + "\n")
 
 
 def canon_par(src: Path, dst: Path, fixes: Counter) -> None:
-    """Par-file rewrites for PINT (each is equivalent for a linearised, timing-marginalised
-    analysis or reproduces tempo2 semantics):
+    """Par-file rewrites that let PINT read tempo2 par files. Each one is intended to reproduce
+    tempo2 semantics; none is validated against tempo2 yet (survey Sec. 5, M3 plan Stage M3a):
 
     * DMXR1_/DMXR2_ carrying a fit flag -> frozen (range bounds are not parameters);
     * DMXR ranges without a DMX_ value -> ``DMX_xxxx 0`` frozen (tempo2 ignores them);
-    * negative M2 -> 0 with the fit flag kept: the Shapiro delay is linear in M2 at fixed
-      SINI, so the M2 design-matrix column absorbs the difference exactly;
     * PB together with FB1.. (tempo2 allows it, PINT needs FB0) -> FB0 = 1/(PB*86400);
     * a tempo2 par (EPHVER present) without UNITS gets ``UNITS TCB`` (tempo2's default; PINT
       would assume TDB, e.g. all PPTA DR3 par files);
-    * negative H3 (DDH/ELL1H) is treated like negative M2;
+    * a negative M2/H3 is NOT rewritten (it would remove the STIG/SINI design column); the
+      leg is reported as unsupported by PINT 1.1.7;
     * if DMX ranges exist but DMX_0001 does not, an empty frozen DMX_0001 range is added (PINT's
       DMX component always holds a DMX_0001 template);
     * TRACK -2 is removed (pulse numbers are absent from the tim files); PINT then tracks
@@ -450,9 +527,10 @@ def canon_par(src: Path, dst: Path, fixes: Counter) -> None:
             fixes["par:missing-DMX-value"] += 1
             continue
         if k in ("M2", "H3") and _is_float(tok[1]) and float(tok[1]) < 0:
-            out.append(f"{k} 0 " + " ".join(tok[2:3]))
-            fixes[f"par:negative-{k}"] += 1
-            continue
+            # NOT rewritten: zeroing a signed H3 also zeroes the STIG design column (the
+            # Shapiro delay is H3 * g(STIG, t)), so it changes the marginalised likelihood.
+            # PINT 1.1.7 rejects the leg; it needs a signed-H3 evaluator (PINT PR #2023) or tempo2.
+            fixes[f"par:signed-{k}(unsupported,kept)"] += 1
         if k == "PB" and has_fb and "FB0" not in keys:
             fb0 = 1.0 / (float(tok[1].replace("D", "E")) * 86400.0)
             out.append(f"FB0 {fb0:.25e} " + " ".join(tok[2:3]))
@@ -488,7 +566,56 @@ def canonicalise(r: dict) -> None:
 # --------------------------------------------------------------------------------------
 
 
-def pint_load(par: str, tim: str, ell1h_shapiro: str = "full") -> dict:
+def toa_identity(toas, ref_tim: str) -> dict:
+    """Compare PINT's TOAs with the tempo2-semantics text records of the released tim tree:
+    count, arrival time (ns), uncertainty, radio frequency and system flag, after sorting both
+    by (time, frequency)."""
+    import numpy as np
+
+    ref = tim_records(Path(ref_tim))
+    from pint.pulsar_mjd import time_to_longdouble
+
+    col = toas.table["mjd"]
+    if col.dtype == object:  # a Column of scalar Time objects (PINT 1.1.7)
+        t = np.array([time_to_longdouble(x) for x in col], dtype=np.longdouble)
+    else:
+        t = np.asarray(time_to_longdouble(col), dtype=np.longdouble)
+    # PINT's "mjd" column already includes the clock corrections (observatory chain + BIPM)
+    # *and* the TIME / -to offsets; their sum is the "clkcorr" flag [s] and the offsets alone
+    # are the "to" flag. Remove clock corrections only, keeping the offsets (as tempo2 does)
+    clk = np.array([float(fl.get("clkcorr", 0.0)) - float(fl.get("to", 0.0)) for fl in toas.table["flags"]],
+                   dtype=np.longdouble)
+    t = t - clk / 86400
+    day = np.floor(t)
+    sec = np.asarray((t - day) * 86400, dtype=np.float64)
+    freq = toas.get_freqs().value
+    err = toas.get_errors().value
+    sysv = [fl.get("group") or fl.get("sys") or fl.get("f") or "" for fl in toas.table["flags"]]
+    def order(recs):
+        # group by (frequency, uncertainty, system) and order each group by time: sub-band TOAs
+        # of one observation can lie within ns of each other, so a pure time sort would pair
+        # them differently on the two sides under sub-ns rounding differences
+        return sorted(recs, key=lambda x: (round(x[2], 6), round(x[3], 6), x[4], x[0], x[1]))
+
+    a = order(list(zip(day.astype(np.int64).tolist(), sec.tolist(), freq.tolist(), err.tolist(), sysv, strict=True)))
+    b = order(ref)
+    row = {"id_n_pint": len(a), "id_n_text": len(b)}
+    if len(a) != len(b):
+        row["id_ok"] = False
+        return row
+    dt = np.array([(x[0] - y[0]) * 86400.0 + (x[1] - y[1]) for x, y in zip(a, b, strict=True)])
+    row.update(
+        id_max_dt_ns=float(np.max(np.abs(dt)) * 1e9) if len(dt) else 0.0,
+        id_max_dfreq_mhz=float(max((abs(x[2] - y[2]) for x, y in zip(a, b, strict=True)), default=0.0)),
+        id_max_derr_us=float(max((abs(x[3] - y[3]) for x, y in zip(a, b, strict=True)), default=0.0)),
+        id_n_sys_mismatch=int(sum(x[4] != y[4] for x, y in zip(a, b, strict=True))),
+    )
+    row["id_ok"] = (row["id_max_dt_ns"] < 2.0 and row["id_max_dfreq_mhz"] < 1e-6
+                    and row["id_max_derr_us"] < 1e-9 and row["id_n_sys_mismatch"] == 0)
+    return row
+
+
+def pint_load(par: str, tim: str, ell1h_shapiro: str = "full", ref_tim: str | None = None) -> dict:
     import warnings
 
     import astropy.units as u
@@ -502,12 +629,27 @@ def pint_load(par: str, tim: str, ell1h_shapiro: str = "full") -> dict:
     pint.logging.setup(level="WARNING")
     logger.remove()
     logger.add(lambda m: msgs.append(m.record["message"][:300]), level="WARNING")
-    warnings.filterwarnings("ignore")
+    warnings.simplefilter("always")
+    caught = warnings.catch_warnings(record=True)
+    wlist = caught.__enter__()
     t0 = time.time()
     row: dict = {}
     try:
+        # model-only pre-pass: PINT's TCB->TDB path re-parses the par with its own warning
+        # filters, which hides e.g. "PINT does not support 'DILATEFREQ Y'"; collect those here
+        from pint.models import get_model
+
+        get_model(par, allow_tcb=True, allow_T2=True, ell1h_shapiro=ell1h_shapiro)
+    except Exception:  # noqa: BLE001, S110 - the full load below reports the error
+        pass
+    try:
         model, toas = get_model_and_toas(par, tim, planets=True, allow_tcb=True, allow_T2=True,
                                          ell1h_shapiro=ell1h_shapiro)
+        if ref_tim is not None:
+            try:
+                row.update(toa_identity(toas, ref_tim))
+            except Exception as ex:  # noqa: BLE001
+                row.update(id_ok=False, id_error=f"{type(ex).__name__}: {str(ex)[:200]}")
         res = Residuals(toas, model)
         r = res.time_resids.to_value(u.s)
         row["pint_track_mode"] = res.track_mode
@@ -531,9 +673,14 @@ def pint_load(par: str, tim: str, ell1h_shapiro: str = "full") -> dict:
     except Exception as ex:  # noqa: BLE001
         row.update(pint_ok=False, pint_error=f"{type(ex).__name__}: {str(ex)[:400]}",
                    pint_tb=traceback.format_exc(limit=4)[-1500:])
+    caught.__exit__(None, None, None)
+    # every warning: PINT's loguru messages and Python warnings (e.g. unsupported DILATEFREQ,
+    # TIMEEPH, T2CMETHOD settings, which PINT reports through the warnings module)
+    msgs += [f"{w.category.__name__}: {str(w.message)[:300]}" for w in wlist
+             if not issubclass(w.category, (ResourceWarning, DeprecationWarning))]
     uniq = sorted(set(msgs))
     row.update(pint_seconds=round(time.time() - t0, 1), pint_n_warnings=len(msgs),
-               pint_warnings=" || ".join(uniq[:12]))
+               pint_warnings=" || ".join(uniq))
     return row
 
 
@@ -610,7 +757,8 @@ def main() -> None:
         w = pint_load(str(ROOT / warm[parkey]), str(ROOT / warm[timkey]))
         print(f"  warm-up {warm['dataset']}/{warm['psr']}: ok={w.get('pint_ok')} {w.get('pint_error', '')}", flush=True)
         with ProcessPoolExecutor(max_workers=args.jobs) as ex:
-            futs = [(r, ex.submit(pint_load, str(ROOT / r[parkey]), str(ROOT / r[timkey]), ell1h(r)))
+            futs = [(r, ex.submit(pint_load, str(ROOT / r[parkey]), str(ROOT / r[timkey]), ell1h(r),
+                                  str(ROOT / r["tim"])))
                     for r in todo]
             for i, (r, f) in enumerate(futs):
                 try:
@@ -680,6 +828,11 @@ def main() -> None:
         for j in sorted(membership, key=lambda j: (-len(membership[j]), j)):
             md.append(f"| {j} | " + " | ".join("x" if s in membership[j] else "" for s in sets) +
                       f" | {len(membership[j])} |")
+        legs = [r for r in rows if r["dataset"] in sets and r.get("tim_ntoa")]
+        inv = {"pulsars": n, "legs": len(legs), "multi_pta_pulsars": sum(1 for m in membership.values() if len(m) > 1),
+               "toas_text": sum(r["tim_ntoa"] for r in legs), "datasets": sets}
+        (OUT / f"inventory_{label}.json").write_text(json.dumps(inv, indent=1) + "\n")
+        md += ["", f"Inventory: {inv}"]
         (OUT / f"overlap_{label}.md").write_text("\n".join(md) + "\n")
         print(f"{label}: {n} unique pulsars; multiplicity {dict(sorted(mult.items()))}")
 
