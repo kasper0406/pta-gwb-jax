@@ -60,7 +60,7 @@ check run with `XLA_PYTHON_CLIENT_PREALLOCATE=false`):
 * The 2 xfails are the open gates, kept as `xfail(strict=True)`: G6/E7
   (`test_m3a_multileg.py::test_g6_reference_swap`) and the strict G3/G4 tolerances/E8
   (`test_m3a_tempo2_parity.py::test_strict_g3_g4`).
-* 57 of the tests are M3a tests (`tests/test_m3a_*.py`). In strict mode an xfail does not count
+* 59 of the tests are M3a tests (`tests/test_m3a_*.py`). In strict mode an xfail does not count
   as a skip (`tests/conftest.py`).
 * The worktree needs `runs/` linked to the main checkout for the free-spectrum-gate tests merged
   from main.
