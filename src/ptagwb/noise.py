@@ -25,7 +25,7 @@ enterprise runtime info of the released NG15 CURN/HD production chains (checked 
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -222,4 +222,251 @@ def build_white_noise(
         ecorr_var=np.asarray(ecorr_var, dtype=np.float64),
         epoch_system=np.asarray(epoch_system, dtype="U"),
         systems=sorted(selection_masks(flags, efeq_selection)),
+    )
+
+
+# ====================================================================== M3: general white noise
+#
+# Multi-PTA white noise (docs/M3_PLAN.md Sec. 4.3-4.4, L1-L3):
+#
+# * EQUAD convention per term (L1):  "t2": EFAC^2 (sigma^2 + Q^2)   (NG15, InPTA, YA refit)
+#                                    "tn": EFAC^2 sigma^2 + Q^2     (TempoNest: EPTA, PPTA, MPTA)
+#   Equal covariances require Q_TN = EFAC * Q_T2.
+# * System labels are namespaced per PTA, ``"<pta>:<flag value>"`` (L2), so equal backend labels in
+#   different PTAs never share a parameter (``namespace``).
+# * ECORR terms may OVERLAP (L3, PPTA: backend, group and global ECORRs on the same TOA). Every
+#   term is an additive covariance contribution sum_e J_e u_e u_e^T with its own selection and
+#   epoch quantisation, i.e. a fixed "basis GP" with one column per (term, selection, epoch)
+#   (enterprise ``EcorrBasisModel``). The total N is block diagonal over the connected components
+#   of the TOA-epoch incidence graph (in practice: one observation), so it is whitened exactly by
+#   a dense Cholesky factor per component. Disjoint ECORR (``WhiteNoise``) is the special case of
+#   one epoch per component.
+
+NAMESPACE_SEP = ":"
+
+
+def namespace(pta: str, label: str) -> str:
+    """``"<pta>:<label>"``: the system label of a TOA in a multi-PTA pulsar."""
+    if NAMESPACE_SEP in pta:
+        raise ValueError(f"PTA name {pta!r} must not contain {NAMESPACE_SEP!r}")
+    return f"{pta}{NAMESPACE_SEP}{label}"
+
+
+EQUAD_CONVENTIONS = ("t2", "tn")
+
+
+def white_variance(sigma: np.ndarray, efac: float, log10_equad: float, convention: str) -> np.ndarray:
+    """Diagonal white-noise variance [s^2] for TOA uncertainties ``sigma`` [s]."""
+    q2 = 10.0 ** (2.0 * log10_equad)
+    if convention == "t2":
+        return efac**2 * (sigma**2 + q2)
+    if convention == "tn":
+        return efac**2 * sigma**2 + q2
+    raise ValueError(f"unknown EQUAD convention {convention!r} (expected one of {EQUAD_CONVENTIONS})")
+
+
+@dataclass(frozen=True)
+class EcorrTerm:
+    """One additive ECORR covariance term: per selection label a log10_ecorr value [log10 s].
+
+    ``masks`` maps selection label -> boolean TOA mask (selections of one term may overlap other
+    terms' selections but should be disjoint among themselves, as enterprise selections are).
+    Quantisation of each selection: ``quantize(toas[mask], dt, nmin)`` (enterprise
+    ``create_quantization_matrix``: dt = 1 s, nmin = 2).
+    """
+
+    name: str
+    masks: dict
+    log10_ecorr: dict
+    dt: float = 1.0
+    nmin: int = 2
+
+
+@dataclass
+class GeneralWhiteNoise:
+    """N = diag(ndiag) + sum_e J_e u_e u_e^T with possibly overlapping epochs (see above).
+
+    Epoch e covers TOAs ``ep_toa[ep_ptr[e]:ep_ptr[e+1]]``; ``ep_var[e]`` = J_e [s^2].
+    """
+
+    ndiag: np.ndarray
+    ep_toa: np.ndarray
+    ep_ptr: np.ndarray
+    ep_var: np.ndarray
+    ep_label: np.ndarray
+    systems: list = field(default_factory=list)
+
+    def __post_init__(self):
+        self.ndiag = np.asarray(self.ndiag, dtype=np.float64)
+        n = len(self.ndiag)
+        if np.any(~np.isfinite(self.ndiag)) or np.any(self.ndiag <= 0):
+            raise ValueError("white-noise diagonal must be finite and positive")
+        if np.any(self.ep_var <= 0) or np.any(~np.isfinite(self.ep_var)):
+            raise ValueError("ECORR variances must be finite and positive")
+        # connected components of the TOA-epoch graph (union-find over TOAs)
+        parent = np.arange(n)
+
+        def find(i):
+            while parent[i] != i:
+                parent[i] = parent[parent[i]]
+                i = parent[i]
+            return i
+
+        for e in range(self.n_epoch):
+            idx = self.ep_toa[self.ep_ptr[e] : self.ep_ptr[e + 1]]
+            r0 = find(int(idx[0]))
+            for i in idx[1:]:
+                ri = find(int(i))
+                if ri != r0:
+                    parent[ri] = r0
+        roots = np.array([find(i) for i in range(n)])
+        comp_of_root: dict[int, list[int]] = {}
+        for i, r in enumerate(roots):
+            comp_of_root.setdefault(int(r), []).append(i)
+        self._components = [np.array(v, dtype=np.int64) for v in comp_of_root.values() if len(v) > 1]
+        self._singletons = np.array(sorted(v[0] for v in comp_of_root.values() if len(v) == 1), dtype=np.int64)
+        # epochs per component
+        comp_id = np.full(n, -1, dtype=np.int64)
+        for k, idx in enumerate(self._components):
+            comp_id[idx] = k
+        self._comp_epochs: list[list[int]] = [[] for _ in self._components]
+        for e in range(self.n_epoch):
+            i0 = int(self.ep_toa[self.ep_ptr[e]])
+            if comp_id[i0] >= 0:
+                self._comp_epochs[comp_id[i0]].append(e)
+        self._chol = [self._component_chol(k) for k in range(len(self._components))]
+
+    @property
+    def n(self) -> int:
+        return len(self.ndiag)
+
+    @property
+    def n_epoch(self) -> int:
+        return len(self.ep_var)
+
+    @property
+    def max_component(self) -> int:
+        return max((len(c) for c in self._components), default=1)
+
+    def _component_chol(self, k: int) -> np.ndarray:
+        idx = self._components[k]
+        pos = {int(i): j for j, i in enumerate(idx)}
+        C = np.diag(self.ndiag[idx])
+        for e in self._comp_epochs[k]:
+            loc = np.array([pos[int(i)] for i in self.ep_toa[self.ep_ptr[e] : self.ep_ptr[e + 1]]])
+            C[np.ix_(loc, loc)] += self.ep_var[e]
+        return np.linalg.cholesky(C)
+
+    def U(self) -> np.ndarray:
+        """Dense epoch incidence matrix (n, n_epoch); tests only."""
+        U = np.zeros((self.n, self.n_epoch))
+        for e in range(self.n_epoch):
+            U[self.ep_toa[self.ep_ptr[e] : self.ep_ptr[e + 1]], e] = 1.0
+        return U
+
+    def dense(self) -> np.ndarray:
+        """Dense N (n, n); tests only."""
+        U = self.U()
+        return np.diag(self.ndiag) + (U * self.ep_var) @ U.T
+
+    def logdet(self) -> float:
+        ld = float(np.sum(np.log(self.ndiag[self._singletons])))
+        for L in self._chol:
+            ld += 2.0 * float(np.sum(np.log(np.diag(L))))
+        return ld
+
+    def whiten(self, x: np.ndarray) -> np.ndarray:
+        """W x with W = blockdiag(L_c^-1) (L_c L_c^T = N_c), so W^T W = N^-1."""
+        from scipy.linalg import solve_triangular
+
+        x = np.asarray(x, dtype=np.float64)
+        y = np.empty_like(x)
+        s = self._singletons
+        shape = (-1,) + (1,) * (x.ndim - 1)
+        y[s] = x[s] / np.sqrt(self.ndiag[s]).reshape(shape)
+        for idx, L in zip(self._components, self._chol, strict=True):
+            y[idx] = solve_triangular(L, x[idx], lower=True)
+        return y
+
+    def solve(self, x: np.ndarray) -> np.ndarray:
+        from scipy.linalg import cho_solve
+
+        x = np.asarray(x, dtype=np.float64)
+        y = np.empty_like(x)
+        s = self._singletons
+        shape = (-1,) + (1,) * (x.ndim - 1)
+        y[s] = x[s] / self.ndiag[s].reshape(shape)
+        for idx, L in zip(self._components, self._chol, strict=True):
+            y[idx] = cho_solve((L, True), x[idx])
+        return y
+
+
+def build_general_white_noise(
+    toas: np.ndarray,
+    toaerrs: np.ndarray,
+    systems: np.ndarray,
+    efeq: dict,
+    ecorr_terms: list[EcorrTerm] = (),
+    *,
+    convention: str | dict = "t2",
+) -> GeneralWhiteNoise:
+    """General white noise of one (possibly multi-leg) pulsar.
+
+    ``systems``: per-TOA (namespaced) system labels. ``efeq``: system -> (efac, log10_equad).
+    ``convention``: "t2" / "tn", or a dict system -> convention (legs from different PTAs may use
+    different conventions in one pulsar). Every system present must have an entry (KeyError
+    otherwise); entries for absent systems are an error too (catches selection bugs).
+    """
+    toas = np.asarray(toas, dtype=np.float64)
+    sig = np.asarray(toaerrs, dtype=np.float64)
+    systems = np.asarray(systems).astype("U")
+    present = sorted(set(systems.tolist()))
+    missing = [s for s in present if s not in efeq]
+    unused = [s for s in efeq if s not in present]
+    if missing:
+        raise KeyError(f"no EFAC/EQUAD for systems {missing}")
+    if unused:
+        raise KeyError(f"EFAC/EQUAD given for systems not present in the data: {unused}")
+    ndiag = np.full(len(toas), np.nan)
+    for s in present:
+        m = systems == s
+        conv = convention[s] if isinstance(convention, dict) else convention
+        efac, leq = efeq[s]
+        ndiag[m] = white_variance(sig[m], efac, leq, conv)
+    ep_toa, ep_ptr, ep_var, ep_label = [], [0], [], []
+    for term in ecorr_terms:
+        for label in sorted(term.masks):
+            mask = np.asarray(term.masks[label], dtype=bool)
+            if not mask.any():
+                continue
+            if label not in term.log10_ecorr:
+                raise KeyError(f"ECORR term {term.name!r}: no value for selection {label!r}")
+            idx = np.flatnonzero(mask)
+            for b in quantize(toas[idx], dt=term.dt, nmin=term.nmin):
+                ep_toa.extend(idx[b].tolist())
+                ep_ptr.append(len(ep_toa))
+                ep_var.append(10.0 ** (2.0 * term.log10_ecorr[label]))
+                ep_label.append(f"{term.name}/{label}")
+    return GeneralWhiteNoise(
+        ndiag=ndiag,
+        ep_toa=np.asarray(ep_toa, dtype=np.int64),
+        ep_ptr=np.asarray(ep_ptr, dtype=np.int64),
+        ep_var=np.asarray(ep_var, dtype=np.float64),
+        ep_label=np.asarray(ep_label, dtype="U"),
+        systems=present,
+    )
+
+
+def general_from_white_noise(wn: WhiteNoise) -> GeneralWhiteNoise:
+    """The disjoint-ECORR ``WhiteNoise`` as a ``GeneralWhiteNoise`` (same N)."""
+    order = np.argsort(wn.epoch, kind="stable")
+    order = order[wn.epoch[order] >= 0]
+    counts = np.bincount(wn.epoch[order], minlength=wn.n_epoch)
+    return GeneralWhiteNoise(
+        ndiag=wn.ndiag.copy(),
+        ep_toa=order.astype(np.int64),
+        ep_ptr=np.concatenate([[0], np.cumsum(counts)]).astype(np.int64),
+        ep_var=wn.ecorr_var.copy(),
+        ep_label=wn.epoch_system.copy(),
+        systems=list(wn.systems),
     )
