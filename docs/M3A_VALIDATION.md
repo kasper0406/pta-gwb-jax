@@ -51,14 +51,19 @@ XLA_PYTHON_CLIENT_PREALLOCATE=false PTAGWB_REQUIRE_ORACLES=1 $PY -m pytest tests
 $PY scripts/m3a_nharms.py; $PY scripts/m3a_report.py   # Sec. 12 addendum; regenerate the tables below
 ```
 
-**Strict suite** (`PTAGWB_REQUIRE_ORACLES=1`, 2026-10-08, CPU plus the one GPU check):
-**415 passed, 2 xfailed, 0 failed, 0 skipped** (75 min on CPU). The 2 xfails are the two open
-gates, kept as `xfail(strict=True)` so they turn red if they start passing: G6 (E7,
-`test_m3a_multileg.py::test_g6_reference_swap`) and the strict G3/G4 tolerances (E8,
-`test_m3a_tempo2_parity.py::test_strict_g3_g4`). Of these, 51 tests are new M3a tests
-(`tests/test_m3a_*.py`). In strict mode an xfail is not counted as a skip
-(`tests/conftest.py`). The worktree needs `runs/` linked to the main checkout for the
-free-spectrum-gate tests merged from main.
+**Strict suite** (`PTAGWB_REQUIRE_ORACLES=1`, revision 2, 2026-10-08, CPU, plus the one GPU
+check run with `XLA_PYTHON_CLIENT_PREALLOCATE=false`):
+* 422 passed + 1 GPU check passed, 2 xfailed, 0 skipped.
+* In the full run, `test_g6_linearisation` failed against its revision-1 bound; that bound came
+  from the faulty QR projector. The test was updated to the rank-revealing numbers, and its rerun
+  passed together with the GPU check.
+* The 2 xfails are the open gates, kept as `xfail(strict=True)`: G6/E7
+  (`test_m3a_multileg.py::test_g6_reference_swap`) and the strict G3/G4 tolerances/E8
+  (`test_m3a_tempo2_parity.py::test_strict_g3_g4`).
+* 57 of the tests are M3a tests (`tests/test_m3a_*.py`). In strict mode an xfail does not count
+  as a skip (`tests/conftest.py`).
+* The worktree needs `runs/` linked to the main checkout for the free-spectrum-gate tests merged
+  from main.
 
 Results are written to `data/processed/m3a/results/*.json` (git-ignored). The tables below were
 copied from those files.
@@ -715,7 +720,12 @@ and solar-wind terms.
 | affected+NG15 | HD | log10_A (gamma = 13/3) | -14.4 [-14.5, -14.3] | -14.4 [-14.5, -14.3] | -0.034 | -0.01 | -0.011 | True / True |
 <!-- /NHARMS_POSTERIOR -->
 
-Every lnL maximum is interior to the grid (last column).
+Every lnL maximum is interior to the grid (last column). For the *affected* array alone, the
+2D maximum is at gamma ~ 6.3, log10_A ~ -14.7. Its marginal log10_A posterior, however, extends
+to the upper prior edge (95 % quantile -11.1), through the strong A-gamma degeneracy of a weak
+7-pulsar array. Those quantiles are prior-bounded, and the gamma = 13/3 amplitude (interior,
+-14.0 [-14.2, -13.8]) is the cleaner comparison. With the four NG15 pulsars every interval is
+well inside the prior.
 
 **Result.** At the posterior level the harmonic count is negligible for these arrays:
 * *affected* alone: |d median| <= 0.07 sigma68 for log10_A and gamma, and <= 0.10 sigma68 for the
