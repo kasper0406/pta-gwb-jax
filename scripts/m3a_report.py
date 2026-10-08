@@ -128,7 +128,7 @@ def main():
     for name, fn in (("G3G4_TABLE", g3g4), ("G5_TABLE", g5), ("G6_TABLE", g6), ("G8_TABLE", g8),
                      ("NHARMS_TABLE", nharms), ("NHARMS_COMBINED", nharms_combined)):
         block = f"<!-- {name} -->\n{fn()}\n<!-- /{name} -->"
-        pat = re.compile(rf"<!-- {name} -->.*?<!-- /{name} -->", re.S)
+        pat = re.compile(rf"<!-- {name} -->.*?<!-- /{name} -->", re.DOTALL)
         if pat.search(text):
             text = pat.sub(lambda _m, b=block: b, text)
         else:

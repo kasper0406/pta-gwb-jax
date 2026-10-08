@@ -22,8 +22,19 @@ $PY scripts/m3a_validate.py multileg --only J1909-3744 --timing shared --refs PP
 $PY scripts/m3a_validate.py multileg --timing shared --local-dm
 $PY scripts/m3a_validate.py tempo2                   # G3/G4
 $PY scripts/m3a_validate.py g5 | g6 | g7 | g8        # remaining gates
-PTAGWB_REQUIRE_ORACLES=1 $PY -m pytest tests/        # strict suite
+PTAGWB_REQUIRE_ORACLES=1 $PY -m pytest tests/ --deselect tests/test_setup.py::test_jax_sees_gpu   # strict suite, CPU
+XLA_PYTHON_CLIENT_PREALLOCATE=false PTAGWB_REQUIRE_ORACLES=1 $PY -m pytest tests/test_setup.py::test_jax_sees_gpu
+$PY scripts/m3a_nharms.py; $PY scripts/m3a_report.py   # Sec. 12 addendum; regenerate the tables below
 ```
+
+**Strict suite** (`PTAGWB_REQUIRE_ORACLES=1`, 2026-10-08, CPU plus the one GPU check):
+**415 passed, 2 xfailed, 0 failed, 0 skipped** (75 min on CPU). The 2 xfails are the two open
+gates, kept as `xfail(strict=True)` so they turn red if they start passing: G6 (E7,
+`test_m3a_multileg.py::test_g6_reference_swap`) and the strict G3/G4 tolerances (E8,
+`test_m3a_tempo2_parity.py::test_strict_g3_g4`). Of these, 51 tests are new M3a tests
+(`tests/test_m3a_*.py`). In strict mode an xfail is not counted as a skip
+(`tests/conftest.py`). The worktree needs `runs/` linked to the main checkout for the
+free-spectrum-gate tests merged from main.
 
 Results are written to `data/processed/m3a/results/*.json` (git-ignored). The tables below were
 copied from those files.
@@ -129,9 +140,9 @@ This replaces the survey reader's incorrect parent-offset assumption (review min
 | unsupported-tempo2-setting | 180 | DILATEFREQ Y, TIMEEPH IF99, T2CMETHOD. Switching them in tempo2 changes G3 by < 0.3 ns (J1802, J1744) |
 | ignored-par-metadata | 180 | EPHVER, DM_SERIES, ... |
 | t2-binary-resolution | 43 | T2 resolved to ELL1/DD/DDK/ELL1H (evaluator class; G3/G4) |
-| clock-coverage-audited | 20 | coverage audit passed after the explicit exclusions above |
+| clock-coverage-audited | 13 | coverage audit passed after the explicit exclusions above |
 | ddk-kin / ddk-a1dot | 10 / 1 | DDK uses KIN as tempo2 does |
-| dmx-overlap | 8 | DMX ranges overlap as released |
+| dmx-overlap | 4 | DMX ranges overlap as released |
 | pint-parse-overflow | 14 | over-long numeric literal; values checked by G3 |
 | mask-no-toas | 2 | parameter without TOAs (frozen, as tempo2 refuses to fit it) |
 | ddgr-default-init | 1 | MPTA J0955-6150: PINT's DDGR set-up divides by zero with default parameters before the par values are set (located with numpy `seterr(divide='raise')`) |

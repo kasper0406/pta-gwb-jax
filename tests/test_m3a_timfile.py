@@ -116,7 +116,7 @@ def test_reader_matches_tempo2(tmp_path, fixture):
     if not have_tempo2():
         pytest.skip("tempo2/libstempo oracle env not installed (scripts/setup_tempo2_env.sh)")
     tim = _write(tmp_path, FIXTURES[fixture])
-    recs, rep = read_tim(tim)
+    recs, _rep = read_tim(tim)
     t2 = _tempo2(tmp_path / "fx.par", tim)
     assert len(recs) == len(t2["freqs"])
     flags = json.loads(str(t2["flags_json"]))

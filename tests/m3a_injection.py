@@ -131,7 +131,7 @@ def score_stats(cfg_list, truth, sims, log10_A_eval, chunk=200):
 
 
 def run(mpC_list, mpB_list, R=1000, log10_A_true=-14.0, seed=1):
-    cfgs, truth, Tarr, common, rn = build_configs(mpC_list, mpB_list, seed=seed)
+    cfgs, truth, Tarr, common, _rn = build_configs(mpC_list, mpB_list, seed=seed)
     out = {"R": R, "log10_A_true": log10_A_true, "gamma": GAMMA, "Tarr_yr": Tarr / 3.15576e7, "results": {}}
     rng = np.random.default_rng(seed + 100)
     for label, lA in (("signal", log10_A_true), ("null", None)):

@@ -109,7 +109,7 @@ def cmd_tempo2(args):
             t2 = O.run_tempo2(par, tim, prof, f"{ds}/{psr}", design=True)
             row["t2_seconds"] = round(time.time() - t0, 1)
             try:
-                ours, meta = O.load_cached_leg("published", ds, psr)
+                ours, _meta = O.load_cached_leg("published", ds, psr)
             except FileNotFoundError:
                 row.update(note="no PINT leg (ingestion failed)", g3_ok=False, g4_ok=False)
                 return row
