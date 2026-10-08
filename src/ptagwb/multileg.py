@@ -77,13 +77,16 @@ def component_params(model, categories) -> set[str]:
     return names
 
 
-def consistent_par(ref_model, tgt_model) -> tuple[str, dict]:
+def consistent_par(ref_model, tgt_model, clock: str | None = None, ephem: str | None = None,
+                   local_dm: bool = False) -> tuple[str, dict]:
     """MetaPulsar-v0.9.3 'consistent' rewrite of ``tgt_model`` from ``ref_model`` (both PINT models,
-    TDB). Returns (par text, info). Works for tgt is ref as well (DMX removal, DM rules)."""
-    cats = SHARED_CATEGORIES
+    TDB). Returns (par text, info). Works for tgt is ref as well (DMX removal, DM rules).
+    ``clock``/``ephem``: override the reference's CLOCK/EPHEM (gate G6 holds them fixed while
+    swapping the reference; v0.9.3 itself always takes the reference's)."""
+    cats = tuple(c for c in SHARED_CATEGORIES if not (local_dm and c == "dispersion_constant"))
     drop = component_params(ref_model, cats) | component_params(tgt_model, cats) | {"BINARY"}
     drop |= component_params(tgt_model, ("dispersion_dmx",))
-    drop |= {"DM", "DMEPOCH", "DM1", "DM2", "EPHEM", "CLOCK", "CLK"}
+    drop |= {"EPHEM", "CLOCK", "CLK"} | (set() if local_dm else {"DM", "DMEPOCH", "DM1", "DM2"})
     ref_keep = component_params(ref_model, cats) | {"BINARY"}
 
     def canon(model, k):
@@ -100,17 +103,14 @@ def consistent_par(ref_model, tgt_model) -> tuple[str, dict]:
     ref_all = dict(_par_lines(ref_model.as_parfile()))
     dm_str = ref_all["DM"].split()[1] if "DM" in ref_all else "0"
     dmepoch = ref_all["DMEPOCH"].split()[1] if "DMEPOCH" in ref_all else "55000"
-    extra = [
-        f"DM {dm_str} 1",
-        f"DMEPOCH {dmepoch}",
-        "DM1 0.0 1",
-        "DM2 0.0 1",
-        f"EPHEM {ref_model.EPHEM.value}",
-        f"CLOCK {ref_model.CLOCK.value}",
+    dm_lines = [] if local_dm else [f"DM {dm_str} 1", f"DMEPOCH {dmepoch}", "DM1 0.0 1", "DM2 0.0 1"]
+    extra = dm_lines + [
+        f"EPHEM {ephem or ref_model.EPHEM.value}",
+        f"CLOCK {clock or ref_model.CLOCK.value}",
     ]
     shared_free = sorted(p for p in component_params(ref_model, cats)
                          if p in ref_model.free_params and p not in ("DM", "DM1", "DM2"))
-    shared_free += ["DM", "DM1", "DM2"]
+    shared_free += [] if local_dm else ["DM", "DM1", "DM2"]
     text = "\n".join([ln for _, ln in tgt_lines] + [ln for _, ln in ref_lines] + extra) + "\n"
     info = {"shared_free": shared_free, "dropped_target_params": sorted(component_params(tgt_model, cats)),
             "dmx_removed": sum(1 for k, _ in _par_lines(tgt_model.as_parfile()) if re.fullmatch(r"DMX_\d+", k))}
@@ -315,7 +315,7 @@ def _c_worker(args):
     import traceback
 
     os.environ.setdefault("JAX_PLATFORMS", "cpu")
-    dataset, label, ref, clock, tag, pin = args
+    dataset, label, ref, clock, tag, pin, force = args
     from pint.logging import setup
 
     from .legs import LegResult, leg_cache_path, load_leg, save_leg
@@ -328,7 +328,7 @@ def _c_worker(args):
         ev = evaluator_for_par(ref_par.read_text(errors="replace"))
         ref_model = _canonical_model(ref[0], ref[1], ev)
         tgt_model = ref_model if (dataset, label) == tuple(ref) else _canonical_model(dataset, label, ev)
-        text, info = consistent_par(ref_model, tgt_model)
+        text, info = consistent_par(ref_model, tgt_model, **(force or {}))
         res = load_leg(dataset, label, clock=clock, evaluator=ev, par_text=text, pin=pin, tag=tag)
         res.meta["consistent"] = info
         res.meta["reference"] = list(ref)
@@ -351,7 +351,7 @@ def _b_worker(args):
 
 
 def build_multileg(name: str, legs: list[tuple[str, str]], *, timing: str, clock, reference: str | None = None,
-                   tag: str | None = None, jobs: int = 4, pin: bool = False):
+                   tag: str | None = None, jobs: int = 4, pin: bool = False, force: dict | None = None):
     """Ingest the legs ((dataset, label) list) of one pulsar for option B or C and stack them.
 
     Returns (MultiLegPulsar, {pta: LegResult}). ``clock``: the clock profile for every leg (the
@@ -368,8 +368,9 @@ def build_multileg(name: str, legs: list[tuple[str, str]], *, timing: str, clock
     if timing == "shared":
         reference = reference or choose_reference(ptas)
         ref = legs[ptas.index(reference)]
-        tag = tag or f"C-ref{reference}"
-        work = [(d, lab, ref, clock, tag, pin) for d, lab in legs]
+        tag = tag or (f"C-ref{reference}" + ("-forced" if force and (force.get("clock") or force.get("ephem")) else "")
+                      + ("-localDM" if force and force.get("local_dm") else ""))
+        work = [(d, lab, ref, clock, tag, pin, force) for d, lab in legs]
         fn = _c_worker
     else:
         tag = tag or "B"

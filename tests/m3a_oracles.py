@@ -20,6 +20,12 @@ WORK = ROOT / "data" / "processed" / "m3a" / "oracles"
 METAPULSAR_SRC = next(iter(sorted((ROOT / "data" / "raw" / "metapulsar_v0.9.3" / "extracted").glob("metapulsar-*"))), None)
 
 
+import importlib.util
+
+HAVE_DISCOVERY_ENTERPRISE = all(
+    importlib.util.find_spec(m) is not None for m in ("discovery", "enterprise", "sksparse"))
+
+
 def have_tempo2() -> bool:
     return (T2_ENV / "bin" / "python").exists() and T2PY.exists()
 
@@ -271,3 +277,196 @@ def compare_with_metapulsar(ours, mp) -> dict:
     out["proj_dres_rms_ns"] = float(np.sqrt(np.mean((P(d / sig) * sig) ** 2)) * 1e9)
     out["fitpars_metapulsar"] = list(mp.fitpars)
     return out
+
+
+# ---------------------------------------------------------------------- G5 on real multi-leg systems
+
+
+def g5_setup(mps, seed: int = 0, n_rn: int = 10, n_dm: int = 10, n_c: int = 5, global_ecorr_pta: str = "PPTA"):
+    """Fixed white noise (random per namespaced system, T2 EQUAD), two ECORR terms (per system, and
+    a global term over one PTA's leg that overlaps the first), IRN on each pulsar's own span, DM on
+    1.2 x span (nu^-2), HD common process on the array span: distinct grids everywhere."""
+    from ptagwb.combined import PulsarGPModel
+    from ptagwb.gp import FourierBlock
+    from ptagwb.noise import EcorrTerm, build_general_white_noise
+
+    rng = np.random.default_rng(seed)
+    Tarr = max(p.toas.max() for p in mps) - min(p.toas.min() for p in mps)
+    common = FourierBlock("gw", n_c, Tarr)
+    wns, models, nd = [], [], {}
+    for p in mps:
+        systems = sorted(set(p.backend_flags.tolist()))
+        efeq = {s: (float(rng.uniform(0.8, 1.3)), float(rng.uniform(-7.5, -6.5))) for s in systems}
+        ec = {s: float(rng.uniform(-7.5, -6.5)) for s in systems}
+        terms = [EcorrTerm("ecorr", {s: p.backend_flags == s for s in systems}, ec)]
+        gmask = np.char.startswith(p.backend_flags.astype(str), global_ecorr_pta + ":")
+        glab = f"{global_ecorr_pta}:all"
+        if gmask.any():
+            terms.append(EcorrTerm("ecorr_all", {glab: gmask}, {glab: -7.2}))
+            nd[f"{p.name}_{glab}_log10_ecorr"] = -7.2
+        for s in systems:
+            nd[f"{p.name}_{s}_efac"], nd[f"{p.name}_{s}_log10_t2equad"] = efeq[s]
+            nd[f"{p.name}_{s}_log10_ecorr"] = ec[s]
+        wns.append(build_general_white_noise(p.toas, p.toaerrs, p.backend_flags, efeq, terms, convention="t2"))
+        span = p.toas.max() - p.toas.min()
+        models.append(PulsarGPModel(sampled={"rn": FourierBlock("red_noise", n_rn, span),
+                                             "dm": FourierBlock("dm_gp", n_dm, 1.2 * span, chrom_idx=2.0)},
+                                    common=common))
+    return wns, models, nd, Tarr
+
+
+def g5_params(mps, rng, n: int):
+    pts = []
+    for _ in range(n):
+        P = len(mps)
+        pts.append({"rn_log10_A": rng.uniform(-15, -13, P), "rn_gamma": rng.uniform(1.5, 5, P),
+                    "dm_log10_A": rng.uniform(-14.5, -12.5, P), "dm_gamma": rng.uniform(1, 4, P),
+                    "log10_A": np.asarray(rng.uniform(-15, -13.8)), "gamma": np.asarray(rng.uniform(2.5, 5))})
+    return pts
+
+
+def _named(mps, p):
+    out = {"gw_log10_A": float(p["log10_A"]), "gw_gamma": float(p["gamma"])}
+    for i, m in enumerate(mps):
+        out[f"{m.name}_rn_log10_A"], out[f"{m.name}_rn_gamma"] = float(p["rn_log10_A"][i]), float(p["rn_gamma"][i])
+        out[f"{m.name}_dm_log10_A"], out[f"{m.name}_dm_gamma"] = float(p["dm_log10_A"][i]), float(p["dm_gamma"][i])
+    return out
+
+
+def discovery_g5(mps, nd, models, Tarr, n_c, global_ecorr_pta="PPTA"):
+    """discovery likelihood of the same system (value + JAX gradient)."""
+    import discovery as ds
+    from oracle_helpers import to_discovery_pulsar
+
+    psls, dpsrs = [], []
+    for p, mdl in zip(mps, models, strict=True):
+        dp = to_discovery_pulsar(p, nd)
+        dpsrs.append(dp)
+        glab = f"{global_ecorr_pta}:all"
+        gsel = lambda psr, glab=glab: np.where(np.char.startswith(np.asarray(psr.backend_flags).astype(str),
+                                                                   global_ecorr_pta + ":"), glab, "")
+        comps = [dp.residuals, ds.makenoise_measurement(dp, dp.noisedict),
+                 ds.makegp_ecorr(dp, dp.noisedict, enterprise=True, name="ecorrA")]
+        if np.any(gsel(dp) != ""):
+            comps.append(ds.makegp_ecorr(dp, dp.noisedict, enterprise=True, selection=gsel, name="ecorrB"))
+        comps += [ds.makegp_timing(dp, svd=True),
+                  ds.makegp_fourier(dp, ds.powerlaw, mdl.sampled["rn"].n_modes, T=mdl.sampled["rn"].T, name="rn"),
+                  ds.makegp_fourier(dp, ds.powerlaw, mdl.sampled["dm"].n_modes, T=mdl.sampled["dm"].T,
+                                    fourierbasis=ds.dmfourierbasis, name="dm"),
+                  ds.makegp_fourier(dp, ds.powerlaw, n_c, T=Tarr, common=["gw_log10_A", "gw_gamma"], name="gw")]
+        psls.append(ds.PulsarLikelihood(comps))
+    # discovery's ArrayLikelihood cannot combine variable per-pulsar GPs with a commongp/globalgp,
+    # so discovery checks CURN: the common process enters each pulsar as its own GP on the array
+    # grid (distinct from the pulsar's IRN/DM grids) with shared hyperparameters; JAX gradients.
+    # HD values are checked against enterprise.
+    return ds.ArrayLikelihood(psls)
+
+
+def enterprise_g5(mps, nd, models, Tarr, n_c, global_ecorr_pta="PPTA"):
+    """enterprise PTA object of the same system (value only)."""
+    from enterprise.signals import (
+        gp_bases,
+        gp_signals,
+        parameter,
+        selections,
+        signal_base,
+        utils,
+        white_signals,
+    )
+    from oracle_helpers import to_enterprise_pulsar
+
+    def pl(name=None):
+        return utils.powerlaw(log10_A=parameter.Uniform(-20, -11), gamma=parameter.Uniform(0, 7))
+
+    sel = selections.Selection(selections.by_backend)
+
+    def global_sel(backend_flags):
+        m = np.char.startswith(np.asarray(backend_flags).astype(str), global_ecorr_pta + ":")
+        return {f"{global_ecorr_pta}:all": m} if m.any() else {}
+
+    gw = gp_signals.FourierBasisCommonGP(
+        utils.powerlaw(log10_A=parameter.Uniform(-18, -11)("gw_log10_A"), gamma=parameter.Uniform(0, 7)("gw_gamma")),
+        orf=utils.hd_orf(), components=n_c, Tspan=Tarr, name="gw")
+    models_e = []
+    for p, mdl in zip(mps, models, strict=True):
+        rn, dm = mdl.sampled["rn"], mdl.sampled["dm"]
+        s = gp_signals.TimingModel(use_svd=True)
+        s += white_signals.MeasurementNoise(efac=parameter.Constant(), log10_t2equad=parameter.Constant(), selection=sel)
+        s += white_signals.EcorrKernelNoise(log10_ecorr=parameter.Constant(), selection=sel)
+        s += gp_signals.EcorrBasisModel(log10_ecorr=parameter.Constant(), selection=selections.Selection(global_sel),
+                                        name="ecorrB")
+        s += gp_signals.FourierBasisGP(spectrum=pl(), components=rn.n_modes, Tspan=rn.T, name="rn")
+        s += gp_signals.BasisGP(pl(), gp_bases.createfourierdesignmatrix_dm(nmodes=dm.n_modes, Tspan=dm.T), name="dm")
+        s += gw
+        models_e.append(s(to_enterprise_pulsar(p)))
+    pta = signal_base.PTA(models_e)
+    fixed = {}
+    for k in pta.param_names:
+        pass
+    # constants: map our noise dict onto enterprise's constant names
+    for name, v in nd.items():
+        fixed[name] = v
+    for sc in models_e:
+        for sig in sc._signals:
+            for prm in getattr(sig, "_params", {}).values() if isinstance(getattr(sig, "_params", None), dict) else []:
+                pass
+    pta.set_default_params(_enterprise_constants(pta, nd))
+    return pta
+
+
+def _enterprise_constants(pta, nd):
+    """enterprise names constants '<psr>_<sel>_efac', '<psr>_<sel>_log10_t2equad', '<psr>_<sel>_log10_ecorr'
+    and for the basis ECORR '<psr>_<sel>_ecorrB_log10_ecorr' (checked below)."""
+    out = {}
+    for sc in pta._signalcollections:
+        for sig in sc._signals:
+            for pname in getattr(sig, "param_names", []):
+                pass
+    # enterprise constant parameter names are only visible through the signals' _params dicts
+    for sc in pta._signalcollections:
+        for sig in sc._signals:
+            for key, prm in getattr(sig, "_params", {}).items():
+                nm = getattr(prm, "name", key)
+                if nm in nd:
+                    out[nm] = nd[nm]
+                elif nm.replace("_ecorrB_", "_") in nd:
+                    out[nm] = nd[nm.replace("_ecorrB_", "_")]
+                elif nm.replace("_basis_ecorr_", "_") in nd:
+                    out[nm] = nd[nm.replace("_basis_ecorr_", "_")]
+    return out
+
+
+def g3_likelihood_impact(psr, t2: dict, n_points: int = 12, seed: int = 0) -> dict:
+    """Post-hoc consequence of the G3/G4 engine differences (not a pre-registered gate): the same
+    single-pulsar likelihood (white noise = raw TOA errors with EFAC 1, IRN on the leg's span, DM GP)
+    evaluated on PINT's (residuals, design matrix) and on tempo2's; max |difference of lnL shapes|
+    over random hyperparameter points (nats)."""
+    import jax.numpy as jnp
+
+    from ptagwb.combined import GeneralPTALikelihood, PulsarGPModel, precompute_general
+    from ptagwb.gp import FourierBlock
+    from ptagwb.noise import build_general_white_noise
+
+    rec = np.asarray(psr.meta["record_index"])
+    span = float(psr.toas.max() - psr.toas.min())
+    model = PulsarGPModel(sampled={"rn": FourierBlock("red_noise", 30, span),
+                                   "dm": FourierBlock("dm_gp", 30, span, chrom_idx=2.0)})
+    systems = sorted(set(psr.backend_flags.tolist()))
+    wn = build_general_white_noise(psr.toas, psr.toaerrs, psr.backend_flags, {s: (1.0, -9.0) for s in systems})
+    Mt2 = np.asarray(t2["design"])[rec]
+    Mt2 = Mt2[:, np.linalg.norm(Mt2, axis=0) > 0]
+    other = type("V", (), {})()
+    for k in ("toas", "freqs", "toaerrs", "backend_flags", "name", "pos"):
+        setattr(other, k, getattr(psr, k))
+    other.residuals, other.Mmat, other.pos_enterprise = np.asarray(t2["residuals"])[rec], Mt2, None
+    la = GeneralPTALikelihood([precompute_general(psr, wn, model)], orf=None, common=None)
+    lb = GeneralPTALikelihood([precompute_general(other, wn, model)], orf=None, common=None)
+    rng = np.random.default_rng(seed)
+    va, vb = [], []
+    for _ in range(n_points):
+        p = {"rn_log10_A": jnp.asarray([rng.uniform(-16, -12.5)]), "rn_gamma": jnp.asarray([rng.uniform(1, 6)]),
+             "dm_log10_A": jnp.asarray([rng.uniform(-15, -12)]), "dm_gamma": jnp.asarray([rng.uniform(1, 5)])}
+        va.append(float(la.logL(p)))
+        vb.append(float(lb.logL(p)))
+    va, vb = np.array(va), np.array(vb)
+    return {"max_dshape_nats": float(np.max(np.abs((va - va[0]) - (vb - vb[0]))))}

@@ -388,6 +388,17 @@ class GeneralWhiteNoise:
             y[idx] = solve_triangular(L, x[idx], lower=True)
         return y
 
+    def colour(self, z: np.ndarray) -> np.ndarray:
+        """L z with L L^T = N (blockwise Cholesky): turns unit normal draws into noise draws."""
+        z = np.asarray(z, dtype=np.float64)
+        y = np.empty_like(z)
+        s = self._singletons
+        shape = (-1,) + (1,) * (z.ndim - 1)
+        y[s] = z[s] * np.sqrt(self.ndiag[s]).reshape(shape)
+        for idx, L in zip(self._components, self._chol, strict=True):
+            y[idx] = L @ z[idx]
+        return y
+
     def solve(self, x: np.ndarray) -> np.ndarray:
         from scipy.linalg import cho_solve
 

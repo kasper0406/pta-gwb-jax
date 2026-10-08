@@ -61,6 +61,12 @@ def cmd_legs(args):
             "n_clock_excluded": len(m.get("clock_excluded", [])), "clock_coverage_notes": m.get("clock_coverage_notes"),
             "warnings": [(w["class"], w["count"], w["message"][:160]) for w in m.get("warnings", [])],
         })
+    if args.only or args.datasets:  # partial rerun: merge into the full table
+        prev = RESULTS / "legs_published.json"
+        if prev.exists():
+            old = json.loads(prev.read_text())["rows"]
+            new_keys = {(r["dataset"], r["psr"]) for r in rows}
+            rows = [r for r in old if (r["dataset"], r["psr"]) not in new_keys] + rows
     out = {"n_legs": len(rows), "seconds": round(time.time() - t0), "rows": rows}
     p = _dump("legs_published", out)
     ok = sum(1 for r in rows if r["ok"])
@@ -108,6 +114,10 @@ def cmd_tempo2(args):
                 row.update(note="no PINT leg (ingestion failed)", g3_ok=False, g4_ok=False)
                 return row
             row.update(O.g3_g4(ours, t2))
+            try:
+                row["post_hoc_likelihood_impact"] = O.g3_likelihood_impact(ours, t2)
+            except Exception as ex:  # noqa: BLE001
+                row["post_hoc_likelihood_impact"] = {"error": f"{type(ex).__name__}: {str(ex)[:200]}"}
         except Exception as ex:  # noqa: BLE001
             row.update(error=f"{type(ex).__name__}: {str(ex)[:400]}", g3_ok=False, g4_ok=False)
         return row
@@ -119,6 +129,7 @@ def cmd_tempo2(args):
         print(f"{r['dataset']:12s} {r['psr']:12s} q={int(r['quarantined'])} G3={r.get('g3_ok')} "
               f"proj_rms={r.get('rms_diff_proj_ns', float('nan')):.3g}ns ({r.get('rms_diff_proj_sigma', float('nan')):.2g} sig) "
               f"G4={r.get('g4_ok')} sin={r.get('g4_max_sin', float('nan')):.2g} cols={r.get('ncol_pint')}/{r.get('ncol_tempo2')} "
+              f"dlnL={r.get('post_hoc_likelihood_impact', {}).get('max_dshape_nats', float('nan')):.3g} "
               f"{r.get('error', r.get('note', ''))[:100]}")
     print("->", p)
 
@@ -142,8 +153,13 @@ def cmd_multileg(args):
                 t0 = time.time()
                 try:
                     clk = COMBINED if timing == "per_leg" else YA_V3_CLOCKS
-                    mp, res = build_multileg(name, legs, timing=timing, clock=clk, reference=ref, jobs=len(legs), pin=args.pin)
-                    tag = "B" if timing == "per_leg" else f"C-ref{mp.reference}"
+                    force = {"clock": args.force_clock, "ephem": args.force_ephem} if args.force_clock else {}
+                    if args.local_dm:
+                        force["local_dm"] = True
+                    suffix = ("-forced" if args.force_clock else "") + ("-localDM" if args.local_dm else "")
+                    mp, res = build_multileg(name, legs, timing=timing, clock=clk, reference=ref, jobs=len(legs), pin=args.pin,
+                                             force=force or None)
+                    tag = "B" if timing == "per_leg" else f"C-ref{mp.reference}" + suffix
                     save_multileg(mp, out / f"{name}_{tag}.npz")
                     summary[f"{name}_{tag}"] = {"repr": repr(mp), "ntoa": int(mp.ntoa), "ncol": int(mp.Mmat.shape[1]),
                                                 "shared": mp.meta.get("shared"), "seconds": round(time.time() - t0),
@@ -155,7 +171,173 @@ def cmd_multileg(args):
                 except Exception as ex:  # noqa: BLE001
                     summary[f"{name}_{timing}_{ref}"] = {"error": f"{type(ex).__name__}: {str(ex)[:1500]}"}
                     print("FAILED", name, timing, ref, str(ex)[:1500], flush=True)
-    _dump("multileg" + ("_" + "_".join(names) if args.only else ""), summary)
+    _dump("multileg" + ("_" + "_".join(names) if args.only else "") + ("_localDM" if args.local_dm else "")
+          + ("_forced" if args.force_clock else ""), summary)
+
+
+ML_DIR = ROOT / "data" / "processed" / "m3a" / "multileg"
+
+
+def _load_ml(name, tag):
+    from ptagwb.multileg import load_multileg
+
+    return load_multileg(ML_DIR / f"{name}_{tag}.npz")
+
+
+def cmd_g5(args):
+    """G5 on real multi-leg systems (B and C): ours vs enterprise (HD + CURN values) and discovery
+    (CURN values + JAX gradients), distinct grids and overlapping ECORR; pass: |d_ours - d_oracle|
+    <= max(1e-6, 1e-9 |lnL|) for lnL differences between points, gradients <= 1e-8 max(|g|, 1)."""
+    import jax
+    import jax.numpy as jnp
+    import m3a_oracles as O
+    import numpy as np
+
+    from ptagwb.combined import GeneralPTALikelihood, precompute_general
+
+    out = {}
+    for tag in ("C", "B"):
+        # option C with the v0.9.3 shared-DM rule loses phase connection for J1022/J0437 (see G6/R5 in
+        # docs/M3A_VALIDATION.md); the likelihood check uses the phase-connected local-DM C build
+        mps = [_load_ml(n, tag if tag == "B" else f"C-ref{ref}-localDM") for n, ref in (("J1022+1001", "NG15"), ("J0437-4715", "PPTA"))]
+        wns, models, nd, Tarr = O.g5_setup(mps, seed=7)
+        terms = [precompute_general(p, w, m) for p, w, m in zip(mps, wns, models, strict=True)]
+        hd, curn = GeneralPTALikelihood(terms, orf="hd"), GeneralPTALikelihood(terms, orf="curn")
+        dl = O.discovery_g5(mps, nd, models, Tarr, 5)
+        fd, gd = jax.jit(dl.logL), jax.jit(jax.grad(dl.logL))
+        pta = O.enterprise_g5(mps, nd, models, Tarr, 5)
+        pts = O.g5_params(mps, np.random.default_rng(11), 6)
+        vals, gerr = [], 0.0
+        for p in pts:
+            named = O._named(mps, p)
+            jp = {k: jnp.asarray(v) for k, v in p.items()}
+            vals.append([float(curn.logL(jp)), float(fd({k: jnp.asarray(named[k]) for k in dl.logL.params})),
+                         float(hd.logL(jp)), float(pta.get_lnlikelihood({k: named[k] for k in pta.param_names}))])
+            go = jax.grad(curn._logL)(jp)
+            gdd = gd({k: jnp.asarray(named[k]) for k in dl.logL.params})
+            for i, m in enumerate(mps):
+                for proc in ("rn", "dm"):
+                    for par in ("log10_A", "gamma"):
+                        a, b = float(np.asarray(go[f"{proc}_{par}"])[i]), float(gdd[f"{m.name}_{proc}_{par}"])
+                        gerr = max(gerr, abs(a - b) / max(abs(b), 1.0))
+            for par, key in (("log10_A", "gw_log10_A"), ("gamma", "gw_gamma")):
+                a, b = float(go[par]), float(gdd[key])
+                gerr = max(gerr, abs(a - b) / max(abs(b), 1.0))
+        v = np.array(vals)
+        d = v - v[0]
+        tol = np.maximum(1e-6, 1e-9 * np.abs(v[:, 0]))
+        out[tag] = {"systems": [repr(m) for m in mps], "ntoa": int(sum(m.ntoa for m in mps)),
+                    "max_dshape_curn_vs_discovery": float(np.max(np.abs(d[:, 0] - d[:, 1]))),
+                    "max_dshape_hd_vs_enterprise": float(np.max(np.abs(d[:, 2] - d[:, 3]))),
+                    "max_grad_rel_err_curn_vs_discovery": gerr, "abs_lnL": float(np.abs(v[0, 0])),
+                    "pass": bool(np.all(np.abs(d[:, 0] - d[:, 1]) <= tol) and np.all(np.abs(d[:, 2] - d[:, 3]) <= tol)
+                                 and gerr <= 1e-8)}
+        print(tag, json.dumps(out[tag], indent=1), flush=True)
+    _dump("g5_multileg", out)
+
+
+def cmd_g6(args):
+    """G6 reference-model invariance for option C (J1909-3744): references NG15 vs PPTA vs EPTA with
+    CLOCK/EPHEM held fixed (TT(BIPM2019)/DE440) and identical shared free-parameter sets."""
+    import jax.numpy as jnp
+    import m3a_oracles as O
+    import numpy as np
+
+    from ptagwb.combined import GeneralPTALikelihood, precompute_general
+
+    base = _load_ml("J1909-3744", "C-refNG15")
+    out = {"bound": {"g6_max_dshape_nats": 0.1, "g6_linearisation_whitened_norm": 0.1, "g6_colspace_sin": 1e-3}}
+    for ref in args.refs:
+        other = _load_ml("J1909-3744", f"C-ref{ref}-forced")
+        # TOA alignment by (pta, name)
+        key = {(a, b): i for i, (a, b) in enumerate(zip(other.flags["pta"], other.flags["name"], strict=True))}
+        idx = np.array([key[(a, b)] for a, b in zip(base.flags["pta"], base.flags["name"], strict=True)])
+        sig = base.toaerrs
+        W = 1 / sig
+        e = O.weighted_projector_complement(np.hstack([base.Mmat * W[:, None], other.Mmat[idx] * W[:, None]]))(
+            (base.residuals - other.residuals[idx]) * W)
+        lin = float(np.linalg.norm(e))
+        sin = float(O.principal_sines(base.Mmat * W[:, None], other.Mmat[idx] * W[:, None])[0])
+        wns, models, _, _ = O.g5_setup([base], seed=3)
+        tb = precompute_general(base, wns[0], models[0])
+        # same white noise / GP model on the other construction (same TOAs, same systems)
+        from ptagwb.multileg import MultiLegPulsar  # noqa: F401
+        oth = type("V", (), {})()
+        for k in ("toas", "freqs", "toaerrs", "backend_flags", "residuals", "Mmat"):
+            setattr(oth, k, np.asarray(getattr(other, k))[idx])
+        oth.name, oth.pos, oth.pos_enterprise = base.name, base.pos, None
+        to = precompute_general(oth, wns[0], models[0])
+        la, lb = GeneralPTALikelihood([tb], orf="curn"), GeneralPTALikelihood([to], orf="curn")
+        pts = O.g5_params([base], np.random.default_rng(5), 20)
+        va = np.array([float(la.logL({k: jnp.asarray(v) for k, v in p.items()})) for p in pts])
+        vb = np.array([float(lb.logL({k: jnp.asarray(v) for k, v in p.items()})) for p in pts])
+        dshape = float(np.max(np.abs((va - va[0]) - (vb - vb[0]))))
+        out[ref] = {"linearisation_whitened_norm": lin, "colspace_max_sin": sin, "max_dshape_nats": dshape,
+                    "ncol": [int(base.Mmat.shape[1]), int(other.Mmat.shape[1])],
+                    "pass": bool(dshape <= 0.1 and lin <= 0.1 and sin <= 1e-3)}
+        print(ref, out[ref], flush=True)
+    _dump("g6_reference_swap", out)
+
+
+def cmd_g7(args):
+    """G7 duplicate observations: every pulsar with >= 2 legs in the selected configuration (and the
+    YA set), cross-leg same-site overlapping observations; plus LEAP vs single-telescope within EPTA."""
+    from collections import defaultdict
+
+    from ptagwb.m3data import SELECTED, YU_ALLEN, leg_files, pta_of
+    from ptagwb.multileg import find_duplicates, site_of
+    from ptagwb.timfile import read_tim
+
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from m3_survey import canonical_names, parse_par
+
+    out = {}
+    for label, sets in (("selected", SELECTED), ("yu_allen", YU_ALLEN)):
+        rows = []
+        for ds in sets:
+            for psr, (par, tim) in leg_files(ds).items():
+                r = {"dataset": ds, "psr": psr, "par": par, "tim": tim}
+                r.update(parse_par(par))
+                rows.append(r)
+        canon = canonical_names(rows)
+        groups = defaultdict(list)
+        for r in rows:
+            groups[canon[(r["dataset"], r["psr"])]].append(r)
+        cross, leap, n_multi = [], [], 0
+        for j, legs in sorted(groups.items()):
+            recs = {}
+            for r in legs:
+                rr, _ = read_tim(r["tim"])
+                recs[f"{pta_of(r['dataset'])}/{r['dataset']}"] = rr
+            if len(recs) >= 2:
+                n_multi += 1
+                for d in find_duplicates(recs):
+                    cross.append({"pulsar": j, **d})
+            for key, rr in recs.items():
+                if key.startswith("EPTA"):
+                    by = defaultdict(list)
+                    for x in rr:
+                        by["leap" if site_of(x.obs) == "leap" else site_of(x.obs)].append(x)
+                    if "leap" in by:
+                        for d in find_duplicates({k: v for k, v in by.items()}):
+                            if "leap" in (d["a"], d["b"]):
+                                leap.append({"pulsar": j, **d})
+        out[label] = {"n_multi_leg_pulsars": n_multi, "cross_pta_same_site_pairs": cross,
+                      "n_cross_pairs": sum(d["n_pairs"] for d in cross), "epta_leap_vs_single_telescope": leap,
+                      "n_leap_pairs": sum(d["n_pairs"] for d in leap)}
+        print(label, n_multi, "cross pairs", out[label]["n_cross_pairs"], "leap pairs", out[label]["n_leap_pairs"], flush=True)
+    _dump("g7_duplicates", out)
+
+
+def cmd_g8(args):
+    import m3a_injection as I
+
+    names = (("J1909-3744", "NG15"), ("J1022+1001", "NG15"), ("J0437-4715", "PPTA"))
+    C = [_load_ml(n, f"C-ref{r}") for n, r in names]
+    B = [_load_ml(n, "B") for n, _ in names]
+    out = I.run(C, B, R=args.R)
+    print(json.dumps(out, indent=1))
+    _dump("g8_injections", out)
 
 
 def main():
@@ -175,8 +357,20 @@ def main():
     a.add_argument("--only", nargs="*")
     a.add_argument("--timing", nargs="*", default=["shared", "per_leg"])
     a.add_argument("--refs", nargs="*", help="reference PTAs for option C (default: YA order)")
+    a.add_argument("--force-clock", help="G6: hold CLOCK fixed (e.g. 'TT(BIPM2019)') while swapping the reference")
+    a.add_argument("--force-ephem", default="DE440")
+    a.add_argument("--local-dm", action="store_true", help="option C with per-leg DM (MetaPulsar-main configuration)")
     a.add_argument("--pin", action="store_true")
     a.set_defaults(func=cmd_multileg)
+    for nm, fn in (("g5", cmd_g5), ("g7", cmd_g7)):
+        a = sub.add_parser(nm)
+        a.set_defaults(func=fn)
+    a = sub.add_parser("g6")
+    a.add_argument("--refs", nargs="*", default=["PPTA", "EPTA"])
+    a.set_defaults(func=cmd_g6)
+    a = sub.add_parser("g8")
+    a.add_argument("--R", type=int, default=1000)
+    a.set_defaults(func=cmd_g8)
     args = ap.parse_args()
     args.func(args)
 

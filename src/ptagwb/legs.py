@@ -130,21 +130,20 @@ def canonical_par(text: str, fixes: Counter) -> str:
         if k == "TRACK":
             fixes["par:drop-TRACK"] += 1
             continue
-        if (tempo2_par and len(tok) == 3 and tok[2] not in ("0", "1") and _is_float(tok[1]) and _is_float(tok[2])
+        if (tempo2_par and len(tok) == 3 and tok[2] not in ("0", "1", "2") and _is_float(tok[2])
                 and k not in PAR_METADATA and not k.startswith(("JUMP", "T2EFAC", "T2EQUAD", "TNEF", "TNEQ", "ECORR",
                                                                  "EFAC", "EQUAD"))):
-            # "NAME value X": tempo2 reads the fit flag with sscanf("%d") from X (InPTA DR2:
-            # "DMX_0001 1.85e-4 2.57e-4" -> flag 0, frozen); PINT would treat X as an uncertainty
-            # and keep the parameter's default fit state (DMX_0001 template: free). Make it explicit.
-            m = re.match(r"[+-]?\d+", tok[2])
-            flag = int(m.group(0)) if m else 0
-            out.append(f"{k} {tok[1]} {1 if flag else 0} {tok[2]}")
-            fixes["par:explicit-fit-flag-from-3rd-token"] += 1
+            # "NAME value X" with X not 0/1/2: tempo2 (readParfile.C readValue, nread == 2) takes X
+            # as the uncertainty and leaves the parameter FROZEN; PINT keeps the parameter's
+            # default fit state instead (InPTA DR2 "DMX_0001 1.85e-4 2.57e-4": DMX_0001 would be
+            # free). Write the tempo2 meaning explicitly: fit flag 0, uncertainty X.
+            out.append(f"{k} {tok[1]} 0 {tok[2]}")
+            fixes["par:explicit-frozen-value-uncertainty-line"] += 1
             continue
         out.append(ln)
     if dmx_ids and "0001" not in dmx_ids and "DMXR1_0001" not in keys:
         start = min(float(ln.split()[1]) for ln in lines if re.match(r"DMXR1_\d+\s", ln))
-        out += ["DMX_0001 0", f"DMXR1_0001 {start - 10:.4f}", f"DMXR2_0001 {start - 9.99:.4f}"]
+        out += ["DMX_0001 0 0", f"DMXR1_0001 {start - 10:.4f}", f"DMXR2_0001 {start - 9.99:.4f}"]
         fixes["par:empty-DMX_0001-template"] += 1
     return "\n".join(out) + "\n"
 
@@ -276,7 +275,9 @@ def clock_coverage(toas, tol_s: float = 1e-9) -> tuple[list[dict], np.ndarray]:
             fname = Path(getattr(c, "filename", "") or getattr(inner, "filename", "")).name
             raw = []  # (mjd, value) as tempo2 reads a tempo2-format file, sentinels included
             try:
-                if str(inner.filename).endswith(".clk"):
+                # tempo2-format text (pinned "*.clk" files, or global-repository files read from the
+                # astropy cache under an opaque name: their GlobalClockFile.format says "tempo2")
+                if str(inner.filename).endswith(".clk") or getattr(c, "format", None) == "tempo2":
                     for ln in Path(inner.filename).read_text().splitlines():
                         tok = ln.split()
                         if len(tok) >= 2 and not ln.lstrip().startswith("#") and _is_float(tok[0]) and _is_float(tok[1]):
@@ -469,7 +470,7 @@ def prepare_leg(dataset: str, label: str, par: Path, tim: Path, clock: ClockProf
 def load_leg(dataset: str, label: str, *, clock: ClockProfile | None = None, evaluator: EvaluatorProfile | None = None,
              par_text: str | None = None, pin: bool = False, outdir: Path | None = None, identity: bool = True,
              tag: str = "published", clock_policy: str = "exclude-uncovered",
-             site_profile: str | None = "default") -> LegResult:
+             site_profile: str | None = "default", nharms: int | None = None) -> LegResult:
     """Ingest one leg (see module docstring). Call in a fresh process per clock profile."""
     import warnings
 
@@ -507,6 +508,15 @@ def load_leg(dataset: str, label: str, *, clock: ClockProfile | None = None, eva
         with warnings.catch_warnings(record=True) as wl:
             warnings.simplefilter("always")
             model, toas = get_model_and_toas(prov["canon_par"], prov["canon_tim"], planets=True, **evaluator.pint_kwargs())
+            if nharms is not None:
+                # ELL1H H3+H4 harmonic count. PINT's setup forces NHARMS >= 7 when H4 is given;
+                # tempo2 uses 4 (harmonics 3..NHARMS). Setting the value after setup makes the
+                # binary delay and its derivatives use the requested count (as nanograv/PINT#2046).
+                if "NHARMS" not in model.params or model.H4.quantity is None:
+                    raise ValueError(f"{label}: nharms override needs an ELL1H model with H3+H4")
+                meta["nharms_setup"] = int(model.NHARMS.value)
+                model.NHARMS.value = int(nharms)
+                meta["nharms_used"] = int(nharms)
             frozen = []
             if pta == "NG15" and model.PSR.value in FROZEN_PARAMS:
                 for pname in FROZEN_PARAMS[model.PSR.value]:

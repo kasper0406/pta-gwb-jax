@@ -348,6 +348,26 @@ published numbers):
 Exit: all gates pass for the validation set; the remaining legs pass G1 and G2, and G3 where
 tempo2 is available. Legs failing G3-G5 stay quarantined; they do not block M3a itself.
 
+**M3a revision (review minor #4).** The exit criterion above is replaced by mechanically
+decidable conditions E1-E8 (`docs/M3A_VALIDATION.md` Sec. 10):
+* E1: every loadable leg passes G1/G2.
+* E2: G5 dense and real-system oracles pass.
+* E3: G9 passes.
+* E4: B/C reproduce MetaPulsar v0.9.3.
+* E5: G7 finds no unlisted duplicates.
+* E6: G8 passes for A/B/C.
+* E7: G6 within the numeric bound.
+* E8: G3/G4 at the fixed tolerances.
+
+The **G6 bound** is a likelihood-shape difference <= 0.1 nats over 20 random hyperparameter
+points, a whitened linearisation residual <= 0.1, and a column-space sine <= 1e-3. The swap holds
+CLOCK/EPHEM and the free-parameter set fixed.
+
+Quarantined legs (`configs/m3/quarantine.json`) are excluded from the validation-set pass
+requirement. Legs failing E8 are *not* quarantined wholesale, because that would make E8 pass
+vacuously; they are simply not admitted to comparisons with published numbers. Status
+2026-10-08: E1-E6 met, E7 and E8 open (see M3A_VALIDATION.md).
+
 ### 5.2 M3b: per-PTA checks
 
 Two different kinds of check, never confused:
