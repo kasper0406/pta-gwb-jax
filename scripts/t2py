@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Run the isolated tempo2/libstempo oracle env's python (created by scripts/setup_tempo2_env.sh)
+# with TEMPO2 pointing at the env's bundled T2runtime. Usage: scripts/t2py -c "import libstempo"
+#   T2_ENV=/other/prefix scripts/t2py ...     (override env location)
+# The env's bin dir is prepended to PATH so the `tempo2` executable is also reachable.
+set -euo pipefail
+T2_ENV="${T2_ENV:-$HOME/.local/opt/tempo2-env}"
+if [[ ! -x "$T2_ENV/bin/python" ]]; then
+  echo "t2py: $T2_ENV/bin/python not found; run scripts/setup_tempo2_env.sh first" >&2
+  exit 1
+fi
+export TEMPO2="${TEMPO2_OVERRIDE:-$T2_ENV/share/tempo2}"
+export PATH="$T2_ENV/bin:$PATH"
+unset PYTHONPATH PYTHONHOME VIRTUAL_ENV
+export PYTHONNOUSERSITE=1
+exec "$T2_ENV/bin/python" "$@"
