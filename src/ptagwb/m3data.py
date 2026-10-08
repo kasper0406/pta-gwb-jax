@@ -91,10 +91,24 @@ def load_json_config(name: str) -> dict:
     return json.loads((CONFIG_DIR / name).read_text())
 
 
-def quarantine() -> dict:
-    """(dataset, psr) -> reason, from configs/m3/quarantine.json (lifted entries excluded)."""
+DEFAULT_CONFIG = {"ell1h_nharms": "tempo2"}
+
+
+def quarantine(config: dict | None = None) -> dict:
+    """(dataset, psr) -> entry, from configs/m3/quarantine.json, for an evaluation configuration.
+
+    Entries in ``lifted`` are lifted only under the configuration recorded in their
+    ``lifted_under`` (e.g. ELL1H H3+H4 legs under the tempo2 harmonic convention); under any other
+    configuration (e.g. PINT's forced 7 harmonics, ``{"ell1h_nharms": "pint7"}``) they are
+    quarantined."""
+    cfg = dict(DEFAULT_CONFIG, **(config or {}))
     q = load_json_config("quarantine.json")
-    return {(e["dataset"], e["psr"]): e for e in q["legs"]}
+    out = {(e["dataset"], e["psr"]): e for e in q["legs"]}
+    for e in q.get("lifted", []):
+        cond = e.get("lifted_under", {})
+        if any(cfg.get(k) != v for k, v in cond.items()):
+            out[(e["dataset"], e["psr"])] = e
+    return out
 
 
 def validation_set() -> dict:

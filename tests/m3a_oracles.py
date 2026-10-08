@@ -117,17 +117,12 @@ def run_tempo2(par: Path, tim: Path, profile, tag: str, design: bool = True, tim
 # ---------------------------------------------------------------------- G3 / G4 metrics
 
 
-def weighted_projector_complement(WM: np.ndarray):
-    """x -> (I - P) x with P the orthogonal projector onto span(WM) (columns normalised first:
-    design-matrix columns span ~20 decades in natural units)."""
-    WM = WM[:, np.linalg.norm(WM, axis=0) > 0]
-    Q, _ = np.linalg.qr(WM / np.linalg.norm(WM, axis=0))
+from ptagwb.multileg import PROJ_RTOL, complement_projector
 
-    def proj(x):
-        y = x - Q @ (Q.T @ x)
-        return y - Q @ (Q.T @ y)
 
-    return proj
+def weighted_projector_complement(WM: np.ndarray, rtol: float = PROJ_RTOL):
+    """Rank-revealing complement projector (``ptagwb.multileg.complement_projector``; review M3a #5)."""
+    return complement_projector(WM, rtol)
 
 
 def principal_sines(A: np.ndarray, B: np.ndarray) -> np.ndarray:

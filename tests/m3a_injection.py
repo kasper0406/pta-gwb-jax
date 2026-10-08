@@ -149,6 +149,8 @@ def run(mpC_list, mpB_list, R=1000, log10_A_true=-14.0, seed=1):
                                                  "pass": bool(abs(z) < 3.5 and abs(ratio - 1) < tol)}
     for label in ("signal", "null"):
         r = out["results"]
+        if f"{label}/A" not in r:
+            continue
         out[f"info_ratio_C_over_B_{label}"] = r[f"{label}/C"]["info_A2"] / r[f"{label}/B"]["info_A2"]
         out[f"info_ratio_C_over_A_{label}"] = r[f"{label}/C"]["info_A2"] / r[f"{label}/A"]["info_A2"]
     out["pass"] = all(v["pass"] for v in out["results"].values())

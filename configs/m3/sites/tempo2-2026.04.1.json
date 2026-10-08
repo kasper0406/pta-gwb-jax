@@ -9,7 +9,14 @@
     4900430.8
    ],
    "tempo2_name": "EFFELSBERG",
-   "tempo2_code": "eff"
+   "tempo2_code": "eff",
+   "pint_1.1.7_itrf_xyz_m": [
+    4033947.146,
+    486990.898,
+    4900431.067
+   ],
+   "pint_observatory": "effelsberg",
+   "shift_m": 2.802964323537924
   },
   "effix": {
    "itrf_xyz_m": [
@@ -18,7 +25,14 @@
     4900430.8
    ],
    "tempo2_name": "EFFELSBERG_ASTERIX",
-   "tempo2_code": "effix"
+   "tempo2_code": "effix",
+   "pint_1.1.7_itrf_xyz_m": [
+    4033949.5,
+    486989.4,
+    4900430.8
+   ],
+   "pint_observatory": "effelsberg_asterix",
+   "shift_m": 0.0
   },
   "jbmk2roach": {
    "itrf_xyz_m": [
@@ -27,7 +41,14 @@
     5086285.9
    ],
    "tempo2_name": "JB_MKII_RCH",
-   "tempo2_code": "jbmk2roach"
+   "tempo2_code": "jbmk2roach",
+   "pint_1.1.7_itrf_xyz_m": [
+    3822846.76,
+    -153802.28,
+    5086285.9
+   ],
+   "pint_observatory": "jb_mkii_rch",
+   "shift_m": 0.0
   },
   "jbroach": {
    "itrf_xyz_m": [
@@ -36,7 +57,14 @@
     5086486.04
    ],
    "tempo2_name": "JBOROACH",
-   "tempo2_code": "jbroach"
+   "tempo2_code": "jbroach",
+   "pint_1.1.7_itrf_xyz_m": [
+    3822625.769,
+    -154105.255,
+    5086486.256
+   ],
+   "pint_observatory": "jbroach",
+   "shift_m": 0.5254731202422217
   },
   "leap": {
    "itrf_xyz_m": [
@@ -45,7 +73,14 @@
     4900430.8
    ],
    "tempo2_name": "LEAP",
-   "tempo2_code": "leap"
+   "tempo2_code": "leap",
+   "pint_1.1.7_itrf_xyz_m": [
+    4033949.5,
+    486989.4,
+    4900430.8
+   ],
+   "pint_observatory": "leap",
+   "shift_m": 0.0
   },
   "ncyobs": {
    "itrf_xyz_m": [
@@ -54,7 +89,14 @@
     4670132.83
    ],
    "tempo2_name": "NUPPI",
-   "tempo2_code": "ncyobs"
+   "tempo2_code": "ncyobs",
+   "pint_1.1.7_itrf_xyz_m": [
+    4324165.81,
+    165927.11,
+    4670132.83
+   ],
+   "pint_observatory": "ncyobs",
+   "shift_m": 0.0
   },
   "wsrt": {
    "itrf_xyz_m": [
@@ -63,7 +105,14 @@
     5064921.5677
    ],
    "tempo2_name": "WSRT",
-   "tempo2_code": "wsrt"
+   "tempo2_code": "wsrt",
+   "pint_1.1.7_itrf_xyz_m": [
+    3828445.659,
+    445223.6,
+    5064921.5677
+   ],
+   "pint_observatory": "wsrt",
+   "shift_m": 0.0
   },
   "gmrt": {
    "itrf_xyz_m": [
@@ -72,7 +121,15 @@
     2073243.16
    ],
    "tempo2_name": "GMRT",
-   "tempo2_code": "gmrt"
+   "tempo2_code": "gmrt",
+   "pint_1.1.7_itrf_xyz_m": [
+    1657059.36,
+    5797913.14,
+    2073026.71
+   ],
+   "pint_observatory": "gmrt",
+   "shift_m": 749.8165662347374,
+   "pint_provenance": "PINT observatories.json: GMRT coordinates supplied by the InPTA team, 2026-06-05"
   },
   "meerkat": {
    "itrf_xyz_m": [
@@ -81,7 +138,14 @@
     -3238948.127
    ],
    "tempo2_name": "MEERKAT",
-   "tempo2_code": "meerkat"
+   "tempo2_code": "meerkat",
+   "pint_1.1.7_itrf_xyz_m": [
+    5109360.133,
+    2006852.586,
+    -3238948.127
+   ],
+   "pint_observatory": "meerkat",
+   "shift_m": 0.0
   },
   "pks": {
    "itrf_xyz_m": [
@@ -90,7 +154,14 @@
     -3454036.3
    ],
    "tempo2_name": "PARKES",
-   "tempo2_code": "pks"
+   "tempo2_code": "pks",
+   "pint_1.1.7_itrf_xyz_m": [
+    -4554231.5,
+    2816759.1,
+    -3454036.3
+   ],
+   "pint_observatory": "parkes",
+   "shift_m": 0.0
   },
   "ncy": {
    "itrf_xyz_m": [
@@ -99,7 +170,14 @@
     4670132.83
    ],
    "tempo2_name": "NANCAY",
-   "tempo2_code": "ncy"
+   "tempo2_code": "ncy",
+   "pint_1.1.7_itrf_xyz_m": [
+    4324165.81,
+    165927.11,
+    4670132.83
+   ],
+   "pint_observatory": "nancay",
+   "shift_m": 0.0
   },
   "jb": {
    "itrf_xyz_m": [
@@ -108,7 +186,14 @@
     5086486.04
    ],
    "tempo2_name": "JODRELL",
-   "tempo2_code": "jb"
+   "tempo2_code": "jb",
+   "pint_1.1.7_itrf_xyz_m": [
+    3822625.769,
+    -154105.255,
+    5086486.256
+   ],
+   "pint_observatory": "jodrell",
+   "shift_m": 0.5254731202422217
   },
   "srt": {
    "itrf_xyz_m": [
@@ -117,7 +202,15 @@
     4035137.174
    ],
    "tempo2_name": "SRT",
-   "tempo2_code": "srt"
+   "tempo2_code": "srt",
+   "pint_1.1.7_itrf_xyz_m": [
+    4865182.766,
+    791922.689,
+    4035137.174
+   ],
+   "pint_observatory": "srt",
+   "shift_m": 0.0
   }
- }
+ },
+ "doc": "Release-reproduction convention (review M3a #8): tempo2-native PTAs fitted their released timing models with tempo2's observatory coordinates ('itrf_xyz_m'), so ingesting those releases with tempo2's coordinates reproduces them (G3). This does not establish which coordinates are physically correct: PINT's ('pint_1.1.7_itrf_xyz_m') have their own provenance (GMRT: InPTA team, 2026-06-05). Before a physical refit the reference position must be taken from release/pipeline provenance."
 }

@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
 
@@ -37,6 +38,54 @@ from .m3data import REFERENCE_ORDER
 from .noise import namespace
 
 SHARED_CATEGORIES = ("astrometry", "spindown", "pulsar_system", "dispersion_constant")
+PROJ_RTOL = 1e-10  # declared rank threshold of complement_projector
+
+
+def complement_projector(WM: np.ndarray, rtol: float = PROJ_RTOL):
+    """x -> (I - P) x with P the orthogonal projector onto span(WM); rank-revealing (thin SVD of the
+    column-normalised matrix, singular values > rtol * s_max kept). ``proj.rank``/``proj.ncols``."""
+    WM = WM[:, np.linalg.norm(WM, axis=0) > 0]
+    U, sv, _ = np.linalg.svd(WM / np.linalg.norm(WM, axis=0), full_matrices=False)
+    U = U[:, sv > rtol * sv[0]]
+
+    def proj(x):
+        y = x - U @ (U.T @ x)
+        return y - U @ (U.T @ y)
+
+    proj.rank = int(U.shape[1])
+    proj.ncols = int(WM.shape[1])
+    return proj
+
+
+# configurations (recorded in MultiLegPulsar.meta["config"])
+CONFIG_B = "B/per-leg (MetaPulsar composite)"
+CONFIG_YA = "C/YA-v3 (MetaPulsar-0.9.3 shared DM): the YA reproduction target"
+CONFIG_LOCAL_DM = "C/local-DM (MetaPulsar-main exclude_from_shared=DM): NOT the YA target"
+ADMISSIBILITY_RMS = 0.1  # max whitened rms of the linearisation residual vs the leg's own model
+
+
+class InadmissibleBuildError(RuntimeError):
+    """An option-C build whose residuals are not a linear re-parameterisation of each leg's own
+    phase-connected model (e.g. phase wraps after the shared-DM copy)."""
+
+
+def admissibility(mp_leg_psr, own_psr) -> dict:
+    """Linearisation check of one C leg against the leg's own model (same CLOCK/EPHEM and clock
+    profile, DMX columns free; built in ``_c_worker``), matched by tim
+    record: e = P_perp[W M_own, W M_C] W (r_C - r_own) with W = 1/sigma (raw errors). For a linear,
+    phase-connected re-parameterisation r_C - r_own lies in the union span and e ~ 0; wraps and
+    nonlinearity leave e large. Admissible iff rms(e) <= ADMISSIBILITY_RMS."""
+    rc = np.asarray(mp_leg_psr.meta["record_index"])
+    ro = np.asarray(own_psr.meta["record_index"])
+    common, ic, io = np.intersect1d(rc, ro, return_indices=True)
+    sig = mp_leg_psr.toaerrs[ic]
+    W = 1.0 / sig
+    P = complement_projector(np.hstack([own_psr.Mmat[io] * W[:, None], mp_leg_psr.Mmat[ic] * W[:, None]]))
+    e = P((mp_leg_psr.residuals[ic] - own_psr.residuals[io]) * W)
+    rms = float(np.sqrt(np.mean(e**2)))
+    return {"n_matched": len(common), "union_rank": P.rank, "union_ncols": P.ncols,
+            "linearisation_rms_whitened": rms, "linearisation_rms_ns": float(np.sqrt(np.mean((e * sig) ** 2)) * 1e9),
+            "admissible": bool(rms <= ADMISSIBILITY_RMS), "threshold": ADMISSIBILITY_RMS}
 YA_V3_CONFIG = {
     "name": "YA-v3/MetaPulsar-0.9.3-shared",
     "metapulsar": "v0.9.3 (d2067ab, 2025-11-17)",
@@ -241,47 +290,63 @@ def site_of(obs: str) -> str:
     return SITE_ALIASES.get(obs.lower(), obs.lower())
 
 
-def find_duplicates(legs: dict, *, window_s: float | None = None, dfreq_mhz: float = 1.0) -> list[dict]:
-    """Same observation in two legs: same physical site, overlapping observation interval
-    (|dt| < max(tobs_a, tobs_b) / 2, or < ``window_s``), radio frequencies within ``dfreq_mhz``.
-    ``legs``: pta -> list of TimRecord (tempo2-semantics records). LEAP is the coherent sum of
-    the five EPTA telescopes; LEAP vs single-telescope TOAs at the same epoch are reported as
-    "leap-overlap" (same photons, different site code)."""
+def _obs_table(recs) -> tuple[np.ndarray, list]:
+    """(t [s since MJD 50000], freq [MHz], duration [s], bandwidth [MHz]) per record, and the
+    physical sites."""
+    rows, sites = [], []
+    for r in recs:
+        day, sec = r.mjd_parts()
+        tobs, bw = r.flag_values("-tobs"), r.flag_values("-bw")
+        rows.append(((day - 50000) * 86400.0 + float(sec), r.freq, float(tobs[0]) if tobs and _isf(tobs[0]) else 0.0,
+                     abs(float(bw[0])) if bw and _isf(bw[0]) else 0.0))
+        sites.append(site_of(r.obs))
+    return np.array(rows, dtype=np.float64).reshape(-1, 4), sites
+
+
+def find_duplicates(legs: dict, *, dfreq_mhz: float = 1.0, min_duration_s: float = 1.0, freq_mode: str = "channel") -> list[dict]:
+    """Same observation in two legs (review M3a #2: symmetric, order-independent).
+
+    Criterion for a pair (a, b): same physical site (or one of them LEAP, the coherent sum of the
+    EPTA telescopes), observation intervals centred on the TOAs overlapping,
+    |t_a - t_b| < (d_a + d_b) / 2 with d the ``-tobs`` duration (at least ``min_duration_s``), and
+    radio frequencies within ``dfreq_mhz`` (``freq_mode="channel"``: the same TOA counted twice), or
+    overlapping bands, |f_a - f_b| < (bw_a + bw_b) / 2 from the ``-bw`` flags (``"band"``:
+    simultaneous recordings of the same photons by different backends or channelisations).
+    Candidates are enumerated with the window
+    (d_a + max_b d_b) / 2, so every pair satisfying the criterion is found whatever the leg order.
+    ``legs``: label -> list of TimRecord. Returns one entry per unordered pair of labels with the
+    matched TOAs (file, line) on both sides."""
+    keys = sorted(legs)
+    tab = {k: _obs_table(legs[k]) for k in keys}
     out = []
-    keys = list(legs)
-    prepared = {}
-    for k in keys:
-        rows = []
-        for r in legs[k]:
-            day, sec = r.mjd_parts()
-            t = (day - 50000) * 86400.0 + float(sec)
-            tobs = r.flag_values("-tobs")
-            rows.append((t, r.freq, site_of(r.obs), float(tobs[0]) if tobs and _isf(tobs[0]) else 0.0))
-        prepared[k] = np.array([(a, b, c) for a, b, _, c in rows]), [s for _, _, s, _ in rows]
     for ia, a in enumerate(keys):
         for b in keys[ia + 1:]:
-            Xa, Sa = prepared[a]
-            Xb, Sb = prepared[b]
+            Xa, Sa = tab[a]
+            Xb, Sb = tab[b]
             if len(Xa) == 0 or len(Xb) == 0:
                 continue
-            ob = np.argsort(Xb[:, 0])
+            da = np.maximum(Xa[:, 2], min_duration_s)
+            db = np.maximum(Xb[:, 2], min_duration_s)
+            ob = np.argsort(Xb[:, 0], kind="mergesort")
             tb = Xb[ob, 0]
-            n = 0
-            examples = []
+            dbmax = float(db.max())
+            pairs = []
             for i in range(len(Xa)):
-                w = window_s if window_s is not None else max(Xa[i, 2], 1.0)
-                lo, hi = np.searchsorted(tb, Xa[i, 0] - w), np.searchsorted(tb, Xa[i, 0] + w)
+                w = 0.5 * (da[i] + dbmax)
+                lo, hi = np.searchsorted(tb, Xa[i, 0] - w), np.searchsorted(tb, Xa[i, 0] + w, side="right")
                 for jj in range(lo, hi):
                     j = ob[jj]
-                    wj = window_s if window_s is not None else max(Xa[i, 2], Xb[j, 2], 1.0) / 2
-                    same_site = Sa[i] == Sb[j]
-                    leap = "leap" in (Sa[i], Sb[j])
-                    if (same_site or leap) and abs(Xa[i, 0] - Xb[j, 0]) < wj and abs(Xa[i, 1] - Xb[j, 1]) < dfreq_mhz:
-                        n += 1
-                        if len(examples) < 3:
-                            examples.append((Sa[i], Sb[j], float(Xa[i, 0] - Xb[j, 0]), float(Xa[i, 1])))
-            if n:
-                out.append({"a": a, "b": b, "n_pairs": n, "examples": examples})
+                    same = Sa[i] == Sb[j] or "leap" in (Sa[i], Sb[j])
+                    df_tol = dfreq_mhz if freq_mode == "channel" else max(dfreq_mhz, 0.5 * (Xa[i, 3] + Xb[j, 3]))
+                    if (same and abs(Xa[i, 0] - Xb[j, 0]) < 0.5 * (da[i] + db[j])
+                            and abs(Xa[i, 1] - Xb[j, 1]) < df_tol):
+                        ra, rb = legs[a][i], legs[b][j]
+                        pairs.append({"a": [Path(ra.file).name, ra.lineno, Sa[i], float(Xa[i, 2])],
+                                      "b": [Path(rb.file).name, rb.lineno, Sb[j], float(Xb[j, 2])],
+                                      "dt_s": float(Xa[i, 0] - Xb[j, 0]), "freq_mhz": [float(Xa[i, 1]), float(Xb[j, 1])],
+                                      "mjd_a": ra.sat})
+            if pairs:
+                out.append({"a": a, "b": b, "n_pairs": len(pairs), "pairs": pairs})
     return out
 
 
@@ -318,7 +383,7 @@ def _c_worker(args):
     dataset, label, ref, clock, tag, pin, force = args
     from pint.logging import setup
 
-    from .legs import LegResult, leg_cache_path, load_leg, save_leg
+    from .legs import LegResult, leg_cache_path, load_leg, resolve_nharms, save_leg
     from .m3data import leg_files
     from .profiles import evaluator_for_par
 
@@ -329,9 +394,39 @@ def _c_worker(args):
         ref_model = _canonical_model(ref[0], ref[1], ev)
         tgt_model = ref_model if (dataset, label) == tuple(ref) else _canonical_model(dataset, label, ev)
         text, info = consistent_par(ref_model, tgt_model, **(force or {}))
-        res = load_leg(dataset, label, clock=clock, evaluator=ev, par_text=text, pin=pin, tag=tag)
+        # the binary model is the reference's: its harmonic count comes from the reference's
+        # original par under the reference's evaluator convention, not from PINT's serialised
+        # (forced >= 7) NHARMS (review M3a #1)
+        nh = None
+        if "NHARMS" in ref_model.params and getattr(ref_model, "H4", None) is not None and ref_model.H4.quantity is not None:
+            nh = resolve_nharms(ref_par.read_text(errors="replace"), ev)
+            if nh is not None:
+                text = "\n".join(f"NHARMS {nh}" if ln.split()[:1] == ["NHARMS"] else ln for ln in text.splitlines()) + "\n"
+        res = load_leg(dataset, label, clock=clock, evaluator=ev, par_text=text, pin=pin, tag=tag, nharms=nh)
         res.meta["consistent"] = info
         res.meta["reference"] = list(ref)
+        # admissibility reference: the leg's OWN canonical model, evaluated with the same CLOCK and
+        # EPHEM as the rewritten leg and the same clock-file profile, with every DMX column free
+        # (the rewrite removes DMX by design; DM variations go to the DM GP). Differences between
+        # the two are then due to the rewrite alone.
+        from collections import Counter as _C
+
+        from .legs import canonical_leg_texts
+        from .profiles import ClockProfile
+
+        par, tim = leg_files(dataset)[label]
+        _, _, own_text, _ = canonical_leg_texts(par, tim, _C(), dataset, label)
+        cl = [ln.split()[1] for ln in text.splitlines() if ln.split()[:1] == ["CLOCK"]]
+        ep = [ln.split()[1] for ln in text.splitlines() if ln.split()[:1] == ["EPHEM"]]
+        own_prof = ClockProfile(clock.name, cl[0] if cl else None, ep[0] if ep else None, clock.overrides, clock.note)
+        own_text, _ = own_prof.apply_to_par(own_text)
+        own = load_leg(dataset, label, clock=clock, par_text=own_text, pin=pin, tag=tag + "-own", free_dmx=True,
+                       nharms=resolve_nharms(par.read_text(errors="replace"), evaluator_for_par(par.read_text(errors="replace")))
+                       if "H4" in {ln.split()[0] for ln in own_text.splitlines() if ln.split()} else None)
+        if own.ok:
+            save_leg(own, leg_cache_path(tag + "-own", dataset, label))
+        res.meta["admissibility_reference"] = {"tag": tag + "-own", "ok": own.ok, "error": own.error,
+                                               "clock": own_prof.clock, "ephem": own_prof.ephem}
     except Exception as ex:  # noqa: BLE001
         res = LegResult(dataset, "", label, False, None, {"error": repr(ex), "traceback": traceback.format_exc()}, repr(ex))
     save_leg(res, leg_cache_path(tag, dataset, label))
@@ -351,7 +446,8 @@ def _b_worker(args):
 
 
 def build_multileg(name: str, legs: list[tuple[str, str]], *, timing: str, clock, reference: str | None = None,
-                   tag: str | None = None, jobs: int = 4, pin: bool = False, force: dict | None = None):
+                   tag: str | None = None, jobs: int = 4, pin: bool = False, force: dict | None = None,
+                   allow_inadmissible: bool = False):
     """Ingest the legs ((dataset, label) list) of one pulsar for option B or C and stack them.
 
     Returns (MultiLegPulsar, {pta: LegResult}). ``clock``: the clock profile for every leg (the
@@ -385,8 +481,53 @@ def build_multileg(name: str, legs: list[tuple[str, str]], *, timing: str, clock
     if timing == "shared":
         shared = results[ptas.index(reference)].meta["consistent"]["shared_free"]
         shared = [p for p in shared if all(p in r.psr.fitpars for r in results)]
+    for r in results:  # provenance carried into LegInfo.meta (serialised by save_multileg)
+        r.psr.meta.update({k: r.meta.get(k) for k in ("profile", "nharms_used", "ell1h_nharms_config", "consistent",
+                                                     "reference", "tag", "site_profile", "clock_policy")})
+        r.psr.meta["n_clock_excluded"] = len(r.meta.get("clock_excluded", []))
     mp = stack_legs(name, [r.psr for r in results], ptas, timing=timing, shared=shared, reference=reference)
+    if timing == "per_leg":
+        mp.meta.update(config=CONFIG_B, admissible=True)
+    else:
+        mp.meta["config"] = CONFIG_LOCAL_DM if (force and force.get("local_dm")) else CONFIG_YA
+        mp.meta["config_force"] = dict(force or {})
+        from .data import Pulsar
+        from .legs import leg_cache_path
+
+        adm = {}
+        for p_, r in zip(ptas, results, strict=True):
+            ref_info = r.meta.get("admissibility_reference", {})
+            if not ref_info.get("ok"):
+                adm[p_] = {"admissible": False, "linearisation_rms_whitened": float("inf"), "n_matched": 0,
+                           "union_rank": 0, "union_ncols": 0, "linearisation_rms_ns": float("inf"),
+                           "threshold": ADMISSIBILITY_RMS, "error": ref_info.get("error", "no reference load")}
+                continue
+            own = Pulsar.load(leg_cache_path(ref_info["tag"], r.dataset, r.label))
+            adm[p_] = admissibility(r.psr, own)
+        for lg in mp.legs:
+            lg.meta["admissibility"] = adm[lg.pta]
+        mp.meta["admissibility"] = adm
+        mp.meta["admissible"] = all(a["admissible"] for a in adm.values())
+        if not mp.meta["admissible"]:
+            bad = {k: round(v["linearisation_rms_whitened"], 3) for k, v in adm.items() if not v["admissible"]}
+            if not allow_inadmissible:
+                raise InadmissibleBuildError(
+                    f"{name} [{mp.meta['config']}]: legs not a linear re-parameterisation of their own models "
+                    f"(whitened linearisation rms {bad} > {ADMISSIBILITY_RMS}); pass allow_inadmissible=True for a "
+                    "diagnostic build")
+            mp.meta["diagnostic_override"] = True
     return mp, dict(zip(ptas, results, strict=True))
+
+
+def _published_leg(dataset: str, label: str):
+    """The leg evaluated with its own (canonical, published-profile) model, from the cache or fresh."""
+    from .data import Pulsar
+    from .legs import leg_cache_path, load_legs
+
+    p = leg_cache_path("published", dataset, label)
+    if not p.exists():
+        load_legs([(dataset, label)], jobs=1, tag="published")
+    return Pulsar.load(p)
 
 
 def save_multileg(mp: MultiLegPulsar, path) -> None:
@@ -403,7 +544,7 @@ def save_multileg(mp: MultiLegPulsar, path) -> None:
     if mp.pos_enterprise is not None:
         arrays["pos_enterprise"] = mp.pos_enterprise
     legs = [{"pta": lg.pta, "dataset": lg.dataset, "label": lg.label, "ntoa": lg.ntoa, "span_mjd": list(lg.span_mjd),
-             "fitpars": lg.fitpars} for lg in mp.legs]
+             "fitpars": lg.fitpars, "meta": {k: v for k, v in lg.meta.items() if k != "record_index"}} for lg in mp.legs]
     header = {"name": mp.name, "timing": mp.timing, "reference": mp.reference, "fitpars": mp.fitpars, "legs": legs,
               "meta": mp.meta}
     tmp = path.with_suffix(".tmp.npz")
@@ -417,8 +558,8 @@ def load_multileg(path) -> MultiLegPulsar:
     with np.load(path, allow_pickle=False) as z:
         h = json.loads(str(z["_header"]))
         flags = {k[5:]: z[k] for k in z.files if k.startswith("flag_")}
-        legs = [LegInfo(lg["pta"], lg["dataset"], lg["label"], lg["ntoa"], tuple(lg["span_mjd"]), lg["fitpars"])
-                for lg in h["legs"]]
+        legs = [LegInfo(lg["pta"], lg["dataset"], lg["label"], lg["ntoa"], tuple(lg["span_mjd"]), lg["fitpars"],
+                        lg.get("meta", {})) for lg in h["legs"]]
         return MultiLegPulsar(
             name=h["name"], timing=h["timing"], reference=h["reference"], legs=legs, toas=z["toas"], stoas=z["stoas"],
             residuals=z["residuals"], toaerrs=z["toaerrs"], freqs=z["freqs"], freqs_topo=z["freqs_topo"],

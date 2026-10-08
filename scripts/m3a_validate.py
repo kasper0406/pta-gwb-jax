@@ -158,14 +158,18 @@ def cmd_multileg(args):
                         force["local_dm"] = True
                     suffix = ("-forced" if args.force_clock else "") + ("-localDM" if args.local_dm else "")
                     mp, res = build_multileg(name, legs, timing=timing, clock=clk, reference=ref, jobs=len(legs), pin=args.pin,
-                                             force=force or None)
+                                             force=force or None, allow_inadmissible=args.allow_inadmissible)
                     tag = "B" if timing == "per_leg" else f"C-ref{mp.reference}" + suffix
                     save_multileg(mp, out / f"{name}_{tag}.npz")
                     summary[f"{name}_{tag}"] = {"repr": repr(mp), "ntoa": int(mp.ntoa), "ncol": int(mp.Mmat.shape[1]),
+                                                "config": mp.meta.get("config"), "admissible": mp.meta.get("admissible"),
+                                                "diagnostic_override": mp.meta.get("diagnostic_override", False),
+                                                "admissibility": mp.meta.get("admissibility"),
                                                 "shared": mp.meta.get("shared"), "seconds": round(time.time() - t0),
                                                 "legs": {p: {"g1_ok": r.meta.get("g1_ok"), "g2": r.meta.get("g2_unexplained"),
                                                              "n_clock_excluded": len(r.meta.get("clock_excluded", [])),
                                                              "wrms_us": r.meta.get("wrms_us"),
+                                                             "nharms_used": r.meta.get("nharms_used"),
                                                              "consistent": r.meta.get("consistent")} for p, r in res.items()}}
                     print(repr(mp), f"{time.time() - t0:.0f}s", flush=True)
                 except Exception as ex:  # noqa: BLE001
@@ -185,61 +189,80 @@ def _load_ml(name, tag):
 
 
 def cmd_g5(args):
-    """G5 on real multi-leg systems (B and C): ours vs enterprise (HD + CURN values) and discovery
-    (CURN values + JAX gradients), distinct grids and overlapping ECORR; pass: |d_ours - d_oracle|
-    <= max(1e-6, 1e-9 |lnL|) for lnL differences between points, gradients <= 1e-8 max(|g|, 1)."""
+    """G5 on real multi-leg systems (B and admissible C): ours vs enterprise (HD values), discovery
+    (CURN values, JAX gradients) and the independent long-double arbiter (tests/m3a_arbiter.py:
+    CURN values and analytic gradients).
+
+    Criteria (fixed before the held-out run; constant-invariant, review M3a #6):
+      values   |(lnL_i - lnL_0)_ours - (lnL_i - lnL_0)_oracle| <= 1e-6 nats for every oracle;
+      gradient |g_ours - g_arbiter| <= 1e-8 max(1, |g_arbiter|) for every component (the gate);
+               the discovery gradient comparison is reported (not gating).
+    Points: the 6 original points (seed 11) and 6 held-out points (seed 2026)."""
     import jax
     import jax.numpy as jnp
     import m3a_oracles as O
     import numpy as np
+    from m3a_arbiter import PulsarArbiter, arbiter_correlated, arbiter_curn
 
+    from ptagwb import orf as orfs
     from ptagwb.combined import GeneralPTALikelihood, precompute_general
 
-    out = {}
+    out = {"criteria": {"value_shape_nats": 1e-6, "grad_rel_vs_arbiter": 1e-8, "points": "seed 11 (6) + held-out seed 2026 (6)"}}
     for tag in ("C", "B"):
-        # option C with the v0.9.3 shared-DM rule loses phase connection for J1022/J0437 (see G6/R5 in
-        # docs/M3A_VALIDATION.md); the likelihood check uses the phase-connected local-DM C build
-        mps = [_load_ml(n, tag if tag == "B" else f"C-ref{ref}-localDM") for n, ref in (("J1022+1001", "NG15"), ("J0437-4715", "PPTA"))]
+        # only admissible builds (review M3a #3): C system = J1909-3744 option C (YA-v3, admissible) +
+        # J0437-4715 option B; B system = J1022+1001 B + J0437-4715 B
+        if tag == "C":
+            mps = [_load_ml("J1909-3744", "C-refNG15"), _load_ml("J0437-4715", "B")]
+        else:
+            mps = [_load_ml("J1022+1001", "B"), _load_ml("J0437-4715", "B")]
+        assert all(m.meta.get("admissible") for m in mps), [(m.name, m.meta.get("config")) for m in mps]
         wns, models, nd, Tarr = O.g5_setup(mps, seed=7)
         terms = [precompute_general(p, w, m) for p, w, m in zip(mps, wns, models, strict=True)]
         hd, curn = GeneralPTALikelihood(terms, orf="hd"), GeneralPTALikelihood(terms, orf="curn")
-        eye = GeneralPTALikelihood(terms, orf=np.eye(len(terms)))  # independent arbiter path
+        arbs = [PulsarArbiter(p, w, m) for p, w, m in zip(mps, wns, models, strict=True)]
+        Ghd = orfs.hd(np.stack([m.pos for m in mps]))
         dl = O.discovery_g5(mps, nd, models, Tarr, 5)
         fd, gd = jax.jit(dl.logL), jax.jit(jax.grad(dl.logL))
         pta = O.enterprise_g5(mps, nd, models, Tarr, 5)
-        pts = O.g5_params(mps, np.random.default_rng(11), 6)
-        vals, gerr, garb, n_arb = [], 0.0, 0.0, 0
-        for p in pts:
-            named = O._named(mps, p)
-            jp = {k: jnp.asarray(v) for k, v in p.items()}
-            vals.append([float(curn.logL(jp)), float(fd({k: jnp.asarray(named[k]) for k in dl.logL.params})),
-                         float(hd.logL(jp)), float(pta.get_lnlikelihood({k: named[k] for k in pta.param_names}))])
-            go = jax.grad(curn._logL)(jp)
-            ge = jax.grad(eye._logL)(jp)
-            gdd = gd({k: jnp.asarray(named[k]) for k in dl.logL.params})
-            pairs = [(float(np.asarray(go[f"{proc}_{par}"])[i]), float(np.asarray(ge[f"{proc}_{par}"])[i]),
-                      float(gdd[f"{m.name}_{proc}_{par}"])) for i, m in enumerate(mps) for proc in ("rn", "dm")
-                     for par in ("log10_A", "gamma")]
-            pairs += [(float(go[par]), float(ge[par]), float(gdd[key])) for par, key in
-                      (("log10_A", "gw_log10_A"), ("gamma", "gw_gamma"))]
-            for a, a_eye, b in pairs:
-                sc = max(abs(b), 1.0)
-                gerr = max(gerr, abs(a - b) / sc)
-                garb = max(garb, abs(a - a_eye) / sc)
-                n_arb += abs(a - b) > 1e-8 * sc
-        v = np.array(vals)
-        d = v - v[0]
-        tol = np.maximum(1e-6, 1e-9 * np.abs(v[:, 0]))
-        out[tag] = {"systems": [repr(m) for m in mps], "ntoa": int(sum(m.ntoa for m in mps)),
-                    "max_dshape_curn_vs_discovery": float(np.max(np.abs(d[:, 0] - d[:, 1]))),
-                    "max_dshape_hd_vs_enterprise": float(np.max(np.abs(d[:, 2] - d[:, 3]))),
-                    "max_grad_rel_err_curn_vs_discovery": gerr, "abs_lnL": float(np.abs(v[0, 0])),
-                    "n_grad_components_beyond_1e-8": int(n_arb), "n_grad_components": int(len(pts) * (4 * len(mps) + 2)),
-                    "max_grad_rel_diff_ours_curn_vs_identity_orf_path": garb,
-                    "pass_strict": bool(np.all(np.abs(d[:, 0] - d[:, 1]) <= tol) and np.all(np.abs(d[:, 2] - d[:, 3]) <= tol)
-                                        and gerr <= 1e-8),
-                    "pass_arbitrated": bool(np.all(np.abs(d[:, 0] - d[:, 1]) <= tol) and np.all(np.abs(d[:, 2] - d[:, 3]) <= tol)
-                                            and gerr <= 1e-7 and garb <= 1e-11)}
+        res = {}
+        for label, seed in (("original", 11), ("held_out", 2026)):
+            pts = O.g5_params(mps, np.random.default_rng(seed), 6)
+            vals, garb, gdis = [], 0.0, 0.0
+            for p in pts:
+                named = O._named(mps, p)
+                jp = {k: jnp.asarray(v) for k, v in p.items()}
+                la, ga = arbiter_curn(arbs, p)
+                vals.append([float(curn.logL(jp)), float(fd({k: jnp.asarray(named[k]) for k in dl.logL.params})),
+                             float(hd.logL(jp)), float(pta.get_lnlikelihood({k: named[k] for k in pta.param_names})), la,
+                             arbiter_correlated(arbs, p, Ghd)])
+                go = jax.grad(curn._logL)(jp)
+                gdd = gd({k: jnp.asarray(named[k]) for k in dl.logL.params})
+                for k in ga:
+                    a, b = np.atleast_1d(np.asarray(go[k], dtype=float)), np.atleast_1d(ga[k])
+                    garb = max(garb, float(np.max(np.abs(a - b) / np.maximum(1.0, np.abs(b)))))
+                for i, m in enumerate(mps):
+                    for proc in ("rn", "dm"):
+                        for par in ("log10_A", "gamma"):
+                            a, b = float(np.asarray(go[f"{proc}_{par}"])[i]), float(gdd[f"{m.name}_{proc}_{par}"])
+                            gdis = max(gdis, abs(a - b) / max(abs(b), 1.0))
+                for par, key in (("log10_A", "gw_log10_A"), ("gamma", "gw_gamma")):
+                    a, b = float(go[par]), float(gdd[key])
+                    gdis = max(gdis, abs(a - b) / max(abs(b), 1.0))
+            v = np.array(vals)
+            d = v - v[0]
+            res[label] = {"dshape_curn_vs_discovery": float(np.max(np.abs(d[:, 0] - d[:, 1]))),
+                          "dshape_hd_vs_enterprise": float(np.max(np.abs(d[:, 2] - d[:, 3]))),
+                          "dshape_curn_vs_arbiter": float(np.max(np.abs(d[:, 0] - d[:, 4]))),
+                          "dshape_hd_vs_arbiter": float(np.max(np.abs(d[:, 2] - d[:, 5]))),
+                          "dshape_discovery_vs_arbiter": float(np.max(np.abs(d[:, 1] - d[:, 4]))),
+                          "dshape_enterprise_vs_arbiter_hd": float(np.max(np.abs(d[:, 3] - d[:, 5]))),
+                          "pass_vs_arbiter": bool(np.max(np.abs(d[:, 0] - d[:, 4])) <= 1e-6
+                                                  and np.max(np.abs(d[:, 2] - d[:, 5])) <= 1e-6 and garb <= 1e-8),
+                          "grad_rel_vs_arbiter": garb, "grad_rel_vs_discovery": gdis,
+                          "pass": bool(np.max(np.abs(d[:, 0] - d[:, 1])) <= 1e-6 and np.max(np.abs(d[:, 2] - d[:, 3])) <= 1e-6
+                                       and np.max(np.abs(d[:, 0] - d[:, 4])) <= 1e-6 and garb <= 1e-8)}
+        out[tag] = {"systems": [repr(m) for m in mps], "ntoa": int(sum(m.ntoa for m in mps)), **res,
+                    "pass": all(r["pass"] for r in res.values())}
         print(tag, json.dumps(out[tag], indent=1), flush=True)
     _dump("g5_multileg", out)
 
@@ -262,25 +285,27 @@ def cmd_g6(args):
         idx = np.array([key[(a, b)] for a, b in zip(base.flags["pta"], base.flags["name"], strict=True)])
         sig = base.toaerrs
         W = 1 / sig
-        e = O.weighted_projector_complement(np.hstack([base.Mmat * W[:, None], other.Mmat[idx] * W[:, None]]))(
-            (base.residuals - other.residuals[idx]) * W)
+        Pu = O.weighted_projector_complement(np.hstack([base.Mmat * W[:, None], other.Mmat[idx] * W[:, None]]))
+        e = Pu((base.residuals - other.residuals[idx]) * W)
         lin = float(np.linalg.norm(e))
         sin = float(O.principal_sines(base.Mmat * W[:, None], other.Mmat[idx] * W[:, None])[0])
         wns, models, _, _ = O.g5_setup([base], seed=3)
-        tb = precompute_general(base, wns[0], models[0])
+        tb = precompute_general(base, wns[0], models[0], allow_inadmissible=True)
         # same white noise / GP model on the other construction (same TOAs, same systems)
         from ptagwb.multileg import MultiLegPulsar  # noqa: F401
         oth = type("V", (), {})()
         for k in ("toas", "freqs", "toaerrs", "backend_flags", "residuals", "Mmat"):
             setattr(oth, k, np.asarray(getattr(other, k))[idx])
         oth.name, oth.pos, oth.pos_enterprise = base.name, base.pos, None
-        to = precompute_general(oth, wns[0], models[0])
+        to = precompute_general(oth, wns[0], models[0], allow_inadmissible=True)
         la, lb = GeneralPTALikelihood([tb], orf="curn"), GeneralPTALikelihood([to], orf="curn")
         pts = O.g5_params([base], np.random.default_rng(5), 20)
         va = np.array([float(la.logL({k: jnp.asarray(v) for k, v in p.items()})) for p in pts])
         vb = np.array([float(lb.logL({k: jnp.asarray(v) for k, v in p.items()})) for p in pts])
         dshape = float(np.max(np.abs((va - va[0]) - (vb - vb[0]))))
         out[ref] = {"linearisation_whitened_norm": lin, "colspace_max_sin": sin, "max_dshape_nats": dshape,
+                    "union_rank": Pu.rank, "union_ncols": Pu.ncols,
+                    "admissible": [base.meta.get("admissible"), other.meta.get("admissible")],
                     "ncol": [int(base.Mmat.shape[1]), int(other.Mmat.shape[1])],
                     "pass": bool(dshape <= 0.1 and lin <= 0.1 and sin <= 1e-3)}
         print(ref, out[ref], flush=True)
@@ -288,18 +313,34 @@ def cmd_g6(args):
 
 
 def cmd_g7(args):
-    """G7 duplicate observations: every pulsar with >= 2 legs in the selected configuration (and the
-    YA set), cross-leg same-site overlapping observations; plus LEAP vs single-telescope within EPTA."""
+    """G7 duplicate observations (symmetric criterion, multileg.find_duplicates): (i) across PTAs for
+    every pulsar with >= 2 legs; (ii) within every leg, across observing systems (LEAP vs the single
+    EPTA telescopes, legacy vs new backends, ...). Each found pair is checked against the explicit
+    removal list configs/m3/duplicates.json."""
     from collections import defaultdict
 
+    from ptagwb.legs import duplicate_removals
     from ptagwb.m3data import SELECTED, YU_ALLEN, leg_files, pta_of
-    from ptagwb.multileg import find_duplicates, site_of
+    from ptagwb.multileg import find_duplicates
     from ptagwb.timfile import read_tim
 
     sys.path.insert(0, str(ROOT / "scripts"))
     from m3_survey import canonical_names, parse_par
 
+    removed = duplicate_removals()
+
+    def is_removed(ds, psr, side):
+        return (ds, psr, side[0], side[1]) in removed
+
+    def system(r):
+        for f in ("-group", "-sys", "-f"):
+            v = r.flag_values(f)
+            if v:
+                return v[0]
+        return r.obs
+
     out = {}
+    cache = {}
     for label, sets in (("selected", SELECTED), ("yu_allen", YU_ALLEN)):
         rows = []
         for ds in sets:
@@ -311,38 +352,56 @@ def cmd_g7(args):
         groups = defaultdict(list)
         for r in rows:
             groups[canon[(r["dataset"], r["psr"])]].append(r)
-        cross, leap, n_multi = [], [], 0
+        cross, within, band, n_multi = [], [], [], 0
         for j, legs in sorted(groups.items()):
             recs = {}
             for r in legs:
-                rr, _ = read_tim(r["tim"])
-                recs[f"{pta_of(r['dataset'])}/{r['dataset']}"] = rr
+                key = (r["dataset"], r["psr"])
+                if key not in cache:
+                    cache[key] = read_tim(r["tim"])[0]
+                recs[r["dataset"]] = cache[key]
             if len(recs) >= 2:
                 n_multi += 1
-                for d in find_duplicates(recs):
+                for d in find_duplicates({f"{pta_of(k)}/{k}": v for k, v in recs.items()}):
                     cross.append({"pulsar": j, **d})
-            for key, rr in recs.items():
-                if key.startswith("EPTA"):
-                    by = defaultdict(list)
-                    for x in rr:
-                        by["leap" if site_of(x.obs) == "leap" else site_of(x.obs)].append(x)
-                    if "leap" in by:
-                        for d in find_duplicates({k: v for k, v in by.items()}):
-                            if "leap" in (d["a"], d["b"]):
-                                leap.append({"pulsar": j, **d})
-        out[label] = {"n_multi_leg_pulsars": n_multi, "cross_pta_same_site_pairs": cross,
-                      "n_cross_pairs": sum(d["n_pairs"] for d in cross), "epta_leap_vs_single_telescope": leap,
-                      "n_leap_pairs": sum(d["n_pairs"] for d in leap)}
-        print(label, n_multi, "cross pairs", out[label]["n_cross_pairs"], "leap pairs", out[label]["n_leap_pairs"], flush=True)
+            for (ds, psr), rr in ((k, cache[k]) for k in ((r["dataset"], r["psr"]) for r in legs)):
+                by = defaultdict(list)
+                for x in rr:
+                    by[system(x)].append(x)
+                for d in find_duplicates(dict(by)):
+                    for p in d["pairs"]:
+                        p["removed"] = is_removed(ds, psr, p["a"]) or is_removed(ds, psr, p["b"])
+                    within.append({"pulsar": j, "dataset": ds, "psr": psr, **d})
+                # band overlap only between different *backends* (-be): subbands / channels of one
+                # observation on one backend are not duplicates, and '-bw' is the total bandwidth
+                # for subbanded data (PPTA UWL), so it cannot separate channels of one backend
+                byb = defaultdict(list)
+                for x in rr:
+                    byb[(x.flag_values("-be") or [x.obs])[0]].append(x)
+                for d in find_duplicates(dict(byb), freq_mode="band"):
+                    band.append({"pulsar": j, "dataset": ds, "psr": psr, "a": d["a"], "b": d["b"], "n_pairs": d["n_pairs"]})
+        n_within = sum(d["n_pairs"] for d in within)
+        n_unresolved = sum(1 for d in within for p in d["pairs"] if not p["removed"])
+        out[label] = {"n_multi_leg_pulsars": n_multi, "cross_pta": cross, "n_cross_pairs": sum(d["n_pairs"] for d in cross),
+                      "within_leg": within, "n_within_pairs": n_within, "n_within_unresolved": n_unresolved,
+                      "band_overlap_within_leg": band, "n_band_overlap_pairs": sum(d["n_pairs"] for d in band),
+                      "n_band_overlap_by_dataset": {ds: sum(d["n_pairs"] for d in band if d["dataset"] == ds) for ds in sets}}
+        print(label, n_multi, "cross", out[label]["n_cross_pairs"], "within", n_within, "unresolved", n_unresolved,
+              "band-overlap", out[label]["n_band_overlap_by_dataset"], flush=True)
+        for d in within:
+            print("   ", d["dataset"], d["psr"], d["a"], "vs", d["b"], d["n_pairs"], "band:", [(b["dataset"], b["psr"], b["a"], b["b"], b["n_pairs"]) for b in band][:0],
+                  [(p["a"][:2], p["b"][:2], round(p["dt_s"]), p["removed"]) for p in d["pairs"][:3]], flush=True)
     _dump("g7_duplicates", out)
 
 
 def cmd_g8(args):
     import m3a_injection as I
 
-    names = (("J1909-3744", "NG15"), ("J1022+1001", "NG15"), ("J0437-4715", "PPTA"))
-    C = [_load_ml(n, f"C-ref{r}") for n, r in names]
-    B = [_load_ml(n, "B") for n, _ in names]
+    # admissible C builds only (review M3a #3): of the three validation pulsars only J1909-3744 has an
+    # admissible option-C build (YA-v3 and local DM); J1022/J0437 fail the linearisation check
+    C = [_load_ml("J1909-3744", "C-refNG15")]
+    B = [_load_ml("J1909-3744", "B")]
+    assert C[0].meta.get("admissible")
     out = I.run(C, B, R=args.R)
     print(json.dumps(out, indent=1))
     _dump("g8_injections", out)
@@ -368,6 +427,8 @@ def main():
     a.add_argument("--force-clock", help="G6: hold CLOCK fixed (e.g. 'TT(BIPM2019)') while swapping the reference")
     a.add_argument("--force-ephem", default="DE440")
     a.add_argument("--local-dm", action="store_true", help="option C with per-leg DM (MetaPulsar-main configuration)")
+    a.add_argument("--allow-inadmissible", action="store_true",
+                   help="diagnostic: keep option-C builds that fail the admissibility (linearisation) check, marked")
     a.add_argument("--pin", action="store_true")
     a.set_defaults(func=cmd_multileg)
     for nm, fn in (("g5", cmd_g5), ("g7", cmd_g7)):

@@ -31,10 +31,10 @@ def g3g4():
     d = _load("g3g4_tempo2")
     if d is None:
         return "(g3g4_tempo2.json missing)"
-    extra = _load("g3g4_tempo2_J1327-0755") or {"rows": []}
+    extra = {"rows": []}
     rows = {(r["dataset"], r["psr"]): r for r in d["rows"]}
     for r in extra["rows"]:
-        rows[(r["dataset"], r["psr"])] = dict(r, note="re-run with the tempo2 NHARMS convention (Sec. 12)")
+        rows[(r["dataset"], r["psr"])] = r
     out = ["| leg | role | q | TOAs | proj. rms [ns] | proj. rms [sigma] | max proj. [ns] | G3 | cols PINT/tempo2 | G4 max sin | G4 | post-hoc dlnL shape [nats] |",
            "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for (ds, psr), r in rows.items():
@@ -55,14 +55,19 @@ def g5():
     d = _load("g5_multileg")
     if d is None:
         return "(g5_multileg.json missing)"
-    out = ["| system | TOAs | abs lnL | shape diff CURN vs discovery [nats] | shape diff HD vs enterprise [nats] | max grad rel. err vs discovery | components > 1e-8 | ours CURN vs identity-ORF path | strict | arbitrated |",
-           "|---|---|---|---|---|---|---|---|---|---|"]
-    for tag, r in d.items():
-        out.append(f"| {tag}: {'; '.join(s.split('[')[0].replace('<MultiLegPulsar ', '') for s in r['systems'])} | {r['ntoa']} | "
-                   f"{_f(r['abs_lnL'], '.4g')} | {_f(r['max_dshape_curn_vs_discovery'], '.2g')} | {_f(r['max_dshape_hd_vs_enterprise'], '.2g')} | "
-                   f"{_f(r['max_grad_rel_err_curn_vs_discovery'], '.2g')} | {r.get('n_grad_components_beyond_1e-8', '-')}/{r.get('n_grad_components', '-')} | "
-                   f"{_f(r.get('max_grad_rel_diff_ours_curn_vs_identity_orf_path'), '.2g')} | "
-                   f"{'pass' if r.get('pass_strict', r.get('pass')) else 'FAIL'} | {'pass' if r.get('pass_arbitrated', r.get('pass')) else 'FAIL'} |")
+    out = ["| system | points | CURN ours-arbiter | HD ours-arbiter | grad ours-arbiter (rel.) | CURN ours-discovery | HD ours-enterprise | discovery-arbiter | enterprise-arbiter (HD) | grad ours-discovery (info) | pre-fixed criterion (all oracles) | vs arbiter |",
+           "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    for tag in ("C", "B"):
+        r = d.get(tag)
+        if r is None:
+            continue
+        for lab in ("original", "held_out"):
+            x = r[lab]
+            out.append(f"| {tag}: {'; '.join(s.split('[')[0].replace('<MultiLegPulsar ', '') for s in r['systems'])}"
+                       f" ({r['ntoa']} TOAs) | {lab} | {_f(x['dshape_curn_vs_arbiter'], '.2g')} | {_f(x.get('dshape_hd_vs_arbiter'), '.2g')} | "
+                       f"{_f(x['grad_rel_vs_arbiter'], '.2g')} | {_f(x['dshape_curn_vs_discovery'], '.2g')} | {_f(x['dshape_hd_vs_enterprise'], '.2g')} | "
+                       f"{_f(x.get('dshape_discovery_vs_arbiter'), '.2g')} | {_f(x.get('dshape_enterprise_vs_arbiter_hd'), '.2g')} | "
+                       f"{_f(x['grad_rel_vs_discovery'], '.2g')} | {'pass' if x['pass'] else 'FAIL'} | {'pass' if x.get('pass_vs_arbiter') else 'FAIL'} |")
     return "\n".join(out)
 
 
@@ -95,18 +100,21 @@ def g8():
 
 
 def nharms():
-    d, g = _load("nharms"), _load("nharms_g3")
-    if d is None or g is None:
+    d = _load("nharms")
+    if d is None:
         return "(nharms results missing)"
-    out = ["| leg | TOAs | Shapiro diff rms [ns] | union proj. [ns] | own proj. [ns] (whitened) | GW14 / GW30 (whitened) | dlnL shape full grid / posterior region [nats] | vs tempo2, 7 harm.: ns / sin | 4 harm.: ns / sin |",
-           "|---|---|---|---|---|---|---|---|---|"]
+    out = ["| leg | TOAs | ranks M7/M4/union | Shapiro diff rms [ns] | union rms [ns] | own rms [ns] (whitened norm) | own GW14 M7 / M4 | own GW30 M7 / M4 | single-leg CURN max abs(D-D0) / peak-to-peak [nats] | vs tempo2, 7 harm.: ns / sin | 4 harm.: ns / sin |",
+           "|---|---|---|---|---|---|---|---|---|---|---|"]
     for k, r in d["legs"].items():
-        h = g.get(k, {})
-        n7, n4 = h.get("nharms7", {}), h.get("nharms4", {})
-        out.append(f"| {k} | {r['ntoa']} | {_f(r['shapiro_diff_rms_ns'])} | {_f(r['post_fit_diff_rms_ns'], '.2g')} | "
-                   f"{_f(h.get('own_projection_diff_rms_ns'))} ({_f(h.get('own_projection_diff_whitened_norm'), '.2g')}) | "
-                   f"{_f(h.get('own_projection_gw14_whitened_norm'), '.2g')} / {_f(h.get('own_projection_gw30_whitened_norm'), '.2g')} | "
-                   f"{_f(r['max_dlnL_shape_over_grid'], '.2g')} / {_f(r.get('max_dlnL_shape_posterior_region'), '.2g')} | "
+        if "error" in r:
+            out.append(f"| {k} | error: {r['error'][:80]} |")
+            continue
+        rk, c = r["ranks"], r["curn_single_leg"]
+        n7, n4 = r.get("vs_tempo2_nharms7", {}), r.get("vs_tempo2_nharms4", {})
+        out.append(f"| {k} | {r['ntoa']} | {rk['M7']}/{rk['M4']}/{rk['union']} | {_f(r['shapiro_diff_rms_ns'])} | {_f(r['union_rms_ns'], '.2g')} | "
+                   f"{_f(r['own_rms_ns'])} ({_f(r['own_whitened_norm'], '.2g')}) | {_f(r['own_gw14_M7_whitened_norm'], '.2g')} / {_f(r['own_gw14_M4_whitened_norm'], '.2g')} | "
+                   f"{_f(r['own_gw30_M7_whitened_norm'], '.2g')} / {_f(r['own_gw30_M4_whitened_norm'], '.2g')} | "
+                   f"{_f(c['max_abs_D_minus_D0'], '.2g')} / {_f(c['D_peak_to_peak'], '.2g')} | "
                    f"{_f(n7.get('rms_diff_proj_ns'))} / {_f(n7.get('g4_max_sin'), '.2g')} | {_f(n4.get('rms_diff_proj_ns'))} / {_f(n4.get('g4_max_sin'), '.2g')} |")
     return "\n".join(out)
 
@@ -116,17 +124,58 @@ def nharms_combined():
     if d is None:
         return ""
     c = d["combined"]
-    return (f"Combined system ({', '.join(c['pulsars'])}; legs stacked per pulsar as option B): "
-            f"CURN shape change max {_f(c['curn']['max_dlnL_shape_over_grid'], '.3g')} nats over the full grid, "
-            f"{_f(c['curn'].get('max_dlnL_shape_posterior_region'), '.3g')} in the posterior region; HD "
-            f"{_f(c['hd']['max_dlnL_shape_over_grid'], '.3g')} / {_f(c['hd'].get('max_dlnL_shape_posterior_region'), '.3g')} nats "
-            f"(7 vs 4 harmonics, each with its own design matrix, fixed noise).")
+    return (f"Combined system ({', '.join(c['pulsars'])}; legs stacked per pulsar as option B), same fixed noise: "
+            f"CURN max abs(D - D0) {_f(c['curn']['max_abs_D_minus_D0'], '.3g')} nats, peak-to-peak {_f(c['curn']['D_peak_to_peak'], '.3g')}; "
+            f"HD {_f(c['hd']['max_abs_D_minus_D0'], '.3g')} / {_f(c['hd']['D_peak_to_peak'], '.3g')} nats. "
+            f"Both likelihoods peak at the scan boundary {c['curn']['argmax_lnL4']} (this toy noise model has no "
+            "red-noise freedom), so these numbers are likelihood-shape diagnostics, not posterior shifts (Sec. 12b).")
+
+
+def nharms_post():
+    d = _load("nharms_posterior")
+    if d is None:
+        return "(nharms_posterior.json missing)"
+    out = ["| array | ORF | quantity | 4 harm.: median [5%, 95%] | 7 harm.: median [5%, 95%] | dmedian / sigma68 | d5% / w90 | d95% / w90 | lnL max interior (4 / 7) |",
+           "|---|---|---|---|---|---|---|---|---|"]
+    for an, a in d["arrays"].items():
+        for orf in ("curn", "hd"):
+            x = a[orf]
+            for q in ("log10_A", "gamma"):
+                s4, s7, sh = x["nharms4"][q], x["nharms7"][q], x["shift_7_vs_4"][q]
+                out.append(f"| {an} | {orf.upper()} | {q} | {_f(s4['q50'])} [{_f(s4['q05'])}, {_f(s4['q95'])}] | "
+                           f"{_f(s7['q50'])} [{_f(s7['q05'])}, {_f(s7['q95'])}] | {_f(sh['dmedian_over_sigma68'], '.2g')} | "
+                           f"{_f(sh['dq05_over_w90'], '.2g')} | {_f(sh['dq95_over_w90'], '.2g')} | "
+                           f"{x['nharms4']['max']['interior']} / {x['nharms7']['max']['interior']} |")
+            g = x["gamma13_3"]
+            s4, s7, sh = g["nharms4"], g["nharms7"], g["shift_7_vs_4"]["log10_A"]
+            out.append(f"| {an} | {orf.upper()} | log10_A (gamma = 13/3) | {_f(s4['q50'])} [{_f(s4['q05'])}, {_f(s4['q95'])}] | "
+                       f"{_f(s7['q50'])} [{_f(s7['q05'])}, {_f(s7['q95'])}] | {_f(sh['dmedian_over_sigma68'], '.2g')} | "
+                       f"{_f(sh['dq05_over_w90'], '.2g')} | {_f(sh['dq95_over_w90'], '.2g')} | {s4['max']['interior']} / {s7['max']['interior']} |")
+    return "\n".join(out)
+
+
+def admissibility():
+    rows = []
+    for fn in ("multileg", "multileg_localDM", "multileg_J1909-3744_forced"):
+        d = _load(fn)
+        if not d:
+            continue
+        for k, v in d.items():
+            if "admissibility" not in v or not v.get("admissibility"):
+                continue
+            for pta, a in v["admissibility"].items():
+                rows.append(f"| {k} | {v.get('config', '')[:40]} | {pta} | {a['n_matched']} | {a['union_rank']}/{a['union_ncols']} | "
+                            f"{_f(a['linearisation_rms_whitened'], '.3g')} | {_f(a['linearisation_rms_ns'], '.3g')} | "
+                            f"{'yes' if a['admissible'] else 'NO'} |")
+    return "\n".join(["| build | configuration | leg | TOAs matched | union rank / cols | linearisation rms (whitened) | rms [ns] | admissible |",
+                      "|---|---|---|---|---|---|---|---|"] + rows)
 
 
 def main():
     text = DOC.read_text()
     for name, fn in (("G3G4_TABLE", g3g4), ("G5_TABLE", g5), ("G6_TABLE", g6), ("G8_TABLE", g8),
-                     ("NHARMS_TABLE", nharms), ("NHARMS_COMBINED", nharms_combined)):
+                     ("NHARMS_TABLE", nharms), ("NHARMS_COMBINED", nharms_combined), ("NHARMS_POSTERIOR", nharms_post),
+                     ("ADMISSIBILITY_TABLE", admissibility)):
         block = f"<!-- {name} -->\n{fn()}\n<!-- /{name} -->"
         pat = re.compile(rf"<!-- {name} -->.*?<!-- /{name} -->", re.DOTALL)
         if pat.search(text):

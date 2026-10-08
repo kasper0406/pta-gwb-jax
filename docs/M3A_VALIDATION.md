@@ -2,9 +2,33 @@
 
 M3a is the first M3 implementation milestone (`docs/M3_PLAN.md` Sec. 5.1). It is CPU-only
 deterministic infrastructure plus validation; there is no sampling and no evidence work. This
-document gives every gate result with its numbers, its tolerance and whether it passed. Tolerances
-were fixed in code before the corresponding result was seen. The one exception is the G3/G4
-"likelihood impact" column, which is post hoc and labelled as such.
+document gives every gate result with its numbers, its tolerance and whether it passed.
+
+**Revision 2 (after independent review of 956661a, REQUEST_CHANGES).** The claim "E1-E6 met" of
+revision 1 is withdrawn and re-established below gate by gate. Changes:
+1. Option C kept PINT's forced NHARMS = 7 through the shared-model rewrite. It now carries the
+   reference's harmonic count, which is tested. Quarantine status depends on the configuration.
+2. The G7 duplicate search depended on leg order. It is now symmetric, with the criterion
+   |dt| < (d_a + d_b)/2 and an order-invariance test. It found 7 same-channel duplicates, all now
+   removed explicitly under EPTA's stated rule (Sec. 7).
+3. Phase-invalid shared-DM C builds are rejected unless a diagnostic override is given. The
+   configuration and admissibility are serialised with every build, and local-DM C is labelled
+   as not the YA target.
+4. Singleton ECORR (nmin = 1) was dropped from solve/logdet. Fixed, with a test against the
+   dense operator.
+5. The union projector used unpivoted QR. It is now a rank-revealing SVD with a declared
+   threshold (rtol 1e-10), effective ranks are reported, and the union diagnostics were
+   regenerated.
+6. G5 now has an independent long-double arbiter, constant-invariant tolerances, and held-out
+   points under criteria written into the code before they were run.
+7. NHARMS diagnostics: the producer is committed, conventions are stated, surfaces are saved,
+   and interpretations are corrected. 8. GMRT is described as a release-reproduction convention;
+   both coordinate sets are kept. 9. New: posterior-level NHARMS shifts (Sec. 12b).
+
+**Post-hoc elements** (not fixed before the result was seen): the G3/G4 "likelihood impact"
+column; revision 1's G5 arbitration rule, which is replaced (Sec. 5); and the choice in G7 to
+remove same-channel duplicates by EPTA's rule (Sec. 7). Every other tolerance was fixed in code
+before its result was seen.
 
 Measured 2026-10-08 on CPU (JAX 0.11.2, float64, PINT 1.1.7). Oracles: tempo2 2026.04.1 with
 libstempo 2.5.1 (isolated conda-forge env, `scripts/setup_tempo2_env.sh`, run through
@@ -80,9 +104,15 @@ Every rule is applied explicitly and recorded in the leg's provenance (`leg_meta
   resolves the survey's "+6 unexplained TOAs": our count for the YA set is **1,090,206**, YA's
   number exactly. Indented ` C ...` lines are not comments; they are unparseable and dropped,
   as tempo2 does.
-* **Site coordinates.** PINT's GMRT position differs from tempo2's by **~750 m**, Effelsberg's
-  by 2.8 m and Jodrell's by 0.5 m. Found by G3: InPTA residuals differed by 830 ns rms. tempo2
-  PTAs now use tempo2's coordinates (site profile); NG15 keeps PINT's.
+* **Site coordinates: a release-reproduction convention.** PINT's GMRT position differs from
+  tempo2's by **749.8 m**; Effelsberg's by 2.8 m and Jodrell's by 0.5 m. This was found by G3:
+  InPTA residuals differed by 830 ns rms. The released tempo2 timing models were fitted with
+  tempo2's coordinates, so those legs are ingested with tempo2's coordinates to reproduce the
+  releases; NG15 keeps PINT's. This shows reproducibility, not physical correctness. PINT's
+  GMRT coordinates have explicit provenance: they were supplied by the InPTA team on 2026-06-05
+  (PINT observatories.json). Both sets are kept in `configs/m3/sites/tempo2-2026.04.1.json`.
+  Before any physical refit, the reference position must be set from release or pipeline
+  provenance.
 * **Clock coverage.** Some TOAs have no clock correction good to 1 ns: EPTA effix2gps ends at
   MJD 59294.5, and eff2gps.clk has no data after 57195.5 apart from a sentinel 0 at 60000
   ("No maser file found"). PINT clamps there while tempo2 interpolates to the sentinel. These
@@ -91,27 +121,28 @@ Every rule is applied explicitly and recorded in the leg's provenance (`leg_meta
 
 ## 2. Gate summary
 
-| Gate | Scope | Oracle | Tolerance (fixed in advance) | Result | Pass |
+| Gate | Scope | Oracle | Tolerance | Result (revision 2) | Pass |
 |---|---|---|---|---|---|
-| G1 TOA identity | all 249 legs (selected configuration + InPTA DR1) | tempo2-semantics records; libstempo on fixtures and real legs | count exact, dt < 2 ns, err/freq/observatory/every flag/-padd identical | 248/248 loadable legs, max dt 0.81 ns, 0 mismatches; fixtures match libstempo to < 1e-9 s | **PASS** |
-| G2 warnings | all loadable legs | classification table + per-leg audits | none unexplained | 248/248 | **PASS** |
-| G3 projected residuals | validation set | tempo2 2026.04.1 | rms < 1 ns and < 0.01 sigma | 1-5 ns for most legs, ~30 ns for PPTA J1022 (DDH) and J0437 (DDK); 1/17 non-quarantined legs within tolerance | **FAIL** |
-| G4 weighted column space | validation set | tempo2; MetaPulsar v0.9.3 | sin(max principal angle) < 1e-6, equal dimension | tempo2: equal dimension everywhere, sin 1e-5 to 7e-3 (0/17); MetaPulsar: < 4e-8 | **FAIL** vs tempo2; **PASS** vs MetaPulsar |
-| G5 likelihood + gradient | dense oracle (synthetic) + real multi-leg systems (B, C) | long-double dense; enterprise; discovery | 1e-9 relative (value), 1e-8 (gradient) | dense: all pass; real: values 8e-9 to 4e-8 nats (abs lnL 5e5), gradients <= 3.6e-10 (B); C has one of 60 components 3.3e-8 off discovery, and our two independent paths agree to 1.5e-13 | **PASS** (C: by arbitration) |
-| G6 reference invariance | option C, J1909-3744, references NG15/PPTA/EPTA | ours | shape <= 0.1 nats; linearisation (whitened) <= 0.1; sin <= 1e-3 | PPTA: 0.195 nats / 0.028 / 0.034; EPTA: 0.028 / 0.033 / 0.011 (SINI column) | **FAIL** |
-| G7 duplicates | 61 (YA: 56) multi-leg pulsars | TOA matching | none, or explicit | 0 cross-PTA; 1 LEAP/WSRT candidate in quarantined EPTA J1600 | **PASS** |
-| G8 injections | J1909 + J1022 + J0437, A/B/C, signal and null | ours | score z < 3.5; Var/I within 1 +- 4.5 sqrt(2/N) | 6/6 | **PASS** |
-| G9 NG15 regression | 67 NG15 pulsars, CURN + HD, production + fast | M1/M2 | bit-identical or <= 1e-9 / 1e-8 | 32/32 values bit-identical; grad <= 4.2e-14 | **PASS** |
+| G1 TOA identity | all 249 legs (selected configuration + InPTA DR1) | tempo2-semantics records; libstempo on fixtures and real legs | count exact (after the listed explicit removals), dt < 2 ns, err/freq/observatory/every flag/-padd identical | 248/248 loadable legs, max dt 0.81 ns, 0 mismatches | **PASS** |
+| G2 warnings | all loadable legs | classification + per-leg audits | none unexplained | 248/248 | **PASS** |
+| G3 projected residuals | validation set | tempo2 2026.04.1 | rms < 1 ns and < 0.01 sigma | 1/17 non-quarantined legs (NG15 J1909, 0.97 ns); others 1-5 ns, PPTA J1022/J0437 ~30 ns | **FAIL** |
+| G4 column space | validation set; B/C containers | tempo2; MetaPulsar v0.9.3 | sin < 1e-6, equal dimension | tempo2: 0/17 (sin 1e-5 to 7e-3); MetaPulsar: residuals identical, sin < 4e-8 | **FAIL** vs tempo2; **PASS** vs MetaPulsar |
+| G5 likelihood + gradient | dense oracle (synthetic); real systems B (J1022 B + J0437 B) and C (J1909 C YA-v3 + J0437 B), original + held-out points | long-double dense; long-double arbiter; enterprise; discovery | values: shape diff <= 1e-6 nats vs every oracle; gradients <= 1e-8 rel. vs arbiter (fixed before the held-out run) | ours vs arbiter <= 8e-9 nats, <= 4e-11 grad everywhere; B: oracles within 3e-8 nats; C (87k TOAs): discovery 8e-6 and enterprise 7.6e-5 nats from ours, and as far from the arbiter | B **PASS**; C **FAIL** under the pre-fixed all-oracle criterion (float64 oracles, not ours; ours passes vs the arbiter) |
+| G6 reference invariance | C, J1909-3744, NG15 -> PPTA / EPTA | ours | shape <= 0.1 nats; linearisation <= 0.1 (rank-revealing, rtol 1e-10); sin <= 1e-3 | PPTA 0.195 / 0.140 / 0.034; EPTA 0.028 / 0.134 / 0.011 | **FAIL** |
+| G7 duplicates | 61 (YA 56) multi-leg pulsars + all legs within | symmetric TOA matching | none, or explicitly removed | 0 cross-PTA; 7 within-leg same-channel pairs, all removed by EPTA's stated rule | **PASS** (revision 1's PASS was premature) |
+| G8 injections | J1909-3744 (the only validation pulsar with an admissible C build), A/B/C | ours | z < 3.5; Var/I within 1 +- 0.20 | 6/6; I_C/I_B = 1.003, I_C/I_A = 1.48 | **PASS** |
+| G9 NG15 regression | 67 NG15 pulsars | M1/M2 | bit-identical or <= 1e-9 / 1e-8 | 32/32 bit-identical (rerun in the strict suite) | **PASS** |
+| C admissibility (new) | C builds of J1909, J1022, J0437 | own model, same clock/ephemeris | linearisation rms <= 0.1 (whitened) | J1909 YA-v3 and local-DM admissible (<= 9e-4); J1022, J0437 inadmissible in both | reported |
 
 ## 3. G1 and G2 (all legs)
 
-| data set | legs | loaded | G1 pass | TOAs (PINT) | max dt [ns] | flag/obs/padd mismatches | G2 unexplained | clock-excluded TOAs | quarantined |
+| data set | legs | loaded | G1 pass | TOAs (PINT) | max dt [ns] | flag/obs/padd mismatches | G2 unexplained | clock-excluded TOAs | duplicate TOAs removed (G7) |
 |---|---|---|---|---|---|---|---|---|---|
-| ng15 | 68 | 68 | 68 | 676,397 | 0.807 | 0 | 0 | 0 | 0 |
-| epta_dr2new | 25 | 25 | 25 | 45,428 | 0.806 | 0 | 0 | 65 | 3 |
-| ppta_dr3_gh | 32 | 32 | 32 | 113,951 | 0.614 | 0 | 0 | 0 | 4 |
-| inpta_dr2 | 27 | 27 | 27 | 83,120 | 0.614 | 0 | 0 | 0 | 2 |
-| mpta | 83 | 82 | 82 | 242,863 | 0.802 | 0 | 0 | 0 | 6 |
+| ng15 | 68 | 68 | 68 | 676,395 | 0.807 | 0 | 0 | 0 | 2 |
+| epta_dr2new | 25 | 25 | 25 | 45,426 | 0.806 | 0 | 0 | 65 | 2 |
+| ppta_dr3_gh | 32 | 32 | 32 | 113,948 | 0.614 | 0 | 0 | 0 | 3 |
+| inpta_dr2 | 27 | 27 | 27 | 83,120 | 0.614 | 0 | 0 | 0 | 0 |
+| mpta | 83 | 82 | 82 | 242,863 | 0.802 | 0 | 0 | 0 | 0 |
 | inpta_dr1 | 14 | 14 | 14 | 8,523 | 0.704 | 0 | 0 | 0 | 0 |
 
 The one leg that does not load is MPTA J1825-0319 (signed H3, quarantined; Sec. 8).
@@ -158,8 +189,8 @@ Free mask parameters that select no TOA are frozen, recorded per leg. That cover
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | mpta/J1825-0319 | signed H3 (DDH, negative H3 + STIG) | Q | - | - | - | - | FAIL | -/- | - | FAIL | - | no PINT leg (ingestion failed)
 | mpta/J1802-2124 | ELL1H H3+STIG (absorbed Shapiro) |  | 3039 | 2.64 | 0.0012 | 7.99 | FAIL | 19/19 | 0.00067 | FAIL | 0.44 |
-| mpta/J1327-0755 | ELL1H H3+H4, no NHARMS |  | 788 | 1.61 | 0.0011 | 5.01 | FAIL | 17/17 | 0.00044 | FAIL | 0.054 | re-run with the tempo2 NHARMS convention (Sec. 12)
-| ppta_dr3_gh/J2241-5236 | PB + FB series | Q | 6238 | 0.925 | 0.0041 | 3.06 | pass | 46/46 | 3.5e-05 | FAIL | - |
+| mpta/J1327-0755 | ELL1H H3+H4, no NHARMS |  | 788 | 1.61 | 0.0011 | 5.01 | FAIL | 17/17 | 0.00044 | FAIL | 0.054 |
+| ppta_dr3_gh/J2241-5236 | PB + FB series | Q | 6238 | 0.927 | 0.0041 | 3.05 | pass | 46/46 | 3.5e-05 | FAIL | - |
 | ppta_dr3_gh/J1600-3053 | DDH | Q | 5146 | 5.27 | 0.0057 | 25.1 | FAIL | 48/48 | 0.00027 | FAIL | 1 |
 | ppta_dr3_gh/J1713+0747 | DDK; multi-valued -j mask flags | Q | 5140 | 4.26 | 0.017 | 20 | FAIL | 48/48 | 0.00017 | FAIL | 1.2 |
 | epta_dr2new/J1744-1134 | TIME offsets, END, -padd |  | 1541 | 1.2 | 0.0032 | 4.18 | FAIL | 26/26 | 1e-05 | FAIL | 0.35 |
@@ -167,7 +198,7 @@ Free mask parameters that select no TOA are frozen, recorded per leg. That cover
 | ng15/J1909-3744 | ordinary NG15; multi-leg J1909 |  | 35037 | 0.971 | 0.0051 | 4.82 | pass | 345/345 | 0.00091 | FAIL | 1.4 |
 | ng15/J1022+1001 | ordinary NG15 (short leg); multi-leg J1022 |  | 3978 | 3.39 | 0.0038 | 39.8 | FAIL | 76/76 | 0.0038 | FAIL | 0.61 |
 | epta_dr2new/J1909-3744 | ordinary EPTA (INCLUDE tree); multi-leg J1909 |  | 2289 | 1.12 | 0.0086 | 4.01 | FAIL | 33/33 | 0.00023 | FAIL | 0.43 |
-| epta_dr2new/J1022+1001 | ordinary EPTA; multi-leg J1022 |  | 1803 | 1.19 | 0.0017 | 4.16 | FAIL | 35/35 | 0.0043 | FAIL | 0.13 |
+| epta_dr2new/J1022+1001 | ordinary EPTA; multi-leg J1022 |  | 1802 | 6.62e+03 | 3.6 | 6.41e+04 | FAIL | 35/35 | 1 | FAIL | 1.2e+03 |
 | ppta_dr3_gh/J1909-3744 | ordinary PPTA (-j flags); multi-leg J1909 |  | 9644 | 5.67 | 0.045 | 30.4 | FAIL | 50/50 | 0.00026 | FAIL | 34 |
 | ppta_dr3_gh/J1022+1001 | ordinary PPTA; multi-leg J1022 |  | 5242 | 30.8 | 0.013 | 1.02e+03 | FAIL | 46/46 | 0.0062 | FAIL | 1.9 |
 | ppta_dr3_gh/J0437-4715 | PPTA DDK, large leg; multi-leg J0437 |  | 11637 | 32.2 | 0.21 | 134 | FAIL | 45/45 | 0.00024 | FAIL | 58 |
@@ -212,8 +243,12 @@ tempo2's residuals and design matrix, and takes the maximum change of the lnL sh
 * high-precision PPTA legs: **34 nats for J1909-3744** (0.045 sigma rms) and **58 nats for
   J0437-4715** (0.21 sigma, DDK).
 
-So the remaining engine differences are *not* negligible for those legs. That is why E8 stays a
-hard condition rather than being relaxed.
+These numbers come from varying **RN and DM only, with no GW process**, relative to the first
+random point; for J0437 the peak-to-peak range is 83.9 nats. The independent review decomposed these numbers by holding PINT's
+design matrix fixed: almost all of the change comes from the residuals (34.03 / 58.20 nats
+residual-only, 0.046 / 0.019 nats matrix-only). They are diagnostics under these noise assumptions, not demonstrated GW
+posterior costs. They still show that the engine differences are not negligible for those legs,
+which is why E8 stays a hard condition.
 
 **Option C and B vs MetaPulsar v0.9.3 (G4/G5 for the container).** Our independent
 re-implementation of the v0.9.3 consistent rewrite and composite stacking reproduces
@@ -241,28 +276,53 @@ free-spectrum common processes. The reference is the full TOA-space covariance i
 
 | check | tolerance | result |
 |---|---|---|
-| value, 12 points (CURN/HD x power law / free spectrum) | 1e-9 max(1, abs lnL) | pass |
+| value, 12 points (CURN/HD x power law / free spectrum) | 1e-9 max(1, abs lnL) (absolute values with the same constant convention; synthetic, abs lnL ~ 1e3) | pass |
 | gradient vs 4th-order FD of the long-double oracle (CURN, HD) | 1e-8 max(1, abs g) | pass |
 | nearly collinear grids (IRN 19.1 yr, common 20.1 yr) | 1e-9 | pass |
 | padding: pulsar alone vs padded in the array | 1e-10 value, 1e-11 gradient | pass |
 | production vs fast kernels (`hh`/`levels`) | 1e-9 value, 1e-8 gradient | pass |
 | `GeneralWhiteNoise` vs M1 `WhiteNoise` (disjoint ECORR) | N identical, 1e-10 | pass |
+| `GeneralWhiteNoise` with nmin = 1 (single-TOA ECORR epochs, overlapping terms) vs dense: solve, whiten, logdet, colour | 1e-10 | pass (failed before revision 2: singleton ECORR was dropped) |
 
 **Real multi-leg systems** (`scripts/m3a_validate.py g5`, `tests/test_m3a_multileg.py`).
 J1022+1001 (5 legs) and J0437-4715 (3 legs): 45,647 TOAs, B and C. The setup is fixed white
 noise per namespaced system, per-system ECORR plus a global ECORR over the PPTA leg (overlapping),
 IRN on each pulsar's span, DM on 1.2 x span, and a common process on the array span. Comparisons:
-* lnL differences between 6 points, ours vs enterprise (HD) and ours vs discovery (CURN);
-* discovery's JAX gradients for every IRN/DM/common parameter.
+* lnL shape differences, ours vs enterprise (HD), discovery (CURN) and the independent arbiter
+  (CURN);
+* gradients vs the arbiter (gating) and vs discovery (reported only).
 
 discovery's ArrayLikelihood cannot combine variable per-pulsar GPs with a global GP, so discovery
-checks CURN and enterprise checks HD.
+checks CURN and enterprise checks HD. C is the admissible local-DM build (Sec. 6).
+
+**Independent arbiter** (`tests/m3a_arbiter.py`). It shares no numerics with `ptagwb.combined`:
+* its own Fourier columns;
+* N^-1 applied with `GeneralWhiteNoise.solve` (Cholesky solves) rather than whitening;
+* timing marginalisation by the normal-equation projector, with the Gram matrices accumulated in
+  long double;
+* the reduced covariance Sigma = Phi^-1 + A factorised by a long-double Cholesky;
+* the gradient from the analytic trace derivative
+  d lnL / d phi_k = 1/2 phi_k^-2 (x_k^2 + [Sigma^-1]_kk) - 1/2 phi_k^-1.
+
+**Criteria, fixed in code (`cmd_g5` docstring) before the held-out points were run**, and
+constant-invariant:
+* lnL shape differences |(lnL_i - lnL_0)_ours - (...)_oracle| <= 1e-6 nats for every oracle;
+* gradients |g_ours - g_arbiter| <= 1e-8 max(1, |g_arbiter|) for every component.
+* Points: the 6 original points (seed 11) and 6 held-out points (seed 2026); the strict test
+  uses 3 more (seed 99).
+
+Revision 1 instead scaled the shape tolerance by abs lnL and arbitrated with our own identity-ORF
+path; both are withdrawn. Reference value for the disputed point (C, seed 11, point 0,
+d lnL / d log10_A): production 0.156732014257, the reviewer's independent long-double calculation
+0.156732013965, discovery 0.156732041905.
 
 <!-- G5_TABLE -->
-| system | TOAs | abs lnL | shape diff CURN vs discovery [nats] | shape diff HD vs enterprise [nats] | max grad rel. err vs discovery | components > 1e-8 | ours CURN vs identity-ORF path | strict | arbitrated |
-|---|---|---|---|---|---|---|---|---|---|
-| C: J1022+1001 ; J0437-4715  | 45751 | 4.935e+05 | 8e-09 | 3.6e-08 | 3.3e-08 | 1/60 | 1.5e-13 | FAIL | pass |
-| B: J1022+1001 ; J0437-4715  | 45751 | 4.92e+05 | 2.2e-08 | 2.7e-08 | 3.6e-10 | 0/60 | 5.9e-14 | pass | pass |
+| system | points | CURN ours-arbiter | HD ours-arbiter | grad ours-arbiter (rel.) | CURN ours-discovery | HD ours-enterprise | discovery-arbiter | enterprise-arbiter (HD) | grad ours-discovery (info) | pre-fixed criterion (all oracles) | vs arbiter |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| C: J1909-3744 ; J0437-4715  (86766 TOAs) | original | 7.5e-09 | 7.6e-09 | 1.6e-11 | 8.4e-06 | 7.6e-05 | 8.4e-06 | 7.6e-05 | 7.1e-09 | FAIL | pass |
+| C: J1909-3744 ; J0437-4715  (86766 TOAs) | held_out | 3.9e-09 | 4.2e-09 | 4e-11 | 3.5e-06 | 3.2e-05 | 3.5e-06 | 3.2e-05 | 4.3e-09 | FAIL | pass |
+| B: J1022+1001 ; J0437-4715  (45750 TOAs) | original | 3.5e-10 | 2.9e-10 | 2e-11 | 2.1e-08 | 2.6e-08 | 2.1e-08 | 2.7e-08 | 3.5e-10 | pass | pass |
+| B: J1022+1001 ; J0437-4715  (45750 TOAs) | held_out | 3.7e-10 | 3.5e-10 | 4e-11 | 6.1e-09 | 1.4e-08 | 5.7e-09 | 1.5e-08 | 2.3e-10 | pass | pass |
 <!-- /G5_TABLE -->
 
 ## 6. G6 reference-model invariance (option C)
@@ -280,11 +340,16 @@ equatorial, which spans the same space.
 <!-- G6_TABLE -->
 | swap | linearisation (whitened norm) | column-space max sin | max shape diff [nats] | pass |
 |---|---|---|---|---|
-| NG15 -> PPTA | 0.0282 | 0.0341 | 0.195 | FAIL |
-| NG15 -> EPTA | 0.0333 | 0.0113 | 0.0276 | FAIL |
+| NG15 -> PPTA | 0.14 | 0.0341 | 0.195 | FAIL |
+| NG15 -> EPTA | 0.134 | 0.0113 | 0.0276 | FAIL |
 <!-- /G6_TABLE -->
 
-**Diagnosis.** The residual differences are linear to 0.03 sigma in total. The column spaces,
+**Diagnosis.** With the declared rank-revealing projector (rtol 1e-10, union rank 81 / 80 of 144
+columns), the linearisation norm is 0.140 (PPTA) and 0.134 (EPTA). That exceeds the 0.1 bound.
+The norm depends on the threshold, because the union has near-dependent directions with
+singular values of 1e-11 to 1e-12: at rtol 1e-12 (rank 84) it is 0.028. Revision 1's unpivoted QR
+gave 0.028 by keeping arbitrary completion vectors. The residual difference sits along nearly
+degenerate directions such as SINI(s1) - SINI(s2), which is itself the nonlinearity. The column spaces,
 however, differ in **one** direction: SINI. Every other column agrees to < 1e-4. J1909 is nearly
 edge-on (SINI = 0.998). The Shapiro derivative is proportional to 1/(1 - s sin Phi), which
 changes shape with the nominal s, and the references' SINI values differ by 2.8e-4 (about
@@ -308,31 +373,142 @@ wrap. Per-leg wrms after the rewrite:
 J1909-3744 stays phase-connected under shared DM: the largest leg is InPTA at 7.3 us, from DMX
 removed at 400 MHz.
 
-The likelihood code is still exact on the wrapped residuals: the C/G5 check agrees with the
-oracles to 1e-12 relative of abs lnL ~ 5e10. But those residuals are not a valid linear model, so
-the G5 table uses the phase-connected local-DM build of C. **The YA-v3 shared-DM
-configuration is therefore not admissible for J1022 or J0437 without a nonlinear refit.** This
-matters for the reproduction target (Sec. 9).
+**Admissibility, enforced since revision 2** (`multileg.admissibility`; threshold fixed before
+the run). Every C leg is compared with the leg's own published-profile model, TOA by TOA:
+e = P_perp[W M_own, W M_C] W (r_C - r_own), with a rank-revealing projector. For a linear,
+phase-connected re-parameterisation, e vanishes up to clock-profile differences. A leg is
+admissible iff rms(e) <= 0.1 (whitened). The table below is generated from `multileg.json`:
+
+<!-- ADMISSIBILITY_TABLE -->
+| build | configuration | leg | TOAs matched | union rank / cols | linearisation rms (whitened) | rms [ns] | admissible |
+|---|---|---|---|---|---|---|---|
+| J1909-3744_C-refNG15 | C/YA-v3 (MetaPulsar-0.9.3 shared DM): th | NG15 | 35037 | 348/368 | 0.000132 | 0.0422 | yes |
+| J1909-3744_C-refNG15 | C/YA-v3 (MetaPulsar-0.9.3 shared DM): th | EPTA | 2289 | 41/66 | 0.000319 | 0.0637 | yes |
+| J1909-3744_C-refNG15 | C/YA-v3 (MetaPulsar-0.9.3 shared DM): th | PPTA | 9644 | 59/100 | 0.000823 | 0.174 | yes |
+| J1909-3744_C-refNG15 | C/YA-v3 (MetaPulsar-0.9.3 shared DM): th | InPTA | 4160 | 174/182 | 3.09e-05 | 0.0593 | yes |
+| J1909-3744_C-refNG15 | C/YA-v3 (MetaPulsar-0.9.3 shared DM): th | MPTA | 7199 | 28/42 | 0.000518 | 0.0553 | yes |
+| J1022+1001_C-refNG15 | C/YA-v3 (MetaPulsar-0.9.3 shared DM): th | NG15 | 3978 | 78/100 | 4.63e-06 | 0.00669 | yes |
+| J1022+1001_C-refNG15 | C/YA-v3 (MetaPulsar-0.9.3 shared DM): th | EPTA | 1802 | 44/66 | 0.00205 | 1.85 | yes |
+| J1022+1001_C-refNG15 | C/YA-v3 (MetaPulsar-0.9.3 shared DM): th | PPTA | 5242 | 55/91 | 0.485 | 687 | NO |
+| J1022+1001_C-refNG15 | C/YA-v3 (MetaPulsar-0.9.3 shared DM): th | InPTA | 3346 | 140/144 | 902 | 3.73e+06 | NO |
+| J1022+1001_C-refNG15 | C/YA-v3 (MetaPulsar-0.9.3 shared DM): th | MPTA | 2945 | 29/38 | 0.000263 | 0.423 | yes |
+| J0437-4715_C-refPPTA | C/YA-v3 (MetaPulsar-0.9.3 shared DM): th | PPTA | 11637 | 45/90 | 0.000803 | 0.0983 | yes |
+| J0437-4715_C-refPPTA | C/YA-v3 (MetaPulsar-0.9.3 shared DM): th | InPTA | 13283 | 129/134 | 2.67e+03 | 1.7e+06 | NO |
+| J0437-4715_C-refPPTA | C/YA-v3 (MetaPulsar-0.9.3 shared DM): th | MPTA | 3517 | 28/43 | 0.173 | 7.21 | NO |
+| J1909-3744_C-refNG15-localDM | C/local-DM (MetaPulsar-main exclude_from | NG15 | 35037 | 346/365 | 0.000135 | 0.0427 | yes |
+| J1909-3744_C-refNG15-localDM | C/local-DM (MetaPulsar-main exclude_from | EPTA | 2289 | 41/66 | 0.000102 | 0.0163 | yes |
+| J1909-3744_C-refNG15-localDM | C/local-DM (MetaPulsar-main exclude_from | PPTA | 9644 | 59/100 | 0.000214 | 0.0213 | yes |
+| J1909-3744_C-refNG15-localDM | C/local-DM (MetaPulsar-main exclude_from | InPTA | 4160 | 173/179 | 2.97e-05 | 0.0589 | yes |
+| J1909-3744_C-refNG15-localDM | C/local-DM (MetaPulsar-main exclude_from | MPTA | 7199 | 28/42 | 0.00017 | 0.0146 | yes |
+| J1022+1001_C-refNG15-localDM | C/local-DM (MetaPulsar-main exclude_from | NG15 | 3978 | 76/97 | 1.65e-05 | 0.015 | yes |
+| J1022+1001_C-refNG15-localDM | C/local-DM (MetaPulsar-main exclude_from | EPTA | 1802 | 43/66 | 0.00181 | 1.6 | yes |
+| J1022+1001_C-refNG15-localDM | C/local-DM (MetaPulsar-main exclude_from | PPTA | 5242 | 54/91 | 0.486 | 685 | NO |
+| J1022+1001_C-refNG15-localDM | C/local-DM (MetaPulsar-main exclude_from | InPTA | 3346 | 137/141 | 0.0335 | 279 | yes |
+| J1022+1001_C-refNG15-localDM | C/local-DM (MetaPulsar-main exclude_from | MPTA | 2945 | 27/37 | 0.000332 | 0.481 | yes |
+| J0437-4715_C-refPPTA-localDM | C/local-DM (MetaPulsar-main exclude_from | PPTA | 11637 | 45/90 | 0 | 0 | yes |
+| J0437-4715_C-refPPTA-localDM | C/local-DM (MetaPulsar-main exclude_from | InPTA | 13283 | 126/131 | 0.00567 | 8.31 | yes |
+| J0437-4715_C-refPPTA-localDM | C/local-DM (MetaPulsar-main exclude_from | MPTA | 3517 | 28/43 | 0.17 | 7.08 | NO |
+| J1909-3744_C-refPPTA-forced | C/YA-v3 (MetaPulsar-0.9.3 shared DM): th | NG15 | 35037 | 355/368 | 0.00015 | 0.0443 | yes |
+| J1909-3744_C-refPPTA-forced | C/YA-v3 (MetaPulsar-0.9.3 shared DM): th | EPTA | 2289 | 42/66 | 0.000248 | 0.0475 | yes |
+| J1909-3744_C-refPPTA-forced | C/YA-v3 (MetaPulsar-0.9.3 shared DM): th | PPTA | 9644 | 51/100 | 0.000866 | 0.204 | yes |
+| J1909-3744_C-refPPTA-forced | C/YA-v3 (MetaPulsar-0.9.3 shared DM): th | InPTA | 4160 | 175/182 | 4.45e-05 | 0.18 | yes |
+| J1909-3744_C-refPPTA-forced | C/YA-v3 (MetaPulsar-0.9.3 shared DM): th | MPTA | 7199 | 28/42 | 0.000902 | 0.0934 | yes |
+| J1909-3744_C-refEPTA-forced | C/YA-v3 (MetaPulsar-0.9.3 shared DM): th | NG15 | 35037 | 355/368 | 0.000149 | 0.0465 | yes |
+| J1909-3744_C-refEPTA-forced | C/YA-v3 (MetaPulsar-0.9.3 shared DM): th | EPTA | 2289 | 34/66 | 0.000209 | 0.0436 | yes |
+| J1909-3744_C-refEPTA-forced | C/YA-v3 (MetaPulsar-0.9.3 shared DM): th | PPTA | 9644 | 59/100 | 0.000888 | 0.204 | yes |
+| J1909-3744_C-refEPTA-forced | C/YA-v3 (MetaPulsar-0.9.3 shared DM): th | InPTA | 4160 | 173/182 | 4.43e-05 | 0.0901 | yes |
+| J1909-3744_C-refEPTA-forced | C/YA-v3 (MetaPulsar-0.9.3 shared DM): th | MPTA | 7199 | 28/42 | 0.000872 | 0.0915 | yes |
+<!-- /ADMISSIBILITY_TABLE -->
+
+`build_multileg(timing="shared")` raises `InadmissibleBuildError` for an inadmissible build unless
+`allow_inadmissible=True` is passed (diagnostics only). Every build records its configuration in
+`meta["config"]`:
+* "C/YA-v3 (MetaPulsar-0.9.3 shared DM): the YA reproduction target";
+* "C/local-DM (...): NOT the YA target";
+* "B/per-leg".
+
+Each build also records its admissibility and the per-leg provenance (profile, evaluator,
+harmonic count, consistent-rewrite info) in `LegInfo.meta`, and all of it survives
+`save_multileg`/`load_multileg`. `precompute_general` refuses an inadmissible build unless
+explicitly overridden. Matching MetaPulsar's own (equally wrapped) residuals does not make the
+shared-DM build valid.
+
+**Result.**
+* **J1909-3744**: the YA-v3 build is admissible (every leg <= 9e-4), and so is the local-DM build.
+* **J1022+1001 YA-v3** is inadmissible. Its InPTA leg wraps (902 sigma); its PPTA leg is off by
+  0.49 sigma, because PPTA's DDH model with frozen H3/STIG is replaced by NG15's DD model without
+  Shapiro.
+* **J0437-4715 YA-v3** is inadmissible. Its InPTA leg wraps (2670 sigma); its MPTA leg is off by
+  0.17 sigma (DDK with frozen KIN/KOM vs PPTA's free values).
+* **Local DM** removes the wraps but not the binary-model mismatches, so J1022 (PPTA 0.49) and
+  J0437 (MPTA 0.17) stay inadmissible there too.
+
+The union test checks linearity and pulse connection. A per-leg DM offset that C's shared DM
+cannot represent (the 0.2-3 ms wrms of the shared-DM legs) lies inside the union span, so it is
+a model-adequacy problem that this test does not catch; it is reported separately by the wrms
+table above. G5 and G8 now use only admissible builds.
 
 ## 7. G7 duplicate observations
 
-The check covers every pulsar with >= 2 legs: 61 in the selected configuration and 56 in the YA
-set. A pair is the same physical site, overlapping observation intervals (|dt| < max(tobs)/2) and
-frequencies within 1 MHz. LEAP (the coherent sum of the EPTA telescopes) is also checked against
-every single-telescope EPTA TOA.
+**Criterion** (`multileg.find_duplicates`; revision 2). A pair must be:
+* at the same physical site, or one of them LEAP (the coherent sum of the EPTA telescopes);
+* close enough in time that the observation intervals centred on the two TOAs overlap,
+  |t_a - t_b| < (d_a + d_b)/2, with d the `-tobs` duration;
+* in the same channel, |f_a - f_b| < 1 MHz.
 
-| set | multi-leg pulsars | cross-PTA same-site pairs | LEAP vs single telescope |
-|---|---|---|---|
-| selected | 61 | **0** | 1: EPTA J1600-3053, LEAP vs WSRT, dt = 1036 s, 1396 MHz (leg quarantined) |
-| YA | 56 | **0** | same |
+Such a pair means the same photons are counted twice under independent white noise. The
+candidate window is (d_a + max_b d_b)/2, so the result does not depend on leg order (tested,
+including the reviewer's EPTA J1022 pair in both orders). Revision 1 enumerated with the first
+observation's duration only and missed that pair.
 
-The five PTAs share no observatory, and DR2new does not contain InPTA DR1. The one LEAP/WSRT
-coincidence is listed explicitly; its leg is quarantined.
+**Scope.** Two searches:
+* across PTAs, for every pulsar with >= 2 legs (61 in the selected configuration, 56 in the YA
+  set);
+* within every leg, across observing systems: LEAP vs single telescopes, legacy vs new backends,
+  and so on.
+
+| set | multi-leg pulsars | cross-PTA pairs | within-leg same-channel pairs | removed explicitly | unresolved |
+|---|---|---|---|---|---|
+| selected | 61 | **0** | 7 | 7 | **0** |
+| YA | 56 | **0** | 7 | 7 | **0** |
+
+**Dispositions** (`configs/m3/duplicates.json`; applied in M3 leg ingestion and recorded in each
+leg's provenance; the NG15 M1/M2 path is unchanged). The EPTA DR2 data paper (arXiv:2306.16224,
+Sec. "Combination of the dataset") states: *"During certain observing runs, data were collected
+using both legacy and new backends, or in both single-telescope and LEAP modes. As these
+observations represented the same signal and noise, we eliminated the older backend and non-LEAP
+data."* The same rule is applied to the 7 remnants: keep LEAP over a single telescope, the newer
+backend over the older, and the longer copy of two on one backend.
+* **EPTA J1022+1001** (the reviewer's case). The EFF/Asterix 150 s scan (EFF.P217.1380.tim:180,
+  MJD 58810.27723) sits inside the 3720 s LEAP observation (LEAP.1396.tim:80, MJD 58810.25645),
+  1796 s apart at 1404 MHz. Effelsberg is LEAP's geometric and time reference telescope (paper,
+  LEAP section). Whether its baseband entered *this* combination cannot be read from the
+  released TOA: the LEAP TOA lists `-fe unknown`. EPTA's rule is applied conservatively and the
+  EFF TOA is removed.
+* **EPTA J1600-3053**: WSRT/PuMa2 3770 s vs LEAP 1677 s, 1036 s apart; the WSRT TOA is removed.
+* **PPTA J1045-4509**: CASPSR 857 s inside PDFB3 3840 s (40 cm, 709.9 vs 710.3 MHz); the CASPSR
+  TOA is removed.
+* **PPTA J1603-7202**: a 151 s CPSR2m copy (group 50CM_CPSR2 at 1333 MHz) inside the 1548 s
+  observation, 2 channels; the copy is removed.
+* **NG15 J1713+0747**: GASP 120 s inside GUPPI 1217 s, 2 channels; GASP is removed.
+
+**Diagnostic, not gating: simultaneous recordings in overlapping bands by different backends.**
+These are the same photons in different channels, so they are correlated rather than identical
+TOAs. Pairs with |f_a - f_b| < (bw_a + bw_b)/2 across *backends*:
+* PPTA 16,186: Medusa/UWL vs PDFB4 (20 pulsars) and CASPSR vs Medusa (13);
+* EPTA 235: LEAP vs JBO/NRT/EFF in partly overlapping bands; EPTA kept data outside the LEAP band
+  on purpose;
+* NG15 19: the GASP/GUPPI overlap.
+
+The PTAs released and analysed these data; PPTA models a global ECORR across UWL systems. This is
+an open M3b modelling item (correlated cross-backend noise, or pruning) and does not block G7 as
+defined ("the same observation in two legs").
 
 ## 8. G8 signal/null injections
 
-The simulations use the real TOA sampling of J1909-3744 (5 legs), J1022+1001 (5 legs) and
-J0437-4715 (3 legs), whose staggered spans give a 20.15-yr array. Each realisation is white
+The simulations use the real TOA sampling of J1909-3744 (5 legs, staggered spans 2004-2023). It is
+the only validation pulsar with an admissible option-C build (Sec. 6); revision 1 also used the
+inadmissible J1022 and J0437 C builds, which are no longer used. Each realisation is white
 noise with ECORR, IRN (log10 A = -14.3, gamma = 3, pulsar span) and a CURN common process
 (gamma = 13/3) at log10 A = -14 (signal) or 0 (null). They are recovered with:
 * A: the leg with the most TOAs and its own timing model;
@@ -346,14 +522,14 @@ E[s] = 0 and Var(s) = I. R = 1000 realisations; pass when |z| < 3.5 and Var/I is
 <!-- G8_TABLE -->
 | case | z(mean score) | Var(s)/I | tolerance | I(A^2) | pass |
 |---|---|---|---|---|---|
-| signal/C | 0.19 | 0.982 | 1 +- 0.20 | 2.37e+57 | pass |
-| signal/B | 0.17 | 0.981 | 1 +- 0.20 | 2.33e+57 | pass |
-| signal/A | 0.87 | 0.997 | 1 +- 0.20 | 1.29e+57 | pass |
-| null/C | 0.72 | 1.040 | 1 +- 0.20 | 1.12e+61 | pass |
-| null/B | -0.70 | 1.063 | 1 +- 0.20 | 9.03e+60 | pass |
-| null/A | -1.05 | 1.083 | 1 +- 0.20 | 3.53e+60 | pass |
+| signal/C | 0.11 | 0.986 | 1 +- 0.20 | 9.01e+56 | pass |
+| signal/B | 0.11 | 0.986 | 1 +- 0.20 | 8.98e+56 | pass |
+| signal/A | 1.14 | 1.018 | 1 +- 0.20 | 6.08e+56 | pass |
+| null/C | 0.64 | 1.054 | 1 +- 0.20 | 4.88e+60 | pass |
+| null/B | 0.40 | 1.063 | 1 +- 0.20 | 4.6e+60 | pass |
+| null/A | 0.35 | 1.018 | 1 +- 0.20 | 1.96e+60 | pass |
 
-Information ratios at the injected amplitude: I_C/I_B = 1.015, I_C/I_A = 1.834; at the null: I_C/I_B = 1.235, I_C/I_A = 3.160.
+Information ratios at the injected amplitude: I_C/I_B = 1.003, I_C/I_A = 1.483; at the null: I_C/I_B = 1.061, I_C/I_A = 2.489.
 <!-- /G8_TABLE -->
 
 ## 9. G9 NG15 regression
@@ -378,32 +554,34 @@ excluded from the validation-set pass requirement:
 * **signed H3** (1): MPTA J1825-0319. There is no validated evaluator path. PINT rejects the leg
   (M2 < 0), and PINT PR #2023 is still open (checked 2026-10-08). tempo2 evaluates it, but tempo2
   is the oracle, and there is no second independent evaluator.
-* **ELL1H H3+H4 without NHARMS** (10): **lifted** under the documented tempo2 harmonic
-  convention (Sec. 12). With PINT's forced 7 harmonics, MPTA J1327-0755 has G4 sin = 0.96 and G3
-  125 ns. With 4 harmonics it is 4.4e-4 and 1.6 ns.
+* **ELL1H H3+H4 without NHARMS** (10): **configuration-specific** (`m3data.quarantine(config)`).
+  They are lifted under `{"ell1h_nharms": "tempo2"}` (the default, applied on every construction
+  path including the option-C rewrite) and quarantined under `"pint7"`. Under PINT's 7
+  harmonics, MPTA J1327-0755 has G4 sin = 0.96 and G3 125 ns; with 4 harmonics, 4.4e-4 and
+  1.6 ns. At the posterior level the difference is <= 0.1 sigma (Sec. 12b).
 * **residual excess** (4): EPTA/PPTA J1600-3053, PPTA J1713+0747, PPTA J2241-5236. G3 now
   explains part of it. EPTA J1600 had 54 TOAs on the broken eff2gps.clk segment, now excluded.
   PPTA J2241 (PB+FB) passes G3 at 0.93 ns, but fails G4 at 3.5e-5.
 
 **Mechanically decidable exit conditions** (replacing "all gates pass for the validation set";
-review minor #4):
+review minor #4). Revision 1's "E1-E6 met" is withdrawn; status after the revision-2 fixes:
 
 | # | condition | status |
 |---|---|---|
-| E1 | every loadable leg of the selected configuration and InPTA DR1 passes G1 and G2 | **met** (248/248) |
-| E2 | G5: dense oracle and real-system oracles within tolerance | **met** (C gradient by arbitration, Sec. 5) |
+| E1 | every loadable leg of the selected configuration and InPTA DR1 passes G1 and G2 | **met** (248/248, re-ingested after the duplicate removals) |
+| E2 | G5 within the pre-fixed criteria (shape <= 1e-6 nats vs every oracle; gradients <= 1e-8 vs the arbiter) | **met for B; not met for C**: the float64 oracles deviate by up to 7.6e-5 nats on the 87k-TOA C system, while ours agrees with the long-double arbiter to 8e-9 |
 | E3 | G9 within the M1 budget | **met** (bit-identical) |
-| E4 | B and C reproduce MetaPulsar v0.9.3 (residuals < 1e-3 ns, column space sin < 1e-6) | **met** |
-| E5 | G7: no unlisted duplicate in a non-quarantined leg | **met** |
-| E6 | G8 passes for A, B and C (signal and null) | **met** (6/6) |
-| E7 | G6 within the numeric bound above for every reference swap of the validation pulsar | **not met** (Sec. 6) |
-| E8 | G3/G4 at the fixed tolerances for every non-quarantined validation leg | **not met** (Sec. 4) |
+| E4 | B and C reproduce MetaPulsar v0.9.3 (residuals < 1e-3 ns, column space sin < 1e-6) | **met** (YA-v3 C builds compared as marked diagnostics where inadmissible) |
+| E5 | G7: no unlisted duplicate in a non-quarantined leg | **met** (7 found, 7 explicitly removed) |
+| E6 | G8 passes for A, B and C (signal and null), on admissible builds | **met** (6/6, J1909) |
+| E7 | G6 within the numeric bound for every reference swap of the validation pulsar | **not met** |
+| E8 | G3/G4 at the fixed tolerances for every non-quarantined validation leg | **not met** |
 
 A leg enters a likelihood that is *compared with published numbers* only if it meets E8. Today
-that is no leg. NG15 legs are PINT-native; their tempo2 comparison uses the release's tempo2
-version of the par, which passes G3 for J1909-3744 (0.97 ns) but fails G4. Legs failing G3-G5 are not added to the quarantine wholesale: that would
-make E8 pass vacuously. **M3a status: the infrastructure exit conditions E1-E6 are met; E7 and E8
-are open**, with root causes identified (Secs. 4, 6).
+that is no non-NG leg. Legs failing G3-G5 are not quarantined wholesale, since that would make E8
+pass vacuously. **M3a status: E1 and E3-E6 met. E2 is met for B but formally not met for C,
+because of the oracles' own float64 precision. E7 and E8 are open, with root causes identified.**
+Option-C builds of J1022 and J0437 are inadmissible in both DM configurations.
 
 ## 11. Open issues
 
@@ -412,83 +590,147 @@ are open**, with root causes identified (Secs. 4, 6).
    likelihood-impact tolerance should replace the 1 ns criterion (needs reviewer agreement); and
    tempo2-evaluated residuals and design matrices for non-NG legs as YA did (our container
    accepts any per-leg arrays).
-2. **Option C nonlinearity (E7) and shared DM.** C needs a re-linearised nominal model: a joint
-   fit before computing residuals, iterated. The v0.9.3 shared-DM rule wraps J1022 and J0437
+2. **Option C nonlinearity (E7), shared DM and admissibility.** C needs a re-linearised nominal
+   model: a joint fit before computing residuals, iterated. J1022 and J0437 also need the
+   binary-model differences between legs resolved (frozen Shapiro/Kopeikin terms) before any C
+   build is admissible. The v0.9.3 shared-DM rule wraps J1022 and J0437
    (Sec. 6), so YA's pipeline must have done something not captured by "copy the reference"
    (YA EM:3 mentions pulse numbers and per-PTA JUMPs). This is still an open question for the
    reproduction.
 3. **Clock files.** EPTA eff2gps.clk has no corrections after MJD 57195.5, and effix2gps ends
    at 59294.5. Affected TOAs are excluded (65); this must be resolved with EPTA's own clock files.
 4. **Signed H3.** Retest when PINT #2023 merges.
-5. G5's discovery check covers CURN only; HD gradients are covered by the dense oracle. The G5
-   gradient arbitration rule was defined after seeing the single 3.3e-8 disagreement. A
-   component then passes if our separable-CURN and identity-ORF Sigma' paths agree to 1e-11 and
-   discovery is within 1e-7. A long-double arbiter is not feasible at 45k TOAs.
+5. G5 on large systems: discovery and enterprise lose about 1e-5 to 1e-4 nats of shape accuracy
+   at 87k TOAs; the long-double arbiter (CURN value and gradient; HD value) is the reference there.
+   A pre-registered criterion that tolerates oracle imprecision (e.g. "within 1e-6 of the arbiter,
+   or closer to the arbiter than the oracle") needs reviewer agreement before it replaces the
+   all-oracle criterion.
 6. The engine differences that remain matter for inference on the high-precision PPTA legs: the
    post-hoc likelihood impact is 34 nats for J1909 and 58 for J0437 (Sec. 4).
 
 ## 12. Addendum: ELL1H H3+H4 harmonic count (PINT 7 vs tempo2 4) and GW inference
 
-Scope: the 10 legs quarantined for this class (EPTA J0751+1807 and J1012+5307; InPTA DR2 J0751+1807
-and J1012+5307; MPTA J0613-0200, J1327-0755, J1545-4550, J1804-2717, J2145-0750; PPTA J0613-0200).
-Each leg is loaded twice with identical inputs and profiles. One load uses NHARMS = 7 (PINT 1.1.7
-forces >= 7 when H4 is given). The other uses NHARMS = 4, tempo2's default, so harmonics 3..4
-(`legs.load_leg(nharms=4)` sets the value after PINT's set-up, as nanograv/PINT#2046 makes
-possible). Scripts: `scripts/m3a_nharms.py`; results in `nharms.json` and `nharms_g3.json`.
+Scope: the 10 legs of this class:
+* EPTA J0751+1807 and J1012+5307;
+* InPTA DR2 J0751+1807 and J1012+5307;
+* MPTA J0613-0200, J1327-0755, J1545-4550, J1804-2717 and J2145-0750;
+* PPTA J0613-0200.
 
-* "Shapiro diff" is the residual difference at identical parameter values (mean removed).
-* "Union proj." is that difference projected out of both weighted design matrices together.
-* "Own proj." is the difference between the two *analyses*, each residual projected with its own
-  design matrix. This is what differs after marginalisation.
-* "GW14" is the part of the own-projection difference in the span of the timing-projected first
-  14 Fourier bins of the combined 20.15-yr span (whitened norm, i.e. sqrt of a chi^2 change).
-* "dlnL shape" is the max over a 9 x 9 grid of CURN (log10_A in [-15.5, -13.5], gamma in
-  [2, 6.5]) of the change in lnL(7) - lnL(4), relative to the grid centre. The model is a single
-  pulsar with fixed white noise (raw errors) and IRN (log10_A = -14, gamma = 3).
-* "vs tempo2" is G3 projected rms / G4 sine against tempo2 2026.04.1.
+Each leg is loaded twice with identical inputs and profiles. One load uses NHARMS = 7 (PINT 1.1.7
+forces >= 7 when H4 is given). The other uses NHARMS = 4 (tempo2's default, harmonics 3..4; set
+after PINT's set-up, as nanograv/PINT#2046 makes possible). Producer: `scripts/m3a_nharms.py`.
+Its output is `nharms.json`, plus the grid coordinates and both likelihood surfaces in
+`nharms_surfaces.npz`; that script also writes the G3/G4 columns, so the separate
+`nharms_g3.json` producer is retired. The conventions are spelled out in the script's docstring.
+
+**Projectors.** Rank-revealing SVD complements with rtol 1e-10; effective ranks are in the table.
+W = 1/sigma uses the raw uncertainties.
+
+**Columns of the table below:**
+* **Union** is the difference projected out of span[W M7, W M4]. It is a diagnostic only: a small
+  union residual does *not* show that the two column spaces are equal.
+* **Own** is e = P7 W r7 - P4 W r4: each analysis marginalises its own timing model.
+* **GW14/GW30** is the norm of the part of e lying in the span of the timing-projected first 14 or
+  30 Fourier bins of the combined span. It is given for both projectors, P7 and P4; the value
+  depends on which is chosen. A whitened norm is in general not the square root of a chi^2
+  change, because cross terms with the data matter.
+* **D(theta) = lnL7 - lnL4** is taken on a 9 x 9 CURN grid at fixed toy noise (EFAC 1, EQUAD 1 ns,
+  IRN log10_A = -14, gamma = 3). Reported: max |D - D(theta0)| with theta0 = (-14.5, 4.25), and the
+  peak-to-peak range.
 
 <!-- NHARMS_TABLE -->
-| leg | TOAs | Shapiro diff rms [ns] | union proj. [ns] | own proj. [ns] (whitened) | GW14 / GW30 (whitened) | dlnL shape full grid / posterior region [nats] | vs tempo2, 7 harm.: ns / sin | 4 harm.: ns / sin |
-|---|---|---|---|---|---|---|---|---|
-| epta_dr2new/J0751+1807 | 2467 | 24.5 | 0.013 | 85.3 (2.9) | 0.14 / 0.21 | 0.18 / 0.12 | 18.8 / 0.68 | 1.03 / 0.00016 |
-| epta_dr2new/J1012+5307 | 4187 | 23.4 | 0.013 | 28.7 (1.8) | 0.24 / 0.31 | 0.41 / 0.21 | 16.5 / 0.76 | 0.926 / 0.00011 |
-| inpta_dr2/J0751+1807 | 1518 | 0.0233 | 0.024 | 0.0226 (0.00016) | 6.9e-05 / 9.3e-05 | 9.8e-05 / 4.6e-05 | 1.87 / 0.00012 | 1.88 / 0.00012 |
-| inpta_dr2/J1012+5307 | 5952 | 18.5 | 18 | 18.1 (0.5) | 0.27 / 0.39 | 0.66 / 0.067 | 18.1 / 7.3e-05 | 1.63 / 7.3e-05 |
-| mpta/J0613-0200 | 3067 | 56.3 | 0.018 | 46.2 (2.9) | 0.85 / 1.1 | 1.3 / 1.2 | 30.7 / 0.77 | 1.76 / 9.3e-05 |
-| mpta/J1327-0755 | 788 | 1.63e+03 | 0.0028 | 400 (8.3) | 1.3 / 2.1 | 7.7 / 5.1 | 125 / 0.96 | 1.61 / 0.00044 |
-| mpta/J1545-4550 | 4905 | 1.51 | 0.0024 | 4.06 (0.23) | 0.041 / 0.046 | 0.21 / 0.2 | 2.13 / 0.2 | 1.61 / 7.9e-05 |
-| mpta/J1804-2717 | 1569 | 41.2 | 0.025 | 202 (2.1) | 0.25 / 0.28 | 0.77 / 0.5 | 35.7 / 0.45 | 3.38 / 0.00015 |
-| mpta/J2145-0750 | 2966 | 228 | 0.0034 | 206 (11) | 3.6 / 4 | 17 / 6.6 | 87.9 / 0.96 | 4.29 / 0.00017 |
-| ppta_dr3_gh/J0613-0200 | 4927 | 616 | 0.012 | 156 (11) | 2.2 / 4 | 2.6 / 1.4 | 128 / 1 | 4.98 / 8.9e-05 |
+| leg | TOAs | ranks M7/M4/union | Shapiro diff rms [ns] | union rms [ns] | own rms [ns] (whitened norm) | own GW14 M7 / M4 | own GW30 M7 / M4 | single-leg CURN max abs(D-D0) / peak-to-peak [nats] | vs tempo2, 7 harm.: ns / sin | 4 harm.: ns / sin |
+|---|---|---|---|---|---|---|---|---|---|---|
+| epta_dr2new/J0751+1807 | 2467 | 34/34/39 | 24.5 | 0.013 | 85.3 (2.9) | 0.14 / 0.56 | 0.18 / 0.73 | 0.18 / 0.3 | 18.8 / 0.68 | 1.03 / 0.00016 |
+| epta_dr2new/J1012+5307 | 4187 | 40/40/45 | 23.4 | 0.013 | 28.7 (1.8) | 0.22 / 0.49 | 0.27 / 0.6 | 0.41 / 0.55 | 16.5 / 0.76 | 0.926 / 0.00011 |
+| inpta_dr2/J0751+1807 | 1518 | 7/7/8 | 0.0233 | 0.023 | 0.0226 (0.00016) | 6.1e-05 / 6.1e-05 | 8.2e-05 / 8.2e-05 | 9.8e-05 / 9.9e-05 | 1.87 / 0.00012 | 1.88 / 0.00012 |
+| inpta_dr2/J1012+5307 | 5952 | 7/7/8 | 18.5 | 18 | 18.1 (0.5) | 0.18 / 0.18 | 0.37 / 0.37 | 0.66 / 0.79 | 18.1 / 7.3e-05 | 1.63 / 7.3e-05 |
+| mpta/J0613-0200 | 3067 | 20/20/24 | 56.3 | 0.018 | 46.2 (2.9) | 0.8 / 1.1 | 0.95 / 1.5 | 1.3 / 1.9 | 30.7 / 0.77 | 1.76 / 9.3e-05 |
+| mpta/J1327-0755 | 788 | 17/17/21 | 1.63e+03 | 0.0028 | 400 (8.3) | 1.2 / 4.8 | 1.7 / 6 | 7.7 / 8.1 | 125 / 0.96 | 1.61 / 0.00044 |
+| mpta/J1545-4550 | 4905 | 20/20/23 | 1.51 | 0.0024 | 4.06 (0.23) | 0.03 / 0.052 | 0.044 / 0.068 | 0.21 / 0.27 | 2.13 / 0.2 | 1.61 / 7.9e-05 |
+| mpta/J1804-2717 | 1569 | 17/17/22 | 41.2 | 0.025 | 202 (2.1) | 0.25 / 0.46 | 0.26 / 0.5 | 0.77 / 0.81 | 35.7 / 0.45 | 3.38 / 0.00015 |
+| mpta/J2145-0750 | 2966 | 18/18/22 | 228 | 0.0028 | 206 (11) | 3.3 / 6.8 | 3.8 / 7.7 | 17 / 19 | 87.9 / 0.96 | 4.29 / 0.00017 |
+| ppta_dr3_gh/J0613-0200 | 4927 | 46/46/51 | 616 | 0.012 | 156 (11) | 2.2 / 2.4 | 4 / 3.3 | 2.6 / 3.4 | 128 / 1 | 4.98 / 8.9e-05 |
 <!-- /NHARMS_TABLE -->
 
 <!-- NHARMS_COMBINED -->
-Combined system (J0613-0200 (MPTA+PPTA), J0751+1807 (EPTA+InPTA), J1012+5307 (EPTA+InPTA), J1327-0755 (MPTA), J1545-4550 (MPTA), J1804-2717 (MPTA), J2145-0750 (MPTA); legs stacked per pulsar as option B): CURN shape change max 22.8 nats over the full grid, 8.6 in the posterior region; HD 23.4 / 7.74 nats (7 vs 4 harmonics, each with its own design matrix, fixed noise).
+Combined system (J0613-0200 (MPTA+PPTA), J0751+1807 (EPTA+InPTA), J1012+5307 (EPTA+InPTA), J1327-0755 (MPTA), J1545-4550 (MPTA), J1804-2717 (MPTA), J2145-0750 (MPTA); legs stacked per pulsar as option B), same fixed noise: CURN max abs(D - D0) 22.8 nats, peak-to-peak 24.5; HD 23.4 / 25.2 nats. Both likelihoods peak at the scan boundary [-13.5, 6.5] (this toy noise model has no red-noise freedom), so these numbers are likelihood-shape diagnostics, not posterior shifts (Sec. 12b).
 <!-- /NHARMS_COMBINED -->
 
-**Finding: the expected "negligible" is not confirmed.** The Shapiro mismatch at identical
-parameters is 0.02 ns to 1.6 us rms, at orbital harmonics. Projected out of *both* design matrices
-it is <= 0.025 ns, except InPTA J1012+5307 at 18 ns: that is the union-projection column, which
-shows the two models span the same total space.
+**Interpretation (corrected).** The two harmonic counts give genuinely parameter-dependent
+likelihood differences: the H3/H4 design columns differ (G4 sine 0.2-1.0) and so do the
+marginalised data terms. But under this toy noise model both likelihoods peak at the scan boundary
+(the model has no red-noise freedom). The reference box that revision 1 called the "posterior
+region" came from published analyses with different noise models. Neither number is a posterior
+shift. The posterior-level answer follows.
 
-PINT's 7-harmonic H3/H4 columns, however, point in a different direction from the 4-harmonic ones
-(G4 sine 0.2 to 1.0). Analysing the tempo2-fitted parameters with 7 harmonics and the 7-harmonic
-design matrix therefore leaves 4-400 ns after marginalisation (own-projection column). With
-irregular sampling, part of that projects onto the GW band: up to 3.6 (14 bins) and 4.0 (30 bins)
-in whitened norm for MPTA J2145-0750 and PPTA J0613-0200.
+### 12b. Posterior-level effect under realistic noise
 
-The fixed-noise CURN likelihood shape changes by:
-* up to **17 nats** over the full grid, and 6.6 nats in the posterior region, for a single leg
-  (MPTA J2145-0750);
-* **8.6 nats (CURN) and 7.7 nats (HD)** in the posterior region for the 7-pulsar combined system.
+Producer: `scripts/m3a_nharms_posterior.py`. It writes `nharms_posterior.json`, plus every grid
+and lnL surface in `nharms_posterior_surfaces.npz`.
 
-The effect is therefore not negligible for the high-precision legs (J2145, J0613, J1327). It is
-negligible for InPTA J0751 and small (< 0.5 nats) for EPTA J0751/J1012 and MPTA J1545.
+**Model.** Conditional (fixed-noise) posteriors of a 14-bin power-law common process on the array
+span, with uniform priors log10_A in [-18, -11] and gamma in [0, 7]. Grids: 141 x 141 in
+(log10_A, gamma), and 1401 points in log10_A at gamma = 13/3. The 4- and 7-harmonic variants
+differ only in the 10 affected legs.
 
-**Quarantine decision.** With the documented 4-harmonic convention (`profiles.TEMPO2_PAR.tempo2_nharms`:
-NHARMS from the par, else 4, for tempo2-origin ELL1H H3+H4 pars), PINT agrees with tempo2 at the
-same level as the non-quarantined legs: 0.9-5 ns projected rms and G4 sine 7e-5 to 4e-4. Under
-that convention the 10 legs are **lifted** from the NHARMS quarantine (`configs/m3/quarantine.json`,
-`lifted`). They then share the open E8 status of all non-NG legs. Under PINT's forced 7 harmonics
-they would have to stay quarantined. The convention is applied at ingestion until PINT #2046
-merges.
+**Noise model.** Fixed, from released values where available:
+* EPTA DR2new noisefiles (EFAC/TNEQUAD; DM in TempoNest normalisation, with mode counts from
+  `dm_dict`/`red_dict`; RN for J1012);
+* InPTA DR2 par T2EFAC;
+* MPTA `example_noise.json` (EFAC/TNEQUAD/ECORR);
+* PPTA DR3 single-pulsar noise JSON (EFAC/TNEQUAD, band and global ECORR terms with the PPTA
+  selections, RN, DM, band-noise-low);
+* NG15 v1p1 WN dictionary plus IRN medians from the released CURN chain.
+
+The MPTA legs of J1327, J1545, J1804 and J2145 have no machine-readable RN/DM release, so RN + DM
+power laws are fitted by maximum likelihood at the released WN, on the 4-harmonic data, and the
+fit is used in both variants. Several of these fits go to the lower amplitude bound, i.e. no
+detectable red noise. Not modelled: PPTA chromatic GP (log10 A = -16.7), the annual DM sinusoid
+and solar-wind terms.
+
+**Arrays.**
+* *affected*: the 7 pulsars, with legs stacked per pulsar as option B;
+* *affected+NG15*: the same plus the NG15 legs of J1909-3744, J1713+0747, J1744-1134 and
+  J0030+0451.
+
+**Shifts are reported in units of the 4-harmonic posterior:**
+* d(median) / sigma68, with sigma68 = (q84 - q16)/2;
+* the shifts of the 5 % and 95 % quantiles divided by the 90 % width w90.
+
+<!-- NHARMS_POSTERIOR -->
+| array | ORF | quantity | 4 harm.: median [5%, 95%] | 7 harm.: median [5%, 95%] | dmedian / sigma68 | d5% / w90 | d95% / w90 | lnL max interior (4 / 7) |
+|---|---|---|---|---|---|---|---|---|
+| affected | CURN | log10_A | -11.8 [-13, -11.1] | -11.8 [-12.9, -11.1] | 0.05 | 0.019 | 0.0036 | True / True |
+| affected | CURN | gamma | 3.29 [2.91, 3.78] | 3.28 [2.89, 3.76] | -0.066 | -0.013 | -0.023 | True / True |
+| affected | CURN | log10_A (gamma = 13/3) | -14 [-14.2, -13.8] | -14 [-14.3, -13.8] | -0.098 | -0.038 | -0.019 | True / True |
+| affected | HD | log10_A | -11.9 [-13.1, -11.1] | -11.8 [-13, -11.1] | 0.055 | 0.024 | 0.0039 | True / True |
+| affected | HD | gamma | 3.31 [2.91, 3.81] | 3.3 [2.91, 3.79] | -0.065 | -0.0097 | -0.023 | True / True |
+| affected | HD | log10_A (gamma = 13/3) | -14 [-14.3, -13.8] | -14 [-14.3, -13.8] | -0.082 | -0.033 | -0.015 | True / True |
+| affected+NG15 | CURN | log10_A | -13.7 [-14.4, -13] | -13.7 [-14.4, -13] | 0.0041 | 0.0017 | 0.00024 | True / True |
+| affected+NG15 | CURN | gamma | 3.55 [3.27, 3.81] | 3.55 [3.27, 3.81] | -0.018 | -0.0042 | -0.0076 | True / True |
+| affected+NG15 | CURN | log10_A (gamma = 13/3) | -14.4 [-14.5, -14.3] | -14.4 [-14.5, -14.3] | -0.036 | -0.01 | -0.012 | True / True |
+| affected+NG15 | HD | log10_A | -13.8 [-14.4, -13] | -13.8 [-14.4, -13] | -0.0017 | 0.00035 | -0.00099 | True / True |
+| affected+NG15 | HD | gamma | 3.56 [3.28, 3.82] | 3.56 [3.27, 3.82] | -0.012 | -0.0028 | -0.0047 | True / True |
+| affected+NG15 | HD | log10_A (gamma = 13/3) | -14.4 [-14.5, -14.3] | -14.4 [-14.5, -14.3] | -0.034 | -0.01 | -0.011 | True / True |
+<!-- /NHARMS_POSTERIOR -->
+
+Every lnL maximum is interior to the grid (last column).
+
+**Result.** At the posterior level the harmonic count is negligible for these arrays:
+* *affected* alone: |d median| <= 0.07 sigma68 for log10_A and gamma, and <= 0.10 sigma68 for the
+  gamma = 13/3 amplitude; 90 % bounds move by <= 0.04 w90;
+* *affected+NG15*: <= 0.04 sigma68, and the bounds move by <= 0.012 w90.
+
+The several-nat likelihood-shape changes of the toy model (Sec. 12 table) are absorbed by the
+released red/DM noise and the posterior width. This holds for a *conditional* posterior with
+fixed noise. A noise-marginalised analysis could differ, and is deferred to M3b.
+
+**Quarantine decision (configuration-specific).** `quarantine({"ell1h_nharms": "tempo2"})`
+lifts the 10 legs; `{"ell1h_nharms": "pint7"}` keeps them quarantined. Under the 4-harmonic
+convention PINT agrees with tempo2 to 0.9-5 ns projected rms and G4 sine 7e-5 to 4e-4, the level
+of the non-quarantined legs. The convention applies on every construction path: published legs
+resolve NHARMS from the original par, and option C carries the reference's resolved count through
+the rewrite (tested: EPTA/InPTA J0751, `nharms_used = 4` in both legs). Each leg records
+`nharms_used` and `ell1h_nharms_config`. The lifted legs share the open E8 status of all non-NG
+legs.

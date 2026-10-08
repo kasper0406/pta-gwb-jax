@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "doc": "Explicit removal of duplicate observations (gate G7, docs/M3A_VALIDATION.md Sec. 7). A pair is the same physical site (or LEAP vs an EPTA telescope), intervals |dt| < (tobs_a + tobs_b)/2 overlapping, and the same channel (|df| < 1 MHz): the same photons counted twice under independent white noise. Rule (EPTA DR2 paper Sec. 'Combination of the dataset': 'During certain observing runs, data were collected using both legacy and new backends, or in both single-telescope and LEAP modes. As these observations represented the same signal and noise, we eliminated the older backend and non-LEAP data'): keep LEAP over a single telescope, the newer backend over the older one; for two copies on the same backend keep the longer integration. Applied to M3 leg ingestion only; the NG15 M1/M2 path (data.py) is unchanged.",
+  "remove": [
+    {"dataset": "epta_dr2new", "psr": "J1022+1001", "file": "EFF.P217.1380.tim", "line": 180, "kept": "LEAP.1396.tim:80", "why": "EFF/Asterix 150 s scan inside the 3720 s LEAP observation (dt 1796 s, 1404 MHz both); EPTA keeps LEAP. Effelsberg is LEAP's reference telescope; whether its baseband entered this LEAP combination cannot be read from the released TOA (LEAP '-fe unknown'), so the EPTA rule is applied conservatively"},
+    {"dataset": "epta_dr2new", "psr": "J1600-3053", "file": "WSRT.P2.1380.tim", "line": 119, "kept": "LEAP.1396.tim:28", "why": "WSRT/PuMa2 3770 s vs LEAP 1677 s, dt 1036 s, 1396 MHz; EPTA keeps LEAP"},
+    {"dataset": "ppta_dr3_gh", "psr": "J1045-4509", "file": "J1045-4509.tim", "line": 1672, "kept": "J1045-4509.tim:1677", "why": "CASPSR 857 s inside PDFB3 3840 s, 709.85 vs 710.31 MHz, same 40cm receiver; the shorter integration is removed"},
+    {"dataset": "ppta_dr3_gh", "psr": "J1603-7202", "file": "J1603-7202.tim", "line": 25, "kept": "J1603-7202.tim:21", "why": "CPSR2m 151 s copy (group 50CM_CPSR2, H-OH receiver at 1333 MHz) inside the 1548 s CPSR2m observation 389 s away, same channel; shorter copy removed"},
+    {"dataset": "ppta_dr3_gh", "psr": "J1603-7202", "file": "J1603-7202.tim", "line": 26, "kept": "J1603-7202.tim:22", "why": "as above, second channel"},
+    {"dataset": "ng15", "psr": "J1713+0747", "file": "J1713+0747_PINT_20220309.nb.tim", "line": 22291, "kept": "J1713+0747_PINT_20220309.nb.tim:36411", "why": "GASP 120 s inside GUPPI 1217 s (GASP/GUPPI overlap 2010), 1392.0 vs 1392.8 MHz; older backend removed"},
+    {"dataset": "ng15", "psr": "J1713+0747", "file": "J1713+0747_PINT_20220309.nb.tim", "line": 22294, "kept": "J1713+0747_PINT_20220309.nb.tim:36410", "why": "as above, 1380.0 vs 1380.5 MHz"}
+  ]
+}

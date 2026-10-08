@@ -176,6 +176,7 @@ def precompute_general(
     position: str = "icrs",
     systems=None,
     projector: bool = False,
+    allow_inadmissible: bool = False,
 ) -> GeneralTerms:
     """Stage-1 contractions for one (multi-leg) pulsar with any block layout and fixed blocks.
 
@@ -183,6 +184,10 @@ def precompute_general(
     stacked ``multileg.MultiLegPulsar``). ``systems``: per-TOA labels for flag-selected blocks
     (default ``psr.backend_flags``). ``wn``: ``WhiteNoise`` or ``GeneralWhiteNoise``.
     """
+    meta = getattr(psr, "meta", None) or {}
+    if meta.get("admissible") is False and not allow_inadmissible:
+        raise ValueError(f"{psr.name}: inadmissible multi-leg build ({meta.get('config')}; "
+                         f"{meta.get('admissibility')}); allow_inadmissible=True only for diagnostics")
     layout = ColumnLayout(model)
     sv = _L.check_timing_rank(psr.Mmat, psr.name)
     Mt = _L.timing_basis(psr.Mmat, timing, psr.name)

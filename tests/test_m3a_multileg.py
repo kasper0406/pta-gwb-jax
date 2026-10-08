@@ -33,14 +33,15 @@ def _legs(name):
     return [tuple(x) for x in validation_set()["multileg"][name]]
 
 
-def _build(name, timing, ref=None, force=None):
+def _build(name, timing, ref=None, force=None, allow_inadmissible=False):
     from ptagwb.multileg import build_multileg
     from ptagwb.profiles import COMBINED, YA_V3_CLOCKS
 
     tag = f"test-{timing}-{ref}-" + "-".join(f"{k}{v}" for k, v in sorted((force or {}).items()))
     clk = COMBINED if timing == "per_leg" else YA_V3_CLOCKS
     try:
-        mp, _ = build_multileg(name, _legs(name), timing=timing, clock=clk, reference=ref, tag=tag, jobs=5, force=force)
+        mp, _ = build_multileg(name, _legs(name), timing=timing, clock=clk, reference=ref, tag=tag, jobs=5, force=force,
+                               allow_inadmissible=allow_inadmissible)
     except FileNotFoundError:
         pytest.skip("M3 data not fetched")
     return mp
@@ -48,11 +49,16 @@ def _build(name, timing, ref=None, force=None):
 
 @pytest.fixture(scope="module")
 def systems():
-    out = {(n, t): _build(n, t) for n in ("J1022+1001", "J0437-4715") for t in ("shared", "per_leg")}
+    # the YA-v3 shared-DM C builds of these two pulsars are inadmissible (phase wraps): built here
+    # only as explicitly marked diagnostics (MetaPulsar comparison, wrap test)
+    out = {(n, t): _build(n, t, allow_inadmissible=(t == "shared")) for n in ("J1022+1001", "J0437-4715")
+           for t in ("shared", "per_leg")}
     # option C with per-leg DM (MetaPulsar-main configuration): phase-connected for both pulsars,
     # unlike the v0.9.3 shared-DM rule (docs/M3A_VALIDATION.md Sec. 6)
     for n in ("J1022+1001", "J0437-4715"):
-        out[(n, "localDM")] = _build(n, "shared", force={"local_dm": True})
+        out[(n, "localDM")] = _build(n, "shared", force={"local_dm": True}, allow_inadmissible=True)
+    out[("J1909-3744", "shared")] = _build("J1909-3744", "shared")  # admissible YA-v3 build
+    out[("J1909-3744", "per_leg")] = _build("J1909-3744", "per_leg")
     return out
 
 
@@ -106,47 +112,51 @@ def test_c_merges_shared_columns(systems):
     assert len({s.split(":")[0] for s in c.backend_flags}) == 5  # namespaced systems
 
 
-@pytest.mark.parametrize("timing", ["localDM", "per_leg"])
-def test_g5_vs_enterprise_and_discovery(systems, timing):
+@pytest.mark.parametrize("which", ["C", "B"])
+def test_g5_vs_arbiter_enterprise_discovery(systems, which):
+    """Gating (fixed in advance, constant-invariant): ours vs the independent long-double arbiter,
+    lnL shape differences <= 1e-6 nats (CURN and HD) and gradients <= 1e-8 relative. The float64
+    oracles (discovery CURN, enterprise HD) must agree with ours to 1e-6 nats on the B system; on the
+    87k-TOA C system they deviate from the arbiter by up to ~1e-4 nats themselves
+    (docs/M3A_VALIDATION.md Sec. 5), so there they must only be farther from the arbiter than we are."""
     if not HAVE_DISCOVERY_ENTERPRISE:
         pytest.skip("oracle group not installed")
     import m3a_oracles as O
+    from m3a_arbiter import PulsarArbiter, arbiter_correlated, arbiter_curn
 
-    mps = [systems[("J1022+1001", timing)], systems[("J0437-4715", timing)]]
+    from ptagwb import orf as orfs
+
+    mps = ([systems[("J1909-3744", "shared")], systems[("J0437-4715", "per_leg")]] if which == "C"
+           else [systems[("J1022+1001", "per_leg")], systems[("J0437-4715", "per_leg")]])
+    assert all(m.meta["admissible"] for m in mps)
     wns, models, nd, Tarr = O.g5_setup(mps, seed=7)
     terms = [precompute_general(p, w, m) for p, w, m in zip(mps, wns, models, strict=True)]
     hd, curn = GeneralPTALikelihood(terms, orf="hd"), GeneralPTALikelihood(terms, orf="curn")
-    # arbiter for gradient disagreements with discovery: CURN through the correlated-ORF path
-    # (identity ORF: diagonal split + Sigma' core + its custom VJP), numerically independent of the
-    # separable CURN path (docs/M3A_VALIDATION.md Sec. 5)
-    eye = GeneralPTALikelihood(terms, orf=np.eye(len(terms)))
+    arbs = [PulsarArbiter(p, w, m) for p, w, m in zip(mps, wns, models, strict=True)]
+    G = orfs.hd(np.stack([m.pos for m in mps]))
     dl = O.discovery_g5(mps, nd, models, Tarr, 5)
-    fd, gd = jax.jit(dl.logL), jax.jit(jax.grad(dl.logL))
+    fd = jax.jit(dl.logL)
     pta = O.enterprise_g5(mps, nd, models, Tarr, 5)
     vals = []
-    for p in O.g5_params(mps, np.random.default_rng(11), 4):
+    for p in O.g5_params(mps, np.random.default_rng(99), 3):
         named = O._named(mps, p)
         jp = {k: jnp.asarray(v) for k, v in p.items()}
-        vals.append([float(curn.logL(jp)), float(fd({k: jnp.asarray(named[k]) for k in dl.logL.params})),
-                     float(hd.logL(jp)), float(pta.get_lnlikelihood({k: named[k] for k in pta.param_names}))])
+        la, ga = arbiter_curn(arbs, p)
+        vals.append([float(curn.logL(jp)), la, float(hd.logL(jp)), arbiter_correlated(arbs, p, G),
+                     float(fd({k: jnp.asarray(named[k]) for k in dl.logL.params})),
+                     float(pta.get_lnlikelihood({k: named[k] for k in pta.param_names}))])
         go = jax.grad(curn._logL)(jp)
-        ge = jax.grad(eye._logL)(jp)
-        gdd = gd({k: jnp.asarray(named[k]) for k in dl.logL.params})
-        pairs = [(float(np.asarray(go[f"{proc}_{par}"])[i]), float(np.asarray(ge[f"{proc}_{par}"])[i]),
-                  float(gdd[f"{m.name}_{proc}_{par}"])) for i, m in enumerate(mps) for proc in ("rn", "dm")
-                 for par in ("log10_A", "gamma")]
-        pairs += [(float(go[par]), float(ge[par]), float(gdd[key])) for par, key in
-                  (("log10_A", "gw_log10_A"), ("gamma", "gw_gamma"))]
-        for a, a_eye, b in pairs:
-            sc = max(abs(b), 1.0)
-            # pass: within 1e-8 of discovery, or (arbitrated) our two independent paths agree to
-            # 1e-11 and discovery is within 1e-7
-            assert abs(a - b) <= 1e-8 * sc or (abs(a - a_eye) <= 1e-11 * sc and abs(a - b) <= 1e-7 * sc), (a, a_eye, b)
-    v = np.array(vals)
-    d = v - v[0]
-    tol = np.maximum(1e-6, 1e-9 * np.abs(v[:, 0]))
-    assert np.all(np.abs(d[:, 0] - d[:, 1]) <= tol), d
-    assert np.all(np.abs(d[:, 2] - d[:, 3]) <= tol), d
+        for k in ga:
+            a, b = np.atleast_1d(np.asarray(go[k], dtype=float)), np.atleast_1d(ga[k])
+            assert np.all(np.abs(a - b) <= 1e-8 * np.maximum(1.0, np.abs(b))), (k, a, b)
+    d = np.array(vals) - np.array(vals)[0]
+    ours_curn, ours_hd = np.max(np.abs(d[:, 0] - d[:, 1])), np.max(np.abs(d[:, 2] - d[:, 3]))
+    assert ours_curn <= 1e-6 and ours_hd <= 1e-6, (ours_curn, ours_hd)
+    disc, ent = np.max(np.abs(d[:, 4] - d[:, 1])), np.max(np.abs(d[:, 5] - d[:, 3]))
+    if which == "B":
+        assert np.max(np.abs(d[:, 0] - d[:, 4])) <= 1e-6 and np.max(np.abs(d[:, 2] - d[:, 5])) <= 1e-6
+    else:
+        assert disc >= ours_curn and ent >= ours_hd, (disc, ours_curn, ent, ours_hd)
 
 
 @pytest.fixture(scope="module")
@@ -195,8 +205,7 @@ def test_g6_reference_swap(j1909_swap):
 def test_g8_injections(systems):
     import m3a_injection as I
 
-    C = [systems[("J1022+1001", "localDM")], systems[("J0437-4715", "localDM")]]
-    B = [systems[("J1022+1001", "per_leg")], systems[("J0437-4715", "per_leg")]]
+    C, B = [systems[("J1909-3744", "shared")]], [systems[("J1909-3744", "per_leg")]]
     out = I.run(C, B, R=300, log10_A_true=-14.0)
     assert out["pass"], out["results"]
 
@@ -208,3 +217,54 @@ def test_shared_dm_breaks_phase_connection(systems):
     rms = lambda m, i: float(np.std(m.residuals[m.leg == i]))
     assert max(rms(sh, i) for i in range(len(sh.legs))) > 1e-4
     assert max(rms(loc, i) for i in range(1, len(loc.legs))) < 5e-5
+
+
+def test_inadmissible_build_rejected_and_marked(systems):
+    from ptagwb.combined import PulsarGPModel
+    from ptagwb.gp import FourierBlock
+    from ptagwb.multileg import CONFIG_LOCAL_DM, CONFIG_YA, InadmissibleBuildError
+    from ptagwb.noise import build_general_white_noise
+
+    sh, loc = systems[("J1022+1001", "shared")], systems[("J1022+1001", "localDM")]
+    assert sh.meta["config"] == CONFIG_YA and sh.meta["admissible"] is False and sh.meta["diagnostic_override"]
+    assert sh.meta["admissibility"]["InPTA"]["linearisation_rms_whitened"] > 10  # phase wraps
+    assert loc.meta["config"] == CONFIG_LOCAL_DM and loc.meta["admissible"] is False  # PPTA DDH vs NG15 DD
+    good = systems[("J1909-3744", "shared")]
+    assert good.meta["config"] == CONFIG_YA and good.meta["admissible"] is True
+    assert max(a["linearisation_rms_whitened"] for a in good.meta["admissibility"].values()) < 0.01
+    assert all("admissibility" in lg.meta and "profile" in lg.meta for lg in sh.legs)
+    with pytest.raises(InadmissibleBuildError):
+        _build("J1022+1001", "shared")
+    sy = sorted(set(sh.backend_flags.tolist()))
+    wn = build_general_white_noise(sh.toas, sh.toaerrs, sh.backend_flags, {s: (1.0, -9.0) for s in sy})
+    mdl = PulsarGPModel(sampled={"rn": FourierBlock("red_noise", 5, 3e8)})
+    with pytest.raises(ValueError, match="inadmissible"):
+        precompute_general(sh, wn, mdl)
+
+
+def test_meta_survives_serialisation(systems, tmp_path):
+    from ptagwb.multileg import load_multileg, save_multileg
+
+    sh = systems[("J1022+1001", "shared")]
+    save_multileg(sh, tmp_path / "x.npz")
+    back = load_multileg(tmp_path / "x.npz")
+    assert back.meta["config"] == sh.meta["config"] and back.meta["admissible"] is False
+    assert back.legs[0].meta["profile"] == sh.legs[0].meta["profile"]
+    assert back.legs[0].meta["admissibility"]["admissible"] == sh.legs[0].meta["admissibility"]["admissible"]
+
+
+def test_option_c_keeps_reference_harmonic_count():
+    """Review M3a #1: the shared-model rewrite must not restore PINT's forced NHARMS = 7."""
+    from ptagwb.m3data import quarantine
+    from ptagwb.multileg import build_multileg
+    from ptagwb.profiles import YA_V3_CLOCKS
+
+    legs = [("epta_dr2new", "J0751+1807"), ("inpta_dr2", "J0751+1807")]
+    mp, res = build_multileg("J0751+1807", legs, timing="shared", clock=YA_V3_CLOCKS, tag="test-nharms-C", jobs=2,
+                             allow_inadmissible=True)
+    for r in res.values():
+        assert r.meta["nharms_used"] == 4 and r.meta["nharms_setup"] == 7, r.meta.get("nharms_used")
+        assert "NHARMS 4" in r.meta["par_as_loaded"].replace("  ", " ") or any(
+            ln.split()[:2] == ["NHARMS", "4"] for ln in r.meta["par_as_loaded"].splitlines())
+    assert all(lg.meta["ell1h_nharms_config"] == "tempo2" for lg in mp.legs)
+    assert ("epta_dr2new", "J0751+1807") not in quarantine({"ell1h_nharms": "tempo2"})

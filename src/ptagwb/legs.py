@@ -433,9 +433,39 @@ class LegResult:
     error: str = ""
 
 
-def canonical_leg_texts(par: Path, tim: Path, fixes: Counter):
-    """(tempo2-semantics records with indicator flags, canonical par text, multi-valued flags)."""
+def resolve_nharms(original_par_text: str, evaluator) -> int | None:
+    """Harmonic count of an ELL1H H3+H4 model as its *original* par specifies it under the
+    evaluator's convention: NHARMS from the par if given; else 4 under the tempo2 convention
+    (``evaluator.tempo2_nharms``); else None (PINT's default, forced >= 7)."""
+    given = [ln.split()[1] for ln in original_par_text.splitlines() if ln.split()[:1] in (["NHARMS"], ["NHARM"])
+             and len(ln.split()) > 1]
+    if given:
+        return int(float(given[0]))
+    return 4 if evaluator.tempo2_nharms else None
+
+
+def duplicate_removals() -> set:
+    """Explicit TOA removals for duplicate observations (configs/m3/duplicates.json):
+    {(dataset, psr, tim file name, line number)}."""
+    from .m3data import load_json_config
+
+    try:
+        cfg = load_json_config("duplicates.json")
+    except FileNotFoundError:
+        return set()
+    return {(e["dataset"], e["psr"], e["file"], int(e["line"])) for e in cfg["remove"]}
+
+
+def canonical_leg_texts(par: Path, tim: Path, fixes: Counter, dataset: str | None = None, label: str | None = None):
+    """(tempo2-semantics records with indicator flags, canonical par text, multi-valued flags).
+    TOAs listed in configs/m3/duplicates.json for (dataset, label) are removed explicitly."""
     recs, rep = read_tim(tim)
+    if dataset is not None:
+        rm = duplicate_removals()
+        keep = [r for r in recs if (dataset, label, Path(r.file).name, r.lineno) not in rm]
+        if len(keep) != len(recs):
+            fixes["tim:duplicate-observation-removed (configs/m3/duplicates.json)"] += len(recs) - len(keep)
+            recs = keep
     ptxt = canonical_par(par.read_text(errors="replace"), fixes)
     multi = multivalued_mask_flags(recs, ptxt)
     recs, ptxt = apply_indicator_flags(recs, ptxt, multi, fixes)
@@ -448,7 +478,7 @@ def prepare_leg(dataset: str, label: str, par: Path, tim: Path, clock: ClockProf
     final par (e.g. the option-C rewrite of the canonical par) used instead of the canonical one;
     the tim side (records, indicator flags) is always derived from the leg's own files."""
     fixes: Counter = Counter()
-    recs, rep, ptxt, multi = canonical_leg_texts(par, tim, fixes)
+    recs, rep, ptxt, multi = canonical_leg_texts(par, tim, fixes, dataset, label)
     if par_text is not None:
         ptxt = par_text
         fixes["par:replaced-by-final-par (option C rewrite)"] += 1
@@ -470,7 +500,8 @@ def prepare_leg(dataset: str, label: str, par: Path, tim: Path, clock: ClockProf
 def load_leg(dataset: str, label: str, *, clock: ClockProfile | None = None, evaluator: EvaluatorProfile | None = None,
              par_text: str | None = None, pin: bool = False, outdir: Path | None = None, identity: bool = True,
              tag: str = "published", clock_policy: str = "exclude-uncovered",
-             site_profile: str | None = "default", nharms: int | None = None) -> LegResult:
+             site_profile: str | None = "default", nharms: int | str | None = "auto",
+             free_dmx: bool = False) -> LegResult:
     """Ingest one leg (see module docstring). Call in a fresh process per clock profile."""
     import warnings
 
@@ -501,28 +532,38 @@ def load_leg(dataset: str, label: str, *, clock: ClockProfile | None = None, eva
     logger.remove()
     logger.add(lambda m: msgs.append(f"{m.record['level'].name}: {m.record['message']}"), level="WARNING")
     meta = {**prov, "profile": {"clock_profile": clock.name, "clock": clock.clock, "ephem": clock.ephem,
-                                "evaluator": evaluator.name, "ell1h_shapiro": evaluator.ell1h_shapiro},
+                                "evaluator": evaluator.name, "ell1h_shapiro": evaluator.ell1h_shapiro,
+                                "tempo2_nharms": evaluator.tempo2_nharms},
             "pint_version": pint.__version__, "ingest_version": INGEST_VERSION, "tag": tag,
             "site_profile": site_profile, "site_changes": site_changes}
     try:
         with warnings.catch_warnings(record=True) as wl:
             warnings.simplefilter("always")
             model, toas = get_model_and_toas(prov["canon_par"], prov["canon_tim"], planets=True, **evaluator.pint_kwargs())
-            if nharms is None and evaluator.tempo2_nharms and "NHARMS" in model.params \
-                    and getattr(model, "H4", None) is not None and model.H4.quantity is not None:
-                # tempo2 convention for ELL1H H3+H4: NHARMS from the par, else 4 (PINT forces >= 7)
-                given = [ln.split()[1] for ln in Path(prov["canon_par"]).read_text().splitlines()
-                         if ln.split()[:1] in (["NHARMS"], ["NHARM"])]
-                nharms = int(float(given[0])) if given else 4
+            has_h4 = "NHARMS" in model.params and getattr(model, "H4", None) is not None and model.H4.quantity is not None
+            if nharms == "auto":
+                if par_text is not None and has_h4:
+                    # a rewritten par (option C) carries PINT's serialised NHARMS (forced >= 7 at set-up):
+                    # the caller must pass the reference's resolved harmonic count (review M3a #1)
+                    raise ValueError(f"{label}: ELL1H H3+H4 with a rewritten par needs an explicit nharms "
+                                     "(multileg passes the reference's resolved count)")
+                nharms = resolve_nharms(par.read_text(errors="replace"), evaluator) if has_h4 else None
+            if has_h4:
+                meta["nharms_setup"] = int(model.NHARMS.value)
             if nharms is not None:
                 # ELL1H H3+H4 harmonic count. PINT's setup forces NHARMS >= 7 when H4 is given;
                 # tempo2 uses 4 (harmonics 3..NHARMS). Setting the value after setup makes the
                 # binary delay and its derivatives use the requested count (as nanograv/PINT#2046).
-                if "NHARMS" not in model.params or model.H4.quantity is None:
+                if not has_h4:
                     raise ValueError(f"{label}: nharms override needs an ELL1H model with H3+H4")
-                meta["nharms_setup"] = int(model.NHARMS.value)
                 model.NHARMS.value = int(nharms)
-                meta["nharms_used"] = int(nharms)
+            if has_h4:
+                meta["nharms_used"] = int(model.NHARMS.value)
+                meta["ell1h_nharms_config"] = "tempo2" if int(model.NHARMS.value) < 7 else "pint7"
+            if free_dmx:  # admissibility reference: DMX columns present even where the release froze them
+                for pname in model.params:
+                    if re.fullmatch(r"DMX_\d+", pname) and getattr(model, pname).value is not None:
+                        getattr(model, pname).frozen = False
             frozen = []
             if pta == "NG15" and model.PSR.value in FROZEN_PARAMS:
                 for pname in FROZEN_PARAMS[model.PSR.value]:

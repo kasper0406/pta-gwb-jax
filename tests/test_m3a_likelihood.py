@@ -175,3 +175,30 @@ def test_projector_reproduces_stage1(arr):
     c, s = t.projector(psrs[0].residuals)
     np.testing.assert_allclose(c, t.c, rtol=1e-12, atol=1e-14 * np.abs(t.c).max())
     assert abs(s - t.s_perp) <= 1e-10 * t.s_perp
+
+
+def test_singleton_ecorr_nmin1_vs_dense():
+    """nmin = 1: single-TOA ECORR epochs add to the variance of that TOA (review M3a #4)."""
+    from ptagwb.noise import EcorrTerm, build_general_white_noise
+
+    w = build_general_white_noise(np.array([0.0]), np.array([1.0]), np.array(["A"]), {"A": (1.0, -30.0)},
+                                  [EcorrTerm("e", {"A": np.array([True])}, {"A": 0.0}, nmin=1)])
+    np.testing.assert_allclose(w.dense(), [[2.0]])
+    np.testing.assert_allclose(w.solve(np.array([1.0])), [0.5])
+    assert abs(w.logdet() - np.log(2.0)) < 1e-14
+    # mixed: singletons, a multi-TOA epoch, and an overlapping second term, nmin = 1
+    rng = np.random.default_rng(0)
+    t = np.array([0.0, 0.3, 10.0, 20.0, 20.4, 30.0])
+    sysl = np.array(["A", "A", "A", "B", "B", "B"])
+    terms = [EcorrTerm("e", {"A": sysl == "A", "B": sysl == "B"}, {"A": -6.0, "B": -6.3}, nmin=1),
+             EcorrTerm("g", {"all": np.ones(6, bool)}, {"all": -6.5}, nmin=1)]
+    w = build_general_white_noise(t, rng.uniform(0.5, 2, 6) * 1e-6, sysl, {"A": (1.1, -7.0), "B": (0.9, -6.8)},
+                                  terms)
+    N = w.dense()
+    X = rng.normal(size=(6, 3))
+    np.testing.assert_allclose(w.solve(X), np.linalg.solve(N, X), rtol=1e-10)
+    W = w.whiten(np.eye(6))
+    np.testing.assert_allclose(W.T @ W, np.linalg.inv(N), rtol=1e-9)
+    assert abs(w.logdet() - np.linalg.slogdet(N)[1]) < 1e-10 * abs(w.logdet())
+    L = w.colour(np.eye(6))
+    np.testing.assert_allclose(L @ L.T, N, rtol=1e-10)

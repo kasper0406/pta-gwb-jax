@@ -325,6 +325,14 @@ class GeneralWhiteNoise:
             comp_of_root.setdefault(int(r), []).append(i)
         self._components = [np.array(v, dtype=np.int64) for v in comp_of_root.values() if len(v) > 1]
         self._singletons = np.array(sorted(v[0] for v in comp_of_root.values() if len(v) == 1), dtype=np.int64)
+        # a singleton component may still carry ECORR epochs (nmin = 1): their variance adds to
+        # the diagonal of that TOA
+        self._sdiag = self.ndiag.copy()
+        for e in range(self.n_epoch):
+            idx = self.ep_toa[self.ep_ptr[e] : self.ep_ptr[e + 1]]
+            if len(idx) == 1:
+                self._sdiag[idx[0]] += self.ep_var[e]
+        self._sdiag = self._sdiag[self._singletons]
         # epochs per component
         comp_id = np.full(n, -1, dtype=np.int64)
         for k, idx in enumerate(self._components):
@@ -370,7 +378,7 @@ class GeneralWhiteNoise:
         return np.diag(self.ndiag) + (U * self.ep_var) @ U.T
 
     def logdet(self) -> float:
-        ld = float(np.sum(np.log(self.ndiag[self._singletons])))
+        ld = float(np.sum(np.log(self._sdiag)))
         for L in self._chol:
             ld += 2.0 * float(np.sum(np.log(np.diag(L))))
         return ld
@@ -383,7 +391,7 @@ class GeneralWhiteNoise:
         y = np.empty_like(x)
         s = self._singletons
         shape = (-1,) + (1,) * (x.ndim - 1)
-        y[s] = x[s] / np.sqrt(self.ndiag[s]).reshape(shape)
+        y[s] = x[s] / np.sqrt(self._sdiag).reshape(shape)
         for idx, L in zip(self._components, self._chol, strict=True):
             y[idx] = solve_triangular(L, x[idx], lower=True)
         return y
@@ -394,7 +402,7 @@ class GeneralWhiteNoise:
         y = np.empty_like(z)
         s = self._singletons
         shape = (-1,) + (1,) * (z.ndim - 1)
-        y[s] = z[s] * np.sqrt(self.ndiag[s]).reshape(shape)
+        y[s] = z[s] * np.sqrt(self._sdiag).reshape(shape)
         for idx, L in zip(self._components, self._chol, strict=True):
             y[idx] = L @ z[idx]
         return y
@@ -406,7 +414,7 @@ class GeneralWhiteNoise:
         y = np.empty_like(x)
         s = self._singletons
         shape = (-1,) + (1,) * (x.ndim - 1)
-        y[s] = x[s] / self.ndiag[s].reshape(shape)
+        y[s] = x[s] / self._sdiag.reshape(shape)
         for idx, L in zip(self._components, self._chol, strict=True):
             y[idx] = cho_solve((L, True), x[idx])
         return y
