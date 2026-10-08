@@ -1,0 +1,12 @@
+{
+ "profile": "inpta-dr2-published-v1",
+ "version": 1,
+ "clock": "TT(BIPM2023)",
+ "ephem": "DE440",
+ "overrides": [],
+ "note": "",
+ "files": {
+  "gps2utc.clk": "9a775ba0bbf851947e58fffb5d5c30f7baf5cae6668227d4c81261760d3b9314",
+  "tai2tt_bipm2023.clk": "f99dc4c467568d0fb01d6b076af36ed5add935e2593adf60e33611ebdd5f363d"
+ }
+}

@@ -45,8 +45,10 @@ from .config import DATA_DIR
 from .data import FROZEN_PARAMS, Pulsar, enterprise_position, resolve_backend_flags
 from .noise import namespace
 from .profiles import (
+    SITE_PROFILE_OF_PTA,
     ClockProfile,
     EvaluatorProfile,
+    apply_site_profile,
     check_used_clock_files,
     evaluator_for_par,
     published_profile,
@@ -54,9 +56,15 @@ from .profiles import (
 from .timfile import TimRecord, canonical_flags, read_tim, write_flat_tim
 
 WORK_DIR = DATA_DIR / "processed" / "m3a" / "legs"
-INGEST_VERSION = 1
+INGEST_VERSION = 2
 MASK_KEYS = ("JUMP", "FDJUMP", "DMJUMP", "EFAC", "EQUAD", "ECORR", "T2EFAC", "T2EQUAD", "TNEF", "TNEQ", "TNECORR",
              "DMEFAC", "DMEQUAD")
+
+
+# par keywords that are bookkeeping, not model parameters (never given fit flags)
+PAR_METADATA = {"CHI2R", "CHI2", "NTOA", "TRES", "START", "FINISH", "NITS", "EPHVER", "DMDATA", "MODE", "INFO", "IBOOT",
+                "TZRMJD", "TZRFRQ", "TZRSITE", "CLK", "CLOCK", "UNITS", "EPHEM", "TIMEEPH", "T2CMETHOD", "DILATEFREQ",
+                "PLANET_SHAPIRO", "CORRECT_TROPOSPHERE", "NE_SW_IFUNC", "DM_SERIES", "BINARY", "PSR", "PSRJ", "PSRB"}
 
 
 def _is_float(x: str) -> bool:
@@ -90,6 +98,7 @@ def canonical_par(text: str, fixes: Counter) -> str:
     """
     lines = text.splitlines()
     keys = {ln.split()[0] for ln in lines if ln.split()}
+    tempo2_par = "EPHVER" in keys
     dmx_ids = {ln.split()[0][4:] for ln in lines if re.match(r"DMX_\d+\s", ln)}
     has_fb = any(re.match(r"FB[1-9]\d*\s", ln) for ln in lines)
     out = []
@@ -120,6 +129,17 @@ def canonical_par(text: str, fixes: Counter) -> str:
             continue
         if k == "TRACK":
             fixes["par:drop-TRACK"] += 1
+            continue
+        if (tempo2_par and len(tok) == 3 and tok[2] not in ("0", "1") and _is_float(tok[1]) and _is_float(tok[2])
+                and k not in PAR_METADATA and not k.startswith(("JUMP", "T2EFAC", "T2EQUAD", "TNEF", "TNEQ", "ECORR",
+                                                                 "EFAC", "EQUAD"))):
+            # "NAME value X": tempo2 reads the fit flag with sscanf("%d") from X (InPTA DR2:
+            # "DMX_0001 1.85e-4 2.57e-4" -> flag 0, frozen); PINT would treat X as an uncertainty
+            # and keep the parameter's default fit state (DMX_0001 template: free). Make it explicit.
+            m = re.match(r"[+-]?\d+", tok[2])
+            flag = int(m.group(0)) if m else 0
+            out.append(f"{k} {tok[1]} {1 if flag else 0} {tok[2]}")
+            fixes["par:explicit-fit-flag-from-3rd-token"] += 1
             continue
         out.append(ln)
     if dmx_ids and "0001" not in dmx_ids and "DMXR1_0001" not in keys:
@@ -198,12 +218,21 @@ WARNING_CLASSES = [
     (r"TZRMJD is not set", "tzr-default", "absolute phase reference defaulted; residuals are mean-subtracted and an offset column is fitted"),
     (r"divide by zero encountered", "numeric-divide-by-zero!", "numerical warning; must be located"),
     (r"MODE command is not supported", "tim-mode", "MODE 1 (weighted fit) is the only mode used"),
-    (r"PINT_CLOCK_OVERRIDE|clock correction file .* from specified location", "clock-override", "pinned clock directory in use"),
+    (r"PINT_CLOCK_OVERRIDE|clock correction file .* from specified location|Clock file from .*/m3a/clocks/.* overrides global clock file", "clock-override", "pinned clock directory in use (profile pinning)"),
     (r"very high covariance|covariance", "fit-covariance", "fit diagnostics (no fit is performed here)"),
     (r"DeprecationWarning|FutureWarning|PendingDeprecationWarning", "library-deprecation", "library API deprecation, no effect on values"),
     (r"ResourceWarning", "resource", "unclosed file handle in a library"),
     (r"ERFA function", "erfa-dubious-year", "ERFA 'dubious year' for TOAs past the leap-second table horizon"),
 ]
+
+
+# leg-specific resolutions of warnings whose message alone is not specific (located by hand)
+LEG_WARNING_RESOLUTIONS = {
+    ("mpta", "J0955-6150", "divide by zero encountered"): (
+        "ddgr-default-init",
+        "PINT DDGR model set-up evaluates a1/ar with default (zero) parameters before the par values are "
+        "assigned (DDGR_model._updatePK; located with numpy seterr(divide='raise')); no effect on loaded values"),
+}
 
 
 def classify_warning(msg: str) -> tuple[str, str]:
@@ -215,6 +244,114 @@ def classify_warning(msg: str) -> tuple[str, str]:
 
 def _normalise(msg: str) -> str:
     return re.sub(r"\d+(\.\d+)?", "#", msg)[:200]
+
+
+# ---------------------------------------------------------------------- clock coverage (G2)
+
+GAP_DAYS = 100.0  # interpolation across a gap wider than this is treated as uncovered
+
+
+def clock_coverage(toas, tol_s: float = 1e-9) -> tuple[list[dict], np.ndarray]:
+    """For every observatory of the leg and every clock file in its chain (as PINT loaded them):
+    TOAs before the first / after the last entry, TOAs inside an interpolation gap wider than
+    GAP_DAYS, and the size of the correction change across those regions (an error bound for
+    PINT's clamping / interpolation). The file's own text is re-read to catch entries PINT's
+    reader drops (e.g. an explicit "0 0" line at MJD 0)."""
+    import pint.observatory as po
+
+    out = []
+    mjd = np.asarray(toas.get_mjds().value, dtype=np.float64)
+    obs = np.asarray(toas.get_obss())
+    bad = np.zeros(len(mjd), dtype=bool)  # TOAs without a clock correction good to tol_s
+    for name in sorted(set(obs.tolist())):
+        o = po.get_observatory(name)
+        sel = np.flatnonzero(obs == name)
+        m = mjd[sel]
+        for c in getattr(o, "_clock", None) or []:
+            inner = getattr(c, "clock_file", c)
+            t = np.asarray(inner.time.mjd, dtype=np.float64)
+            v = np.asarray(inner.clock.to_value("s"), dtype=np.float64)
+            if len(t) == 0:
+                continue
+            fname = Path(getattr(c, "filename", "") or getattr(inner, "filename", "")).name
+            raw = []  # (mjd, value) as tempo2 reads a tempo2-format file, sentinels included
+            try:
+                if str(inner.filename).endswith(".clk"):
+                    for ln in Path(inner.filename).read_text().splitlines():
+                        tok = ln.split()
+                        if len(tok) >= 2 and not ln.lstrip().startswith("#") and _is_float(tok[0]) and _is_float(tok[1]):
+                            raw.append((float(tok[0]), float(tok[1])))
+            except Exception:  # noqa: BLE001
+                raw = []
+            rt = np.array([a for a, _ in raw]) if raw else t
+            rv = np.array([b for _, b in raw]) if raw else v
+            first, last = float(min(rt.min(), t[0])), float(max(rt.max(), t[-1]))
+            # regions where PINT's parsed table and the file's own entries (tempo2) disagree: PINT
+            # clamps beyond its first/last parsed entry, tempo2 interpolates to the dropped entries
+            region_dv = []
+            if rt.max() > t[-1]:
+                region_dv.append((t[-1], rt.max(), float(np.max(np.abs(rv[rt > t[-1]] - v[-1])))))
+            if rt.min() < t[0]:
+                region_dv.append((rt.min(), t[0], float(np.max(np.abs(rv[rt < t[0]] - v[0])))))
+            n_dropped_region = 0
+            dv_dropped = 0.0
+            for lo, hi, dv in region_dv:
+                inr = (m > lo) & (m < hi)
+                k = int(np.sum(inr))
+                if k and dv > tol_s:
+                    n_dropped_region += k
+                    dv_dropped = max(dv_dropped, dv)
+                    bad[sel[inr]] = True
+            before, after = m < first, m > last
+            gi = np.searchsorted(t, m)
+            inside = (gi > 0) & (gi < len(t))
+            wide = np.zeros_like(m, dtype=bool)
+            dv_gap = 0.0
+            if inside.any():
+                ii = np.flatnonzero(inside)
+                lo, hi = gi[ii] - 1, gi[ii]
+                dv = np.abs(v[hi] - v[lo])
+                w = ((t[hi] - t[lo]) > GAP_DAYS) & (dv > 1e-9)
+                wide[ii[w]] = True
+                bad[sel[wide]] = True
+                if w.any():
+                    dv_gap = float(np.max(dv[w]))
+            slope = float(abs(v[-1] - v[-2]) / max(t[-1] - t[-2], 1e-9)) if len(t) > 1 else 0.0
+            extrap_bound = float(slope * max(0.0, float(m.max() - last))) if after.any() else 0.0
+            if after.any():
+                bad[sel[after & (slope * (m - last) >= tol_s)]] = True
+            bad[sel[before]] = True
+            out.append({"observatory": name, "file": fname, "n_toa": len(m), "file_mjd": [first, last],
+                        "pint_mjd": [float(t[0]), float(t[-1])], "n_before": int(before.sum()),
+                        "n_after": int(after.sum()), "days_after": float(max(0.0, m.max() - last)),
+                        "n_in_wide_gap": int(wide.sum()), "max_dclock_across_gap_s": dv_gap,
+                        "extrapolation_bound_s": extrap_bound, "n_pint_vs_file_region": n_dropped_region,
+                        "dclock_pint_vs_file_s": dv_dropped})
+    return out, bad
+
+
+def coverage_verdict(rows: list[dict], tol_s: float = 1e-9) -> tuple[bool, list[str]]:
+    """Clock coverage is explained if no TOA lies in a wide gap, TOAs before the first entry are
+    covered by an explicit zero entry (or there are none), and the extrapolation bound after the
+    last entry is below ``tol_s``."""
+    notes, ok = [], True
+    for r in rows:
+        if r["n_in_wide_gap"]:
+            ok = False
+            notes.append(f"{r['file']}: {r['n_in_wide_gap']} TOAs interpolated across a >{GAP_DAYS:g}-d gap "
+                         f"(correction changes by {r['max_dclock_across_gap_s']:.3g} s)")
+        if r.get("n_pint_vs_file_region"):
+            ok = False
+            notes.append(f"{r['file']}: {r['n_pint_vs_file_region']} TOAs where PINT clamps but the file's own "
+                         f"entries differ by up to {r['dclock_pint_vs_file_s']:.3g} s")
+        if r["n_before"]:
+            ok = False
+            notes.append(f"{r['file']}: {r['n_before']} TOAs before the first entry")
+        if r["n_after"] and r["extrapolation_bound_s"] >= tol_s:
+            ok = False
+            notes.append(f"{r['file']}: {r['n_after']} TOAs up to {r['days_after']:.2f} d after the last entry "
+                         f"(bound {r['extrapolation_bound_s']:.2g} s)")
+    return ok, notes
 
 
 # ---------------------------------------------------------------------- G1
@@ -256,8 +393,8 @@ def toa_identity(toas, recs: list[TimRecord]) -> dict:
         if r.obs not in obs_cache:
             obs_cache[r.obs] = get_observatory(r.obs.upper()).name
         n_obs_bad += obs_cache[r.obs] != obs[i]
-        exp = {k.lstrip("-"): v for k, v in canonical_flags(r) if k not in ("-to",)}
-        got = {k: str(v) for k, v in flags[i].items() if k not in ignore}
+        exp = {k.lstrip("-").lower(): v for k, v in canonical_flags(r) if k not in ("-to",)}
+        got = {k.lower(): str(v) for k, v in flags[i].items() if k not in ignore}
         padd = float(exp.pop("padd", 0.0) or 0.0)
         exp.pop("pn", None)
         if got != exp:
@@ -295,15 +432,25 @@ class LegResult:
     error: str = ""
 
 
-def prepare_leg(dataset: str, label: str, par: Path, tim: Path, clock: ClockProfile, outdir: Path,
-                par_text: str | None = None) -> dict:
-    """Canonical par + flat tim on disk; returns provenance (no PINT involved)."""
-    fixes: Counter = Counter()
+def canonical_leg_texts(par: Path, tim: Path, fixes: Counter):
+    """(tempo2-semantics records with indicator flags, canonical par text, multi-valued flags)."""
     recs, rep = read_tim(tim)
-    src_par = par.read_text(errors="replace") if par_text is None else par_text
-    ptxt = canonical_par(src_par, fixes)
+    ptxt = canonical_par(par.read_text(errors="replace"), fixes)
     multi = multivalued_mask_flags(recs, ptxt)
     recs, ptxt = apply_indicator_flags(recs, ptxt, multi, fixes)
+    return recs, rep, ptxt, multi
+
+
+def prepare_leg(dataset: str, label: str, par: Path, tim: Path, clock: ClockProfile, outdir: Path,
+                par_text: str | None = None) -> dict:
+    """Canonical par + flat tim on disk; returns provenance (no PINT involved). ``par_text``: a
+    final par (e.g. the option-C rewrite of the canonical par) used instead of the canonical one;
+    the tim side (records, indicator flags) is always derived from the leg's own files."""
+    fixes: Counter = Counter()
+    recs, rep, ptxt, multi = canonical_leg_texts(par, tim, fixes)
+    if par_text is not None:
+        ptxt = par_text
+        fixes["par:replaced-by-final-par (option C rewrite)"] += 1
     ptxt, clock_changes = clock.apply_to_par(ptxt)
     outdir.mkdir(parents=True, exist_ok=True)
     cpar = outdir / f"{label}.par"
@@ -321,7 +468,8 @@ def prepare_leg(dataset: str, label: str, par: Path, tim: Path, clock: ClockProf
 
 def load_leg(dataset: str, label: str, *, clock: ClockProfile | None = None, evaluator: EvaluatorProfile | None = None,
              par_text: str | None = None, pin: bool = False, outdir: Path | None = None, identity: bool = True,
-             tag: str = "published") -> LegResult:
+             tag: str = "published", clock_policy: str = "exclude-uncovered",
+             site_profile: str | None = "default") -> LegResult:
     """Ingest one leg (see module docstring). Call in a fresh process per clock profile."""
     import warnings
 
@@ -329,14 +477,16 @@ def load_leg(dataset: str, label: str, *, clock: ClockProfile | None = None, eva
 
     pta = pta_of(dataset)
     par, tim = leg_files(dataset)[label]
-    clock = clock or published_profile(pta)
+    clock = clock or published_profile(pta, dataset)
     outdir = outdir or (WORK_DIR / tag / dataset / label)
     t0 = time.time()
     prov = prepare_leg(dataset, label, par, tim, clock, outdir, par_text)
     recs = prov.pop("_recs")
     Path(prov["canon_par"]).read_text()
-    evaluator = evaluator or evaluator_for_par(par.read_text(errors="replace") if par_text is None else par_text)
+    evaluator = evaluator or evaluator_for_par(par.read_text(errors="replace"))
     clock.activate()
+    site_profile = SITE_PROFILE_OF_PTA[pta] if site_profile == "default" else site_profile
+    site_changes = apply_site_profile(site_profile, [r.obs for r in recs])
 
     import astropy.units as u
     import pint
@@ -351,7 +501,8 @@ def load_leg(dataset: str, label: str, *, clock: ClockProfile | None = None, eva
     logger.add(lambda m: msgs.append(f"{m.record['level'].name}: {m.record['message']}"), level="WARNING")
     meta = {**prov, "profile": {"clock_profile": clock.name, "clock": clock.clock, "ephem": clock.ephem,
                                 "evaluator": evaluator.name, "ell1h_shapiro": evaluator.ell1h_shapiro},
-            "pint_version": pint.__version__, "ingest_version": INGEST_VERSION, "tag": tag}
+            "pint_version": pint.__version__, "ingest_version": INGEST_VERSION, "tag": tag,
+            "site_profile": site_profile, "site_changes": site_changes}
     try:
         with warnings.catch_warnings(record=True) as wl:
             warnings.simplefilter("always")
@@ -361,14 +512,31 @@ def load_leg(dataset: str, label: str, *, clock: ClockProfile | None = None, eva
                 for pname in FROZEN_PARAMS[model.PSR.value]:
                     getattr(model, pname).frozen = True
                     frozen.append(pname)
+            if identity:
+                meta.update(toa_identity(toas, recs))
+            # clock coverage audit (G2); TOAs without a clock correction good to 1 ns are removed
+            # explicitly (policy "exclude-uncovered", recorded) or kept (policy "keep")
+            meta["clock_files"] = check_used_clock_files(clock, pin=pin)
+            meta["clock_coverage"], bad = clock_coverage(toas)
+            meta["clock_coverage_ok"], meta["clock_coverage_notes"] = coverage_verdict(meta["clock_coverage"])
+            meta["clock_policy"] = clock_policy
+            meta["clock_excluded"] = []
+            if bad.any() and clock_policy == "exclude-uncovered":
+                nm = [str(fl.get("name", "")) for fl in toas.get_flags()]
+                mj = toas.get_mjds().value
+                meta["clock_excluded"] = [{"toa": nm[i], "mjd": float(mj[i]), "obs": str(toas.get_obss()[i])}
+                                          for i in np.flatnonzero(bad)]
+                toas = toas[~bad]
+                meta["clock_coverage_ok"] = True
+                meta["clock_coverage_notes"] = [f"{int(bad.sum())} uncovered TOAs excluded: "] + meta["clock_coverage_notes"]
+            elif clock_policy not in ("keep", "exclude-uncovered"):
+                raise ValueError(f"unknown clock policy {clock_policy!r}")
             # free mask parameters that select no TOA: tempo2 refuses to fit them -> frozen
             for pname in list(model.free_params):
                 prm = getattr(model, pname)
                 if hasattr(prm, "select_toa_mask") and len(prm.select_toa_mask(toas)) == 0:
                     prm.frozen = True
                     frozen.append(pname)
-            if identity:
-                meta.update(toa_identity(toas, recs))
             res = Residuals(toas, model)
             resid = np.asarray(res.time_resids.to_value(u.s), dtype=np.float64)
             M, fitpars, _units = model.designmatrix(toas)
@@ -394,7 +562,6 @@ def load_leg(dataset: str, label: str, *, clock: ClockProfile | None = None, eva
                 pos_ent = enterprise_position(model, model.PSR.value)
             except Exception:  # noqa: BLE001
                 pos_ent = None
-            meta["clock_files"] = check_used_clock_files(clock, pin=pin)
             meta.update(
                 psr_name=str(model.PSR.value), units_in=str(model.UNITS.value), binary=str(model.BINARY.value or ""),
                 clock_used=str(model.CLOCK.value), ephem_used=str(model.EPHEM.value), ntoa=int(toas.ntoas),
@@ -408,6 +575,13 @@ def load_leg(dataset: str, label: str, *, clock: ClockProfile | None = None, eva
         meta["warnings"] = _classified(msgs)
         return LegResult(dataset, pta, label, False, None, meta, meta["error"])
     meta["warnings"] = _classified(msgs + wmsgs)
+    for w in meta["warnings"]:
+        for (ds, lab, rx), (cls, expl) in LEG_WARNING_RESOLUTIONS.items():
+            if ds == dataset and lab == label and re.search(rx, w["message"]):
+                w["class"], w["explanation"] = cls, expl
+    for w in meta["warnings"]:  # clock-coverage warnings are explained iff the coverage audit passes
+        if w["class"] == "clock-coverage!" and meta.get("clock_coverage_ok"):
+            w["class"], w["explanation"] = "clock-coverage-audited", "coverage audit passed (no TOA without a correction good to 1 ns, after the explicit exclusions listed in clock_excluded)"
     meta["g2_unexplained"] = sorted({w["class"] for w in meta["warnings"] if w["class"].endswith("!")})
     meta["seconds"] = round(time.time() - t0, 1)
     isort = np.argsort(btoas, kind="mergesort")
@@ -422,12 +596,13 @@ def load_leg(dataset: str, label: str, *, clock: ClockProfile | None = None, eva
 
 
 def _classified(msgs: list[str]) -> list[dict]:
-    c = Counter(_normalise(m) for m in msgs)
-    out = []
-    for m, n in sorted(c.items()):
-        cls, expl = classify_warning(m)
-        out.append({"message": m, "count": n, "class": cls, "explanation": expl})
-    return out
+    c = Counter()
+    cls_of = {}
+    for m in msgs:
+        key = _normalise(m)
+        c[key] += 1
+        cls_of.setdefault(key, classify_warning(m))
+    return [{"message": m, "count": n, "class": cls_of[m][0], "explanation": cls_of[m][1]} for m, n in sorted(c.items())]
 
 
 def leg_cache_path(tag: str, dataset: str, label: str) -> Path:

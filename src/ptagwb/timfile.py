@@ -71,8 +71,9 @@ def _sat_prefix(tok: str) -> str | None:
     return m.group(0).strip() if m else None
 
 
-def tempo2_flags(line: str) -> list[tuple[str, str]]:
-    """tempo2's flag scan of a TOA line (readTimfile.C L274-327), duplicates kept in order."""
+def tempo2_flags(line: str, with_pos: bool = False) -> list:
+    """tempo2's flag scan of a TOA line (readTimfile.C L274-327), duplicates kept in order.
+    With ``with_pos``: (flag_id, value, start of id, end of value)."""
     out = []
     n = len(line)
     i = 0
@@ -87,11 +88,22 @@ def tempo2_flags(line: str) -> list[tuple[str, str]]:
                 k += 1
             e = line.find(" ", k)
             val = line[k:] if e < 0 else line[k:e]
-            out.append((fid, val))
+            out.append((fid, val, i, n if e < 0 else e) if with_pos else (fid, val))
             i = (n if e < 0 else e)
             continue
         i += 1
     return out
+
+
+def _fields_end(line: str, nfields: int = 5) -> int:
+    """Character index just after the ``nfields``-th whitespace-separated token."""
+    pos, count = 0, 0
+    for m in re.finditer(r"\S+", line):
+        count += 1
+        pos = m.end()
+        if count == nfields:
+            break
+    return pos
 
 
 @dataclass
@@ -103,8 +115,9 @@ class TimRecord:
     sat: str  # MJD string as in the file (validated numeric prefix)
     err: float  # us
     obs: str
-    flags: list  # [(flag_id, value)] as tempo2 parses them
+    flags: list  # [(flag_id, value)] as tempo2 parses them (after the five TOA fields)
     time_offset: float  # TIME offset in effect [s]
+    artifact_flags: list = field(default_factory=list)  # tempo2 "flags" found inside the TOA fields
 
     def flag_values(self, fid: str) -> list[str]:
         return [v for k, v in self.flags if k == fid]
@@ -184,14 +197,21 @@ def read_tim(path: Path | str, *, _report: TimReport | None = None, _seen: tuple
             sat = _sat_prefix(toks[2])
             if sat is None or sat != toks[2]:
                 raise TimSemanticsError(f"{path}:{lineno}: SAT {toks[2]!r} is not a plain decimal MJD")
-            flags = tempo2_flags(line)
+            fend = _fields_end(line)
+            allf = tempo2_flags(line, with_pos=True)
+            flags = [(k, v) for k, v, a, _ in allf if a >= fend]
+            artifacts = [(k, v) for k, v, a, _ in allf if a < fend]
+            if any(a < fend < b for _, _, a, b in allf):
+                raise TimSemanticsError(f"{path}:{lineno}: a '-' inside the TOA fields swallows a real flag (tempo2)")
+            if artifacts:
+                rep.counts["tempo2 flag artifact inside TOA fields (e.g. '-.cal' in an archive name; dropped)"] += 1
             for fid in PHYSICS_FLAGS:
                 if sum(k == fid for k, _ in flags) > 1:
                     raise TimSemanticsError(f"{path}:{lineno}: duplicated physics flag {fid}")
             if raw != raw.lstrip():
                 rep.counts["toa with leading blanks"] += 1
             recs.append(TimRecord(str(path), lineno, toks[0], _strtod(toks[1]), sat, _strtod(toks[3]), toks[4],
-                                  flags, time_off))
+                                  flags, time_off, artifacts))
             continue
         key = toks[0].upper()
         if skip:
@@ -259,16 +279,23 @@ def _finish(recs, rep):
 def canonical_flags(rec: TimRecord) -> list[tuple[str, str]]:
     """Flags written to the flat file: physics offsets folded into one ``-to``, duplicates once
     (first value kept; conflicting duplicates of selection flags refused)."""
-    out, seen = [], {}
+    out, seen, lower = [], {}, {}
     for k, v in rec.flags:
         if k in ("-to", "-addsat"):
+            continue
+        if k == "-format" and v == "Tempo2":  # NG15: PINT's own format tag, a no-op
             continue
         if k in seen:
             if seen[k] != v and k in SELECTION_FLAGS:
                 raise TimSemanticsError(f"{rec.file}:{rec.lineno}: conflicting duplicate selection flag {k}")
             continue
-        if k.lstrip("-") in ("error", "freq", "scale", "MJD", "flags", "obs", "name", "clkcorr", "format"):
-            raise TimSemanticsError(f"{rec.file}:{rec.lineno}: flag {k} collides with a PINT TOA field")
+        key = k.lstrip("-")
+        if key in ("error", "freq", "scale", "MJD", "flags", "obs", "name", "clkcorr", "format") or not re.match(
+                r"[a-zA-Z_]", key):
+            raise TimSemanticsError(f"{rec.file}:{rec.lineno}: flag {k} cannot be represented in PINT")
+        if key.lower() in lower and lower[key.lower()] != k:  # PINT flag keys are case-insensitive
+            raise TimSemanticsError(f"{rec.file}:{rec.lineno}: flags {k} and {lower[key.lower()]} collide in PINT")
+        lower[key.lower()] = k
         seen[k] = v
         out.append((k, v))
     off = rec.offset_s

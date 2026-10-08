@@ -1,0 +1,13 @@
+{
+ "profile": "inpta-dr1-published-v1",
+ "version": 1,
+ "clock": null,
+ "ephem": "DE440",
+ "overrides": [],
+ "note": "InPTA DR1 (YA input): par clock kept",
+ "files": {
+  "gps2utc.clk": "9a775ba0bbf851947e58fffb5d5c30f7baf5cae6668227d4c81261760d3b9314",
+  "tai2tt_bipm2019.clk": "3d1e27041f0c7a6c7aa79d2d6d5b90235ac2e73d436defcfc6e8d6fcdd78f512",
+  "tai2tt_bipm2023.clk": "f99dc4c467568d0fb01d6b076af36ed5add935e2593adf60e33611ebdd5f363d"
+ }
+}

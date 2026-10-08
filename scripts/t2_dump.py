@@ -26,7 +26,11 @@ def main():
     sec = (st - day) * np.longdouble(86400)
     names = list(psr.flags())
     fl = {f: np.asarray(psr.flagvals(f)).astype(str).tolist() for f in names}
+    bat = np.asarray(psr.toas(), dtype=np.longdouble)
+    bday = np.floor(bat)
     res = {
+        "bat_day": bday.astype(np.int64),
+        "bat_sec": ((bat - bday) * np.longdouble(86400)).astype(np.float64),
         "stoas_day": day.astype(np.int64),
         "stoas_sec": sec.astype(np.float64),
         "freqs": np.asarray(psr.freqs, dtype=np.float64),

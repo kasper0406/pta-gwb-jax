@@ -250,7 +250,9 @@ EPTA_NCY = "epta_dr2_gitlab/extracted/epta-dr2-*/EPTA-DR2/clockfiles/ncyobs2obsp
 PPTA_PKS = "ppta_dr3_github/extracted/PPTA-DR3-*/clockfiles/pks2gps.clk"
 
 
-def published_profile(pta: str) -> ClockProfile:
+def published_profile(pta: str, dataset: str | None = None) -> ClockProfile:
+    if dataset == "inpta_dr1":
+        return ClockProfile("inpta-dr1-published-v1", None, "DE440", (), "InPTA DR1 (YA input): par clock kept")
     if pta == "NG15":
         return ClockProfile("ng15-published-v1", "TT(BIPM2019)", "DE440", _ng15_clock_files(),
                             "NG15 v2.1.0 release clock files (as M1/M2)")
@@ -268,8 +270,46 @@ def published_profile(pta: str) -> ClockProfile:
     raise KeyError(pta)
 
 
+# option C (YA-v3 / MetaPulsar 0.9.3): every leg's par carries the reference leg's CLOCK/EPHEM
+# after the consistent rewrite, so the profile keeps the par values; observatory files pinned
+YA_V3_CLOCKS = ClockProfile("ya-v3-clocks-v1", None, None, (_glob1(EPTA_NCY), _glob1(PPTA_PKS)),
+                            "option C: reference leg's CLOCK/EPHEM (MetaPulsar 0.9.3); release observatory files pinned")
 COMBINED = ClockProfile("combined-v1", "TT(BIPM2023)", "DE440", (_glob1(EPTA_NCY), _glob1(PPTA_PKS)),
                         "one realisation and ephemeris for all legs; release observatory files pinned")
+
+
+# Observatory coordinates: tempo2-native PTAs fitted their published models with tempo2's site
+# coordinates; PINT's differ for some sites (GMRT by ~750 m, Effelsberg by 2.8 m, Jodrell by 0.5 m:
+# found by gate G3). The site profile of a leg sets the coordinates PINT uses for its
+# observatories (``apply_site_profile``); NG15 legs keep PINT's own (PINT-native release).
+SITES_DIR = REPO_ROOT / "configs" / "m3" / "sites"
+SITE_PROFILE_OF_PTA = {"NG15": None, "EPTA": "tempo2-2026.04.1", "PPTA": "tempo2-2026.04.1",
+                       "InPTA": "tempo2-2026.04.1", "MPTA": "tempo2-2026.04.1"}
+
+
+def apply_site_profile(profile: str | None, codes) -> list[dict]:
+    """Set PINT's observatory positions for the given tim observatory codes from a pinned site
+    table (call before any TOA is loaded in this process). Returns the changes."""
+    if profile is None:
+        return []
+    import astropy.units as u
+    import numpy as np
+    from astropy.coordinates import EarthLocation
+    from pint.observatory import get_observatory
+
+    table = json.loads((SITES_DIR / f"{profile}.json").read_text())["sites"]
+    out = []
+    for code in sorted(set(codes)):
+        key = code.lower()
+        if key not in table:
+            raise KeyError(f"site profile {profile}: no coordinates for observatory code {code!r}")
+        o = get_observatory(key)
+        old = np.array([v.to_value(u.m) for v in o.location.geocentric])
+        new = np.array(table[key]["itrf_xyz_m"], dtype=float)
+        o.location = EarthLocation.from_geocentric(*new, unit=u.m)
+        out.append({"code": code, "pint_observatory": o.name, "pint_xyz_m": old.tolist(), "profile_xyz_m": new.tolist(),
+                    "shift_m": float(np.linalg.norm(new - old))})
+    return out
 
 
 @dataclass
