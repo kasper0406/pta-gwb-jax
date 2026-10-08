@@ -209,3 +209,17 @@ def test_run_nuts_fixed_step_size(tmp_path, monkeypatch):
     run_nuts(cfg, post, log=lambda s: None)
     r = np.load(tmp_path / "fixed" / "samples.npz")
     np.testing.assert_allclose(r["step_size"], 0.123)
+
+
+def test_run_nuts_sampling_cap(tmp_path, monkeypatch):
+    from ptagwb import sampling
+    from ptagwb.sampling import RunConfig, load_run, run_nuts
+
+    monkeypatch.setattr(sampling, "RUNS_DIR", tmp_path)
+    tr = _box(2)
+    post = Posterior.generic(tr, lambda x: -0.5 * jnp.sum(x**2))
+    cfg = RunConfig(name="cap", model={}, num_chains=2, num_warmup=5, num_samples=40, block=10, dense_mass=False,
+                    max_sampling_seconds=1e-9)
+    run_nuts(cfg, post, log=lambda s: None)
+    r = load_run("cap")
+    assert r["x"].shape[1] == 10 and r["meta"]["stopped_by_cap"]["draws"] == 10 and "finished" in r["meta"]

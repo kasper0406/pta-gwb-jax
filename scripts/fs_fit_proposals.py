@@ -18,10 +18,10 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from m2_common import ROOT  # noqa: E402
+from m2_common import ROOT
 
-from ptagwb.hybrid import fit_proposals  # noqa: E402
-from ptagwb.sampling import git_state, load_run  # noqa: E402
+from ptagwb.hybrid import fit_proposals
+from ptagwb.sampling import git_state, load_run
 
 DEFAULT_PAIRS = "J0610-2100,J2234+0611,J0437-4715,J1853+1303,J0645+5158,J1713+0747"
 
