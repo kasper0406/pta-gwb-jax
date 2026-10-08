@@ -1,0 +1,27 @@
+{
+ "name": "hd_fs30_v2_pilotB",
+ "model": {
+  "orf": "hd",
+  "common": "freespec",
+  "n_common": 30,
+  "position": "enterprise",
+  "grad_precision": "mixed"
+ },
+ "sampler": "nuts",
+ "num_chains": 8,
+ "num_warmup": 75,
+ "num_samples": 100,
+ "block": 25,
+ "seed": 31,
+ "init": "prior",
+ "init_radius": 4.0,
+ "metric": "run:hd_fs30",
+ "dense_mass": false,
+ "adapt_mass_matrix": true,
+ "target_accept": 0.8,
+ "max_tree_depth": 10,
+ "chain_method": "vectorized",
+ "notes": "PILOT B (docs/FS_PILOT.md), launched after pilot A (hd_fs30_v2_pilot, the exact v2 recipe) was aborted under its pre-set rule: with the unit initial metric, iterations 10-12+ of warmup each hit tree depth 10 for at least one chain (1023 steps, ~164 s per iteration), projecting ~4 h for its 100-iteration warmup (v2's own schedule keeps the unit metric for its first 100 iterations). Pilot B keeps the v2 model, the independent overdispersed init (z ~ U(-4,4), seed 31, nothing from other runs), 8 vectorised chains, diagonal windowed adaptation, target_accept and tree depth; the ONLY sampler change is the initial diagonal inverse metric = diagonal of the pooled z-covariance of the M2 run hd_fs30 (efficiency only; it cannot bias the stationary distribution; diagonal adaptation continues from it). Purpose: measure post-warmup transition rates between the low-power and signal regions, ESS per gradient and IRN funnel behaviour at v2-like settings. numpyro schedule for 75: 11 initial buffer, one window 11-67, 7 terminal. Abort rule (fixed before launch): abort if warmup projects > 1.1 h; after warmup stop at the last 25-draw checkpoint ending before 2.5 h of total pilot GPU time (A + B), i.e. 12:53 UTC on 2026-10-08.",
+ "likelihood_impl": "fast",
+ "progress_bar": true
+}
