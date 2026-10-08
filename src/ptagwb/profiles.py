@@ -51,17 +51,21 @@ def sha256(path: Path) -> str:
 
 @dataclass(frozen=True)
 class EvaluatorProfile:
+    """``tempo2_nharms``: evaluate ELL1H H3+H4 with tempo2's harmonic count (NHARMS from the par,
+    else 4) instead of PINT's forced >= 7 (docs/M3A_VALIDATION.md Sec. 12; nanograv/PINT#2046)."""
+
     name: str
     ell1h_shapiro: str = "full"
     allow_T2: bool = True
     allow_tcb: bool = True
+    tempo2_nharms: bool = False
 
     def pint_kwargs(self) -> dict:
         return {"allow_T2": self.allow_T2, "allow_tcb": self.allow_tcb, "ell1h_shapiro": self.ell1h_shapiro}
 
 
 PINT_NATIVE = EvaluatorProfile("pint-native", ell1h_shapiro="full")
-TEMPO2_PAR = EvaluatorProfile("tempo2-par", ell1h_shapiro="absorbed")
+TEMPO2_PAR = EvaluatorProfile("tempo2-par", ell1h_shapiro="absorbed", tempo2_nharms=True)
 
 
 def evaluator_for_par(par_text: str) -> EvaluatorProfile:

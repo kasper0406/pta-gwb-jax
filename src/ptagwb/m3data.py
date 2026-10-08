@@ -92,7 +92,7 @@ def load_json_config(name: str) -> dict:
 
 
 def quarantine() -> dict:
-    """(dataset, psr) -> reason, from configs/m3/quarantine.json."""
+    """(dataset, psr) -> reason, from configs/m3/quarantine.json (lifted entries excluded)."""
     q = load_json_config("quarantine.json")
     return {(e["dataset"], e["psr"]): e for e in q["legs"]}
 

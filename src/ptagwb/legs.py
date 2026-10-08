@@ -508,6 +508,12 @@ def load_leg(dataset: str, label: str, *, clock: ClockProfile | None = None, eva
         with warnings.catch_warnings(record=True) as wl:
             warnings.simplefilter("always")
             model, toas = get_model_and_toas(prov["canon_par"], prov["canon_tim"], planets=True, **evaluator.pint_kwargs())
+            if nharms is None and evaluator.tempo2_nharms and "NHARMS" in model.params \
+                    and getattr(model, "H4", None) is not None and model.H4.quantity is not None:
+                # tempo2 convention for ELL1H H3+H4: NHARMS from the par, else 4 (PINT forces >= 7)
+                given = [ln.split()[1] for ln in Path(prov["canon_par"]).read_text().splitlines()
+                         if ln.split()[:1] in (["NHARMS"], ["NHARM"])]
+                nharms = int(float(given[0])) if given else 4
             if nharms is not None:
                 # ELL1H H3+H4 harmonic count. PINT's setup forces NHARMS >= 7 when H4 is given;
                 # tempo2 uses 4 (harmonics 3..NHARMS). Setting the value after setup makes the
