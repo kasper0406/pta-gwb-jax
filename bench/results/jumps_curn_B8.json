@@ -1,0 +1,22 @@
+{
+ "env": {
+  "git_sha": "cd720ddecb9ed233c9b08349628f4be180bf5eea",
+  "dirty": true,
+  "dirty_hash": "f2b911efd6774938",
+  "jax": "0.11.2",
+  "backend": "gpu",
+  "devices": [
+   "cuda:0"
+  ],
+  "XLA_FLAGS": "--xla_cpu_experimental_ynn_fusion_type=",
+  "host": "kworkstation",
+  "time": "2026-10-08T12:52:47"
+ },
+ "model": "curn",
+ "B": 8,
+ "n_blocks": 36,
+ "value_grad_ms": 2.753335051238537,
+ "value_only_ms": 2.3435470648109913,
+ "sweep_plus_refresh_ms": 89.29360331967473,
+ "accept_rate_at_posterior_draws": 0.7083333333333334
+}

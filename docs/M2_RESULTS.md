@@ -490,41 +490,79 @@ Pilots (CURN diagonal vs dense metric, HD step-size-only warmup) are described i
      67-pulsar list; unique names; all draws finite; all 30 bins present; if a comparison is
      requested, the reference must contain all 30 bins with finite draws. A missing run or
      reference is also exit 2.
-   * **Convergence** PASS/FAIL: every one of the 164 parameters (incl. all IRN) has
+   * **Region relevance** (predeclared; the gate fails closed): each bin has a "low" region
+     log10 rho < -10 and a "high" region log10 rho > -8; a chain's region state is kept while it
+     is in between (hysteresis). An entry into R is a completed transition from the other region
+     into R, an exit the reverse; a sojourn is a maximal run of draws in state R. Relevance is
+     either declared (`relevant_regions`, every bin named; invalid -> exit 2) or derived from the
+     reference: R is relevant if the released core puts >= 0.5% of its draws there. The CLI
+     derives it from the released core also in convergence-only mode (`--relevance-ref`, default
+     hd_fs30). With neither a declaration nor a reference, convergence is INCONCLUSIVE, never PASS.
+     For the released core 58 of 60 bin-regions are relevant; f_2 (high only) and f_27 (low
+     only) have a single relevant region.
+   * **Convergence** PASS/FAIL/INCONCLUSIVE: every one of the 164 parameters (incl. all IRN) has
      rank-normalised split R-hat < 1.01 and bulk and tail ESS >= 400 (Vehtari et al. 2021
-     recommend >= 400 before R-hat and quantile MCSEs are trusted); every bin's occupancy
-     indicator 1[log10 rho < -9] has R-hat < 1.01 and ESS >= 400. An indicator with fewer than
-     10 draws in its minority class is "unavailable" (no R-hat/ESS/SE is invented for it) and
-     reported as a warning; the bin's parameter R-hat/ESS still apply.
-   * **Reproduction agreement** PASS/FAIL/UNAVAILABLE: per-bin occupancy vs the released core,
-     |z| <= 3.5 with conservative, never-zero SEs: the larger of a batch-means SE (our chains as
+     recommend >= 400 before R-hat and quantile MCSEs are trusted). Every bin's occupancy
+     1[log10 rho < -9] has conservative MCSE (see below) <= 0.01 and, when available, indicator
+     R-hat < 1.01 and ESS >= 400. An indicator with fewer than 10 draws in its minority class is
+     "unavailable" (no R-hat/ESS/SE is invented for it): a FAIL in a bin whose regions are
+     transport-assessed (next sentence), a warning otherwise. Every relevant region whose
+     counterpart is relevant too (or >= 0.5% occupied in our run) needs >= 10 pooled entries and >= 10 exits, >= 2 chains with an
+     entry or exit (not every chain: a 0.7% region need not be visited by each chain), no single
+     sojourn holding > 50% of its draws, an available indicator 1[x in R] (the occupancy itself;
+     transport is judged by the state-based events) with R-hat < 1.01 and ESS >= 400, and
+     occupancy MCSE <= 0.01. The MCSE bound is the scientific objective: Fig. 1a probability
+     masses to about +-2 percentage points at 95% (ESS 400 alone gives ~60% relative MCSE at
+     p = 0.007). A bin's single relevant region needs >= 2 chains visiting it and the MCSE bound.
+     Zero draws or zero events in a relevant region is a FAIL, "no exploration evidence".
+   * **Reproduction agreement** PASS/FAIL/INCONCLUSIVE/UNAVAILABLE: per bin the < -9 occupancy and
+     the occupancy of every relevant region vs the released core, z = diff / sqrt(SE_ours^2 +
+     SE_ref^2) with conservative, never-zero SEs: the larger of a batch-means SE (our chains as
      the units / 20 contiguous batches of the single reference sequence) and the binomial SE from
      the indicator ESS; for a near-constant ("unavailable") indicator, a sparse-count SE instead:
      Jeffreys-smoothed proportion p~ = (k + 1/2) / (n + 1) with the ESS capped at the number of
-     units, SE = sqrt(p~ (1 - p~) / units). A run whose chains barely visit a region therefore
-     cannot claim to disagree (or agree) precisely about its probability. UNAVAILABLE occurs only
-     when no reference is requested (convergence-only mode, `--released ''`), and the exit status
-     then depends on convergence alone. This is a conventional threshold, not a calibrated test. The reference's own
-     diagnostics are recorded: after its stored burn-in the released core has max split R-hat
-     1.0021 and min bulk / tail ESS 1069 / 1540 over the 30 bins. That comes from one stored
-     sequence, so it supports but does not certify the reference. A converged run that disagrees
-     with the reference is a finding about the model or reference, not a sampler failure.
+     units, SE = sqrt(p~ (1 - p~) / units). FAIL if any |z| > 3.5; otherwise INCONCLUSIVE if our
+     run's SE of any compared occupancy exceeds 0.01 (a broad error bar is no evidence of
+     reproduction); else PASS. The reference SE enters z only; comparisons where it exceeds 0.01
+     are flagged `reference_imprecise` (informational) and the maximum is reported.
+     UNAVAILABLE occurs only when no reference is requested (convergence-only mode,
+     `--released ''`), and the exit status then depends on convergence alone. A conventional
+     threshold, not a calibrated test. The reference's own diagnostics are recorded: after its
+     stored burn-in the released core has max split R-hat 1.0021 and min bulk / tail ESS 1069 /
+     1540 over the 30 bins, and its single sequence meets the region event criteria in every
+     two-region bin. That comes from one stored sequence, so it supports but does not certify
+     the reference. Its own occupancy SE is up to 0.0103 (f_1, high region; 0.0099 at f_5), which
+     limits how precisely agreement can be established: even a perfect run's combined SE there
+     is >= 0.010, so only differences of more than ~3.5 percentage points can be detected. A
+     converged run that disagrees with the reference is a finding about the model or reference,
+     not a sampler failure.
    * **Heuristic warnings** (informational only, never part of a verdict, not calibrated):
      tail-stability contrasts of the fraction of draws <= the pooled 5/50/95% quantiles (each
      chain vs the rest, first vs second half), and near-constant indicators.
    * Exit status: 0 only if convergence PASS and agreement PASS ("reproduction acceptance");
-     1 if either verdict fails (the output says which); 2 for missing or invalid input.
+     1 if either verdict is FAIL or INCONCLUSIVE (the output says which); 2 for missing or
+     invalid input, or a required reference that is unavailable.
 
-   On the existing hd_fs30 draws: convergence FAIL (59 parameters, 18 bins), agreement PASS
-   (with the sparse-count SE, f_3, where our chains never visit the low-power region, is no
-   longer counted as a precise disagreement), exit 1. `tests/test_freespec_gate.py` checks that a synthetic well-mixed bimodal set
-   passes both verdicts, that a stuck chain fails convergence, that a shifted reference fails only
-   agreement, and that the reviewer's invalid inputs (all IRN parameters removed, an empty or wrong
+   On the existing hd_fs30 draws: convergence FAIL (59 parameters, all 30 bins, 50 of 58 relevant
+   regions; 27 bins fail the < -9 MCSE bound with 4 x 250 draws), "no exploration evidence" at
+   f_3 low and high (zero draws below -10 where the released core has 0.7%, hence zero
+   transitions), agreement INCONCLUSIVE (no |z| > 3.5, 77 comparisons with our SE > 0.01; max
+   reference SE 0.0103), exit 1. Pilot E (`hd_fs30_v2_pilotE`, 8 x 50): convergence FAIL (163 parameters, 30 bins, 56
+   regions), no exploration evidence at f_3 and f_29 (low and high), agreement INCONCLUSIVE (85
+   comparisons with our SE > 0.01), exit 1. `tests/test_freespec_gate.py` checks that a synthetic well-mixed bimodal set
+   (8 x 3000 i.i.d. draws, relevance derived from the reference) passes both verdicts, that a stuck
+   chain fails convergence, that a shifted reference fails only agreement (relevance predeclared),
+   and that the reviewer's invalid inputs (all IRN parameters removed, an empty or wrong
    reference, a +inf draw, a missing bin, duplicate names, a non-finite threshold, orf = "curn" or
    missing, wrong spectrum or bin count, missing `x`, `model: null`, non-numeric draws, a failing
-   loader) give exit 2, and that one low-power draw per chain in a zero-occupancy bin gets a
-   non-zero SE and does not fail agreement. It also checks that the
-   derived schema equals the production run's names and that the existing hd_fs30 fails convergence. The config's
+   loader, invalid region criteria or relevance declarations) give exit 2, and that one low-power
+   draw per chain in a zero-occupancy bin gets a non-zero SE and does not fail agreement. The
+   reviewer's loophole (8 x 750 draws never entering a 0.7% region; parameter R-hat/ESS pass)
+   fails convergence with "no exploration evidence"; a region visited by one long sojourn of one
+   chain fails; undeclared relevance is INCONCLUSIVE (exit 1); agreement is INCONCLUSIVE when
+   our SE is too large (exit 1) but PASS, with the flag, when only the reference is imprecise;
+   entry / exit / sojourn counting is checked on a hand-made sequence. It also checks that the derived schema equals the production run's names and that
+   the existing hd_fs30 fails convergence, naming f_3 (gw_log10_rho_2) region low. The config's
    model / init / chain / draw fields are backend-independent (`"sampler": "nuts"` is the only
    backend implemented); if the performance study changes the sampler, keep those and the gate.
    **Expected cost** at the measured 32.6 ms per per-chain gradient: assuming ~260 leapfrog steps
