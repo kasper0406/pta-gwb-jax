@@ -36,6 +36,17 @@ LEGS = [("epta_dr2new", "J0751+1807"), ("epta_dr2new", "J1012+5307"), ("inpta_dr
 T_COMBINED_YR = 20.146212114645603  # selected-configuration array span (G8)
 
 
+def _region_shape(dl, grid):
+    """max |shape difference| restricted to the region where the published GWB posteriors live:
+    log10_A in [-15, -14], gamma in [3, 5.5] (relative to the grid point closest to (-14.5, 13/3))."""
+    import numpy as np
+
+    g = np.array(grid)
+    sel = (g[:, 0] >= -15.0) & (g[:, 0] <= -14.0) & (g[:, 1] >= 3.0) & (g[:, 1] <= 5.5)
+    i0 = int(np.argmin((g[:, 0] + 14.5) ** 2 + (g[:, 1] - 13 / 3) ** 2))
+    return float(np.max(np.abs(dl[sel] - dl[i0])))
+
+
 def main():
     import jax.numpy as jnp
     import m3a_oracles as O
@@ -100,6 +111,7 @@ def main():
         dl = np.array(dl)
         row["dlnL_at_grid_center"] = float(dl[len(dl) // 2])
         row["max_dlnL_shape_over_grid"] = float(np.max(np.abs(dl - dl[len(dl) // 2])))
+        row["max_dlnL_shape_posterior_region"] = _region_shape(dl, grid)
         out["legs"][f"{key[0]}/{key[1]}"] = row
         print(key, json.dumps(row), flush=True)
 
@@ -127,7 +139,8 @@ def main():
             dl.append(float(L7.logL(prm)) - float(L4.logL(prm)))
         dl = np.array(dl)
         res[orf] = {"dlnL_at_grid_center": float(dl[len(dl) // 2]),
-                    "max_dlnL_shape_over_grid": float(np.max(np.abs(dl - dl[len(dl) // 2])))}
+                    "max_dlnL_shape_over_grid": float(np.max(np.abs(dl - dl[len(dl) // 2]))),
+                    "max_dlnL_shape_posterior_region": _region_shape(dl, grid)}
     out["combined"] = res
     print("combined", json.dumps(res), flush=True)
     p = ROOT / "data" / "processed" / "m3a" / "results" / "nharms.json"

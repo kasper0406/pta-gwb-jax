@@ -85,7 +85,11 @@ def test_quarantine_inventory():
 
     q = quarantine()
     classes = Counter(v["class"] for v in q.values())
-    assert classes == {"signed-H3": 1, "ELL1H-H3H4-NHARMS": 10, "residual-excess": 4}
+    assert classes == {"signed-H3": 1, "residual-excess": 4}
+    from ptagwb.m3data import load_json_config
+
+    lifted = load_json_config("quarantine.json")["lifted"]
+    assert len(lifted) == 10 and {e["class"] for e in lifted} == {"ELL1H-H3H4-NHARMS"}
 
 
 def test_canonical_par_rules():

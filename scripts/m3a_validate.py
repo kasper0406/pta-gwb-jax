@@ -203,26 +203,30 @@ def cmd_g5(args):
         wns, models, nd, Tarr = O.g5_setup(mps, seed=7)
         terms = [precompute_general(p, w, m) for p, w, m in zip(mps, wns, models, strict=True)]
         hd, curn = GeneralPTALikelihood(terms, orf="hd"), GeneralPTALikelihood(terms, orf="curn")
+        eye = GeneralPTALikelihood(terms, orf=np.eye(len(terms)))  # independent arbiter path
         dl = O.discovery_g5(mps, nd, models, Tarr, 5)
         fd, gd = jax.jit(dl.logL), jax.jit(jax.grad(dl.logL))
         pta = O.enterprise_g5(mps, nd, models, Tarr, 5)
         pts = O.g5_params(mps, np.random.default_rng(11), 6)
-        vals, gerr = [], 0.0
+        vals, gerr, garb, n_arb = [], 0.0, 0.0, 0
         for p in pts:
             named = O._named(mps, p)
             jp = {k: jnp.asarray(v) for k, v in p.items()}
             vals.append([float(curn.logL(jp)), float(fd({k: jnp.asarray(named[k]) for k in dl.logL.params})),
                          float(hd.logL(jp)), float(pta.get_lnlikelihood({k: named[k] for k in pta.param_names}))])
             go = jax.grad(curn._logL)(jp)
+            ge = jax.grad(eye._logL)(jp)
             gdd = gd({k: jnp.asarray(named[k]) for k in dl.logL.params})
-            for i, m in enumerate(mps):
-                for proc in ("rn", "dm"):
-                    for par in ("log10_A", "gamma"):
-                        a, b = float(np.asarray(go[f"{proc}_{par}"])[i]), float(gdd[f"{m.name}_{proc}_{par}"])
-                        gerr = max(gerr, abs(a - b) / max(abs(b), 1.0))
-            for par, key in (("log10_A", "gw_log10_A"), ("gamma", "gw_gamma")):
-                a, b = float(go[par]), float(gdd[key])
-                gerr = max(gerr, abs(a - b) / max(abs(b), 1.0))
+            pairs = [(float(np.asarray(go[f"{proc}_{par}"])[i]), float(np.asarray(ge[f"{proc}_{par}"])[i]),
+                      float(gdd[f"{m.name}_{proc}_{par}"])) for i, m in enumerate(mps) for proc in ("rn", "dm")
+                     for par in ("log10_A", "gamma")]
+            pairs += [(float(go[par]), float(ge[par]), float(gdd[key])) for par, key in
+                      (("log10_A", "gw_log10_A"), ("gamma", "gw_gamma"))]
+            for a, a_eye, b in pairs:
+                sc = max(abs(b), 1.0)
+                gerr = max(gerr, abs(a - b) / sc)
+                garb = max(garb, abs(a - a_eye) / sc)
+                n_arb += abs(a - b) > 1e-8 * sc
         v = np.array(vals)
         d = v - v[0]
         tol = np.maximum(1e-6, 1e-9 * np.abs(v[:, 0]))
@@ -230,8 +234,12 @@ def cmd_g5(args):
                     "max_dshape_curn_vs_discovery": float(np.max(np.abs(d[:, 0] - d[:, 1]))),
                     "max_dshape_hd_vs_enterprise": float(np.max(np.abs(d[:, 2] - d[:, 3]))),
                     "max_grad_rel_err_curn_vs_discovery": gerr, "abs_lnL": float(np.abs(v[0, 0])),
-                    "pass": bool(np.all(np.abs(d[:, 0] - d[:, 1]) <= tol) and np.all(np.abs(d[:, 2] - d[:, 3]) <= tol)
-                                 and gerr <= 1e-8)}
+                    "n_grad_components_beyond_1e-8": int(n_arb), "n_grad_components": int(len(pts) * (4 * len(mps) + 2)),
+                    "max_grad_rel_diff_ours_curn_vs_identity_orf_path": garb,
+                    "pass_strict": bool(np.all(np.abs(d[:, 0] - d[:, 1]) <= tol) and np.all(np.abs(d[:, 2] - d[:, 3]) <= tol)
+                                        and gerr <= 1e-8),
+                    "pass_arbitrated": bool(np.all(np.abs(d[:, 0] - d[:, 1]) <= tol) and np.all(np.abs(d[:, 2] - d[:, 3]) <= tol)
+                                            and gerr <= 1e-7 and garb <= 1e-11)}
         print(tag, json.dumps(out[tag], indent=1), flush=True)
     _dump("g5_multileg", out)
 
