@@ -53,6 +53,26 @@ EPTA-first, the tempo2 evaluator, keeping E8 open and deferring option C / E7. C
     separately reviewed milestone. OS is optional. D1-D8 carry the reviewer's recommendations,
     marked as such (Sec. 8).
 
+**Revision 3 (after review of f47b66d, REQUEST_CHANGES; M3b-0 may start with these
+incorporated).**
+1. The **fingerprint gate** fails closed on any scatter beyond a frozen error budget. The budget
+   comes from storage precision (float64 values with six decimals, never cast to float32),
+   parameter rounding and evaluator error. There is no "investigate but keep the claim" band, and
+   grid discrimination requires the alternative to exceed that budget. Fingerprints are supporting
+   evidence, not a substitute for source identification. Model-dependent offsets c_HD - c_CURN are
+   covered by the cross-model oracle checks, not by the fingerprint (Sec. 4.5, 6.2).
+2. **PPTA product-space prior.** The logged offsets (-935.2116, -930.2006) are twice the
+   single-model ones, because `HyperModel.get_lnprior` sums the constituent models' priors. The
+   physical normalised prior is now distinguished from the sampler's logged density. The informed
+   prior rules reproduce the single-model volumes to -0.003872 nats; the earlier 2.541-nat claim
+   was our band-noise key-mapping bug (Sec. 2.2, 4.5, Appendix A).
+3. **Zero reference occupancy** uses a boundary-aware, dependence-adjusted upper bound; if
+   dependence prevents a defensible bound, support is "unresolved". This also applies to
+   event-epoch intervals (Sec. 5.3).
+4. **PSIS.** Acceptance is restricted to k-hat < 0.5 with the raw estimator. Above that the
+   existing fallback (HD run) applies. A validated PSIS uncertainty procedure would need a plan
+   revision (Sec. 5.4).
+
 Notation follows M3_PLAN: **leg** = one PTA's par + tim of one pulsar; **K_a** = sampled GP columns
 of pulsar a; **N_c** = number of common-process frequencies; **[UNCERTAIN]** = not pinned down from
 papers or released files. "Reference chain" = the PTA's released posterior samples.
@@ -74,22 +94,28 @@ Key decisions (Sec. 8 lists all human decision points):
   as the primary evaluator of non-NG legs**, as the published analyses did. PINT is kept as an
   independent secondary evaluator whose effect is reported per PTA. E8 stays open (re-scoped as a
   PINT-parity diagnostic). Reproduction acceptance needs an expanded T1 on the **complete roster**.
-* **Model identity (Sec. 4.5).** Two end-to-end checks come before any sampling:
-  * a **chain fingerprint**: our lnL at released draws minus the stored lnlike must be constant;
-  * a **prior-volume check**: our log prior must equal the stored lnpost - lnlike.
+* **Model identity (Sec. 4.5).** The primary evidence is source-model identification: an audited,
+  version-pinned manifest. Two checks support it and fail closed:
+  * a **chain fingerprint**: our lnL at released draws minus the stored lnlike must be constant
+    within a frozen error budget;
+  * a **prior-volume check**: our log prior must reproduce the logged lnpost - lnlike, including
+    the product-space sampler's logging convention.
 
-  A first CPU check already gives:
+  First CPU checks:
   * EPTA's prior volume matches noise log10 A U(-18, -10), gamma U(0, 7), the dip boxes, and a
-    **common log10 A U(-18, -10)**, to 1e-4 nats;
+    **common log10 A U(-18, -10)**, to ~1e-9 nats in the mean;
   * PPTA's fixed-gamma amplitude is U(-18, -14);
-  * the other PPTA informed-prior rules are not yet reproduced: a constant 2.541-nat offset
-    remains (Appendix A).
+  * the released informed-prior rules reproduce PPTA's single-model volumes to a constant
+    **-0.003872 nats**. This is still unresolved; revision 2's "2.541 nats" was a key-mapping error
+    of ours.
+  * PPTA's product-space chains log **twice** the single-model prior: HyperModel sums both
+    models' priors (Appendix A).
 * **Stage 1 needs neither option C nor E7** (one leg per pulsar per PTA, Sec. 4.4).
 * **Published TOA sets** are used (no M3a clock exclusions or duplicate removals), and the M3a
   defaults are a reported sensitivity (Sec. 4.2).
 * **Sampling (Sec. 5).** NUTS with a fixed dense metric on the continuous parameters. Frozen block-MH
   jumps for shelf-prone (log10 A, gamma) pairs. Exact MH for event epochs. HD and BF(HD/CURN) by
-  importance reweighting first (raw and PSIS estimators, autocorrelation-aware MCSE), and an HD run
+  importance reweighting first (raw estimator, accepted only for Pareto k-hat < 0.5, autocorrelation-aware MCSE), and an HD run
   only if that fails.
 * **PPTA full model is the compute risk.** Up to K_a ~ 1,800 columns per pulsar (J0437). Projected
   ~56-2,100 GPU-h per NUTS run (Sec. 5.5). A coefficient-Gibbs kernel is unvalidated research. PPTA
@@ -194,7 +220,7 @@ Notes:
 | common process | 9 modes **[UNCERTAIN until audit: array span via `model_general`'s `Tspan`]**; `freq_bins/freqs_dr2new.txt` lists multiples of 3.066e-9 Hz = 1/(10.33 yr) | | sampled |
 
 Sampled parameters: 62 GP + 3 dip + 2 common = **67** (matches the chain). The prior volume in the
-chain (lnpost - lnlike = -135.4959, constant) equals, to 1e-4 nats:
+chain (lnpost - lnlike = -135.4959, constant up to six-decimal rounding) equals, to ~1e-9 nats in the mean:
 * noise log10 A U(-18, -10) and gamma U(0, 7) for all 31 processes;
 * dip log10 Amp width 8, log10 tau U(0, 2.5), t0 width 40 d;
 * common log10 A **U(-18, -10)** and gamma U(0, 7).
@@ -257,8 +283,9 @@ event, the only one inside DR2new. We follow the code that produced the chains.
   (the repository README says it will be on the CSIRO DAP).
 * **Resolution (M3b-0P exit condition):**
   1. obtain the image or its package list;
-  2. independently, run the **chain fingerprint test** (Sec. 4.5): evaluate each grid hypothesis
-     at >= 50 released draws and compare with the stored lnlike column;
+  2. as supporting evidence, run the **chain fingerprint test** (Sec. 4.5): evaluate each grid
+     hypothesis at >= 50 released draws against the stored lnlike column, with the frozen error
+     budget and the fail-closed discrimination rule;
   3. export frequency labels, normalisations and bases **separately for CURN and HD**, and handle
      per-pulsar vs array spans explicitly.
 
@@ -290,9 +317,14 @@ chains' prior columns differ by exactly ln(49/4) = 2.5055. Informed noise priors
 * gamma in [max(0, q - 0.5), min(7, q + 0.5)], from `noiseFiles/3sig`;
 * SW and group rules as in the table.
 
-A first reconstruction of the complete box set reproduces the chains' prior volume up to a
-**constant 2.541 nats** in both chains. At least one rule is still misread; resolving it is an
-M3b-0P exit condition (Sec. 4.5).
+A reconstruction of the complete box set has been made with the released rules: informed bounds
+looked up under the builder's *noisename* keys (`band_noise_low`, not the parameter's
+`band_noise_low_low`), and shared per-pulsar group bounds. It gives -467.601929 (free gamma) and
+-465.096403 (fixed). The logged single-model volumes are -467.605801 and -465.100276: a constant
+residual of **-0.003872 nats** in both. This agrees with the reviewer's independent reconstruction.
+The residual is far above the six-decimal storage rounding (row spread 5e-7), so some bound is
+still slightly off (a width ratio of ~1.0039). Resolving it to <= 1e-5 nats is an M3b-0P exit
+condition (Sec. 4.5). Revision 2's "2.541 nats" came from our own key-mapping error.
 
 **Comparisons.**
 * **P-C0 conditional implementation check (default deliverable).** All noise hyperparameters
@@ -348,7 +380,7 @@ reweighted chain (Sec. 5.4).
 | N4 | SW GP basis (`createfourierdesignmatrix_solar_dm`) and SW geometry export | PPTA, MPTA | `gp.FourierBlock` | column equality vs enterprise; geometry in T1 |
 | N5 | Deterministic SW with finite prior (linear in n_earth; n_earth-dot variant) | PPTA (sampled), InPTA/MPTA (fixed) | precomputed column times scalar, via N3 | vs enterprise `solar_wind` |
 | N6 | Free chromatic index at a fixed value | InPTA, MPTA | existing | existing |
-| N7 | Reweighting / BF tooling (Sec. 5.4): raw and PSIS estimators, batch-means MCSE, weighted-quantile MCSE, per-chain stability, ordered block bootstrap | EPTA, PPTA | `ptagwb.evidence` | synthetic targets with known BF and quantiles, including correlated draws |
+| N7 | Reweighting / BF tooling (Sec. 5.4): raw estimator with k-hat diagnostic, batch-means MCSE, weighted-quantile MCSE, per-chain stability, ordered block bootstrap | EPTA, PPTA | `ptagwb.evidence` | synthetic targets with known BF and quantiles, including correlated draws |
 | N8 | Stage-2 size buckets for K_a up to ~1,800 and a memory model | EPTA, PPTA | M3_PLAN L6 | padding invariance 1e-10 |
 | N9 | Per-parameter prior table from the manifest | EPTA, PPTA | `ModelSpec` | prior-volume check vs chain lnprior (Sec. 4.5) |
 | N10 | Hybrid kernel generalisation and the generalised fail-closed gate (Sec. 5.3) | sampled runs | `ptagwb.hybrid`, `diagnostics` | invariance tests incl. negative controls |
@@ -415,9 +447,10 @@ the conditions below.
   residual-excess legs are explained or listed.
 * **E8 status.** Re-scoped, not passed. G3/G4 stay as PINT-vs-tempo2 diagnostics with the strict
   xfail. PINT-parity work continues as a non-blocking item.
-* **Version risk.** tempo2 2026.04.1 is not the PTAs' 2023 build. The chain fingerprint (Sec. 4.5)
-  measures the end-to-end effect: residual-level differences show up as non-constant
-  lnL_ours - lnlike_ref.
+* **Version risk.** tempo2 2026.04.1 is not the PTAs' 2023 build. Residual-level differences show
+  up as fingerprint scatter (Sec. 4.5). Scatter beyond the frozen budget **fails closed**: the
+  reproduction claim is withdrawn unless a reviewed manifest revision (e.g. the PTA's own tempo2
+  build) brings the scatter within budget.
 
 ### 4.2 Published TOA sets vs M3a removals
 
@@ -477,26 +510,62 @@ It is verified in three ways:
      (gitlab.in2p3.fr) are fetched and pinned in the oracle env (D6). Every function `model_general`
      calls on the DR2new path is read; frequency/span rules, `tndm`, dip parameterisation and all
      priors are recorded.
-   * PPTA: the extensions version of the Singularity image (CSIRO DAP), or failing that the
-     fingerprint discrimination of item 3.
+   * PPTA: the extensions version from the Singularity image (CSIRO DAP) or its package list.
+     Failing that, a grid hypothesis is accepted only if (i) the code of the candidate version
+     that produces it is identified *and* (ii) the item-3 discrimination is decisive. The
+     fingerprint alone never identifies the source model.
 
    Running the fork in production is not required, if our replacement is shown equivalent
-   (items 2-3).
-2. **Prior-volume check.** sum_j ln(width_j) from the manifest equals -(lnpost - lnlike) from
-   every released chain to <= 1e-6 nats (EPTA crn_pl and hd_pl; PPTA freegam, fixgam and both
-   product-space chains, accounting for the inert `nmodel`).
-   * Status today: EPTA matches the candidate manifest to 1e-4 at the chain's printed precision.
-   * PPTA: the fixed-gamma U(-18, -14) is confirmed, but a constant 2.541-nat offset remains in the
-     first reconstruction.
-3. **Chain fingerprint.** At >= 50 released draws per chain (spread over the chain), compute
-   Delta_i = lnL_ours(x_i) - lnlike_ref(x_i).
-   * Pass: sd_i(Delta_i) <= 0.01 nats.
-   * Investigate: 0.01-1 nats. This range is plausible from tempo2-version residual differences;
-     it is traced and the claim may be kept, with the measured scatter stated.
-   * Fail: > 1 nat.
-   * Grid hypotheses (PPTA CURN/HD spans) are discriminated by this test. A hypothesis is accepted
-     only if its scatter passes and every alternative's scatter is >= 10x larger.
-   * The test runs on CPU or as a < 0.1 GPU-h job: ~50-200 likelihood values per chain.
+   (items 2-3). **Source identification is the primary evidence.** Items 2-3 are supporting checks
+   at finitely many released points; they cannot establish the prior bounds individually, the
+   absolute normalisation, or agreement away from the evaluated draws.
+2. **Prior-volume check (physical vs logged prior).**
+   * The **physical** prior of a model is the normalised product of its parameter priors:
+     ln pi(x) = -sum_j ln(width_j) for uniform boxes, over the model's *unique* parameters.
+   * The **logged** density is whatever the chain-producing sampler wrote as lnpost - lnlike.
+     * Single-model PTMCMC runs log the physical prior.
+     * **Product-space runs** (`enterprise_extensions.hypermodel.HyperModel`) log
+       `get_lnprior`, which **sums the constituent models' log priors**. Shared noise priors are
+       counted twice, each model's own common block once, plus the model-index prior (`nmodel`
+       uniform on [-0.5, 1.5], log density 0 under the logged convention).
+     * The released PPTA product-space offsets are -935.211603 (free gamma) and -930.200551
+       (fixed) = 2 x the single-model -467.605801 and -465.100276. Both models share all noise
+       priors and have common blocks of equal width.
+   * The manifest records the physical prior and, separately, the **logging convention** of each
+     reference file: multiplicities, model-index convention, constants.
+   * The check compares our reconstruction *of the logged quantity* with every row of every
+     released chain (EPTA crn_pl, hd_pl; PPTA freegam, fixgam and both product-space chains).
+     Tolerance: <= 1e-5 nats in the mean, and a row spread consistent with six-decimal rounding
+     (sd <= 1e-6).
+   * Physical bounds are never adjusted to absorb a logging convention.
+   * Status: EPTA passes for the candidate manifest (mean agreement ~1e-9). PPTA single-model
+     volumes are reproduced to a constant -0.003872 nats (unresolved). The product-space factor of
+     2 is explained by the convention above, which the check must reproduce explicitly.
+3. **Chain fingerprint (supporting, fail-closed).** At >= 50 released draws per chain, spread over
+   the chain, compute Delta_i = lnL_ours(x_i) - lnlike_ref(x_i) in float64. Reference values are
+   read at their stored precision and never cast to float32: at these magnitudes float32 alone
+   adds ~0.04-nat scatter.
+   * **Frozen error budget per draw:** sigma_i^2 = sigma_store^2 + sigma_par,i^2 + sigma_eval^2.
+     * sigma_store: storage rounding of lnlike (six decimals: uniform +-5e-7, sd 2.9e-7).
+     * sigma_par,i: propagated parameter rounding, |grad lnL(x_i)| . delta_x_i. Here delta_x_i is
+       the stored precision: EPTA text values carry ~22 significant digits; PPTA values are
+       float64.
+     * sigma_eval: our evaluator error, bounded by the arbiter-validated 1e-6 nats (G5-PTA).
+   * **Pass:** the standardised scatter of Delta_i about its mean, chi^2 = sum((Delta_i - mean)^2 /
+     sigma_i^2) / (n - 1), is <= 2. Equivalently, the observed scatter is within the budget.
+   * **Anything above is FAIL** (closed), whatever its suspected cause, including tempo2-version
+     residual differences. A failing model cannot carry a full-reproduction claim. It can be
+     rescued only by a revised, re-reviewed manifest (e.g. the PTA's actual tempo2 build in the
+     oracle env) that brings the scatter within budget. Otherwise the result is downgraded.
+   * **Grid discrimination (PPTA CURN/HD spans):** a hypothesis is accepted only if it passes
+     **and** every alternative fails with a standardised scatter >= 100 (its disagreement exceeds
+     the error budget by >= 10x in rms). If both pass, or neither, the grid is unresolved (R3).
+   * **Model-dependent offsets.** Each model m has a fitted constant c_m = mean_i(Delta_i). The
+     fingerprint does not constrain c_HD - c_CURN, which shifts ln BF one-for-one. The BF
+     normalisation is established by the **cross-model oracle check** (Sec. 6.2): ours vs the
+     pinned enterprise, including all constants. The fingerprint's c_HD - c_CURN is reported and
+     must agree with the oracle-predicted difference within the combined budget.
+   * Cost: ~50-200 likelihood values per chain (CPU, or < 0.1 GPU-h).
 
 **No inferred-prior fallback.** If any item stays unresolved, the PTA's result is downgraded to
 "approximate comparison (model identity unresolved: <items>)" and is not called a reproduction.
@@ -551,19 +620,33 @@ PASS only if all of the following hold; otherwise FAIL or INCONCLUSIVE.
    computed with the ordered-chain batch-means method of Sec. 5.4, frozen with the reference's
    sha256 and burn-in.
    * **(a) Shelf-prone amplitudes** (noise and common log10 A). Shelf S = [lower bound, lower
-     bound + 1 dex], peak P = the complement. Reference support of a region is **material** if
-     p_ref - 2 MCSE_ref >= 0.01, **absent** if p_ref + 2 MCSE_ref < 0.01, and **ambiguous**
-     otherwise.
+     bound + 1 dex], peak P = the complement.
+     * **Reference occupancy interval.** Point estimate p_ref = visited fraction. A boundary-aware
+       95 % interval [p_lo, p_hi] uses the Wilson score interval on the **effective count**
+       n_eff = N / tau, where tau is the integrated autocorrelation time of the region indicator.
+       If the reference has **zero (or all) visits**, the indicator's tau is undefined. We then
+       take tau from the parameter itself (the rank-normalised ESS of that amplitude) and use the
+       exact upper bound p_hi = 1 - 0.05^(1 / n_eff) (about 3 / n_eff), which stays nonzero. With
+       zero visits there is no defensible lower bound other than 0.
+       * Example: 17 EPTA CURN-chain amplitudes have zero shelf visits after burn-in. With ESS
+         905-4,787 (amplitudes only; we re-counted 17) their p_hi ~ 0.0006-0.0033.
+     * If the parameter's ESS is < 100, or its autocorrelation estimate is unstable (split halves
+       differ by > 2x), no defensible bound exists, and reference support is **unresolved**.
+     * Support of a region is **material** if p_lo >= 0.01, **absent** if p_hi < 0.01, and
+       **ambiguous** otherwise (including unresolved).
      * Both material: bidirectional transport is required: >= 10 entries and >= 10 exits pooled,
        in >= 2 chains, longest sojourn <= 50 % of the region's draws, and occupancy MCSE <= 0.01.
-     * One region absent: occupancy consistency only. Our p_ours must satisfy
-       |p_ours - p_ref| <= 3.5 sqrt(MCSE_ours^2 + MCSE_ref^2), with no transport requirement. An
-       example is PPTA's free-gamma common amplitude, whose reference minimum is -16.27.
+     * One region absent: occupancy consistency only, with no transport requirement. Our own
+       interval [p_lo,ours, p_hi,ours] (same construction) must overlap [p_lo,ref, p_hi,ref], and
+       p_hi,ours < 0.02. Zero visits in both is consistent. An example is PPTA's free-gamma common
+       amplitude, whose reference minimum is -16.27.
      * Ambiguous: transport required. If transport is missing the parameter is INCONCLUSIVE, not
        FAIL.
    * **(b) Event epochs t0.** Intervals = the inter-TOA gaps that hold >= 1 % reference mass, plus
-     one "rest of window" bin. Every material interval must be visited by >= 2 chains, with interval
-     occupancy MCSE <= 0.02 and consistency with the reference as in (a). R-hat and ESS of t0 as in
+     one "rest of window" bin. Every material interval (same boundary-aware construction as in (a); zero-visit intervals
+     get an upper bound from the t0 ESS; "unresolved" if no defensible bound) must be visited by
+     >= 2 chains, with interval occupancy MCSE <= 0.02 and interval overlap with the reference as
+     in (a). R-hat and ESS of t0 as in
      item 1.
    * **(c) Other parameters** (gamma, timescales, indices, n_earth, phases): items 1-2 only.
 4. **NUTS sub-steps:** zero divergences after warmup; any divergence makes the run INCONCLUSIVE
@@ -583,14 +666,19 @@ w_i = L_HD(x_i) / L_CURN(x_i), with each model's own common basis and normalisat
 normalisation difference must pass the cross-model oracle check (Sec. 6.2).
 
 **Estimators.**
-* Raw: BF_raw = mean(w). HD quantiles are weighted quantiles with raw normalised weights.
-* PSIS: Pareto-smoothed weights (largest-weight tail smoothed; Vehtari et al., arXiv:1507.02646)
-  give BF_psis and smoothed weighted quantiles.
-* Rule by k-hat (computed on the pooled log-weights and per chain):
-  * k-hat < 0.5: raw estimator primary, PSIS reported;
-  * 0.5 <= k-hat < 0.7: **PSIS estimator primary**, raw reported and flagged; acceptance requires
-    raw and PSIS to agree within their combined MCSE;
-  * k-hat >= 0.7: reweighting rejected, and the HD model is sampled directly.
+* **Accepted estimator: raw only.** BF_raw = mean(w); HD quantiles are weighted quantiles with
+  raw normalised weights.
+* Pareto k-hat (PSIS tail fit; Vehtari et al., arXiv:1507.02646) is computed on the pooled
+  log-weights and per chain, as a **diagnostic only**.
+* **Acceptance requires k-hat < 0.5**, pooled and in every chain. In that regime the raw estimator
+  has finite variance, and the dependence-aware MCSEs below are meaningful.
+* k-hat >= 0.5: reweighting is **not accepted**, and the existing fallback applies (more CURN
+  draws do not help; sample HD directly, then reverse reweighting / bridge). PSIS-smoothed
+  estimates may be reported for information, never used for acceptance.
+* Using PSIS for acceptance in 0.5 <= k-hat < 0.7 would need its own validated uncertainty
+  procedure (e.g. PSIS refitted inside a validated moving-block resampling of the ordered chains,
+  with coverage tested on synthetic heavy-tailed dependent weights). That requires a reviewed plan
+  revision.
 
 **Uncertainty (autocorrelation-aware).** Kish ESS is reported but never gates, because it ignores
 serial dependence.
@@ -721,7 +809,7 @@ Reference MCSEs from Appendix A. "Decidable" = 1.645 MCSE_ref < m.
 * Reference treatment: the published 60 is a point target with no calibrated SE. EPTA's other
   estimates (56-66, i.e. ln 4.03-4.19) are context, and the 0.30-nat margin is ~3.75x their
   half-range.
-* Our SE: MCSE(ln BF) from Sec. 5.4 plus the spread of our estimators (raw vs PSIS, and bridge if
+* Our SE: MCSE(ln BF) from Sec. 5.4 plus the spread of our estimators (raw, and reverse reweighting and bridge if
   run) added in quadrature. **Maximum allowed SE: 0.10 nats**; above it E-6 is INCONCLUSIVE.
 * Classification: EQUIVALENT if ln BF_ours +- 1.645 SE lies within [4.094 - 0.30, 4.094 + 0.30];
   INCOMPATIBLE if the interval lies entirely outside; otherwise INCONCLUSIVE. Valid only after the
@@ -733,7 +821,10 @@ Reference MCSEs from Appendix A. "Decidable" = 1.645 MCSE_ref < m.
   log-determinants, and each model's common-grid normalisation;
 * both likelihoods' absolute values against enterprise with a common constant convention, so that
   no model-dependent constant can hide;
-* the fingerprint (Sec. 4.5) on both released chains, which tests each model's absolute lnL.
+* the fingerprint (Sec. 4.5) on both released chains is supporting evidence of each model's
+  likelihood *shape* at the released draws only. Its constants c_HD and c_CURN are free, so it does
+  not validate the BF normalisation; the oracle checks above do. The fingerprint's c_HD - c_CURN
+  must agree with the oracle-predicted difference within the budget.
 
 ### 6.3 PPTA DR3
 
@@ -788,7 +879,7 @@ reviewers, same VERDICT rule). REQUEST_CHANGES blocks the dependent milestones o
 |---|---|---|---|---|---|
 | **M3b-0E** EPTA infrastructure (CPU + small benchmark) | fork audit + EPTA manifest; tempo2 export + T1 (complete EPTA roster, released vs canonical); prior-volume and fingerprint checks; N1 (EPTA), N3, N7, N8, N9, N11, N13; event-epoch kernel validation; G5-EPTA incl. cross-model; reference loaders; EPTA acceptance/relevance files; EPTA T2 (CPU grids); benchmark | - | <= 0.5 | R-M3b-0E | D1, D2, D3, D6 |
 | **M3b-EPTA** | E-C0 (CPU); pilot (<= 2 GPU-h, abort rules); proposals frozen; production CURN^gamma and CURN 13/3; HD^gamma and HD 13/3 by reweighting (HD run only if Sec. 5.4 fails); BF; E-7 optional | M3b-0E | 6-100 (2 pilot + two runs at 3-50 each, central ~12) | R-M3b-EPTA | D4, D8 |
-| **M3b-0P** PPTA infrastructure (CPU) | extensions version / image; grid resolution by fingerprint; PPTA manifest (resolve the 2.541-nat offset); N1 (PPTA), N4, N5, N14; T1 (PPTA roster); P-C0 tooling; product-space reference bootstrap | M3b-0E tooling | <= 0.5 (grids + fingerprint) | R-M3b-0P | - |
+| **M3b-0P** PPTA infrastructure (CPU) | extensions version / image; grid resolution by fingerprint; PPTA manifest (resolve the -0.003872-nat residual; product-space logging convention); N1 (PPTA), N4, N5, N14; T1 (PPTA roster); P-C0 tooling; product-space reference bootstrap | M3b-0E tooling | <= 0.5 (grids + fingerprint) | R-M3b-0P | - |
 | **M3b-PPTA-C** | P-C0; band-overlap sensitivity | M3b-0P | < 0.5 | R-M3b-PPTA-C | D5 |
 | **M3b-PPTA-S** (separate experiment, only via D5) | sampler development for ~262 parameters: coefficient-Gibbs design note (collapsed updates), toys with overlapping weak processes, agreement with NUTS on EPTA; or a capped NUTS feasibility pilot | D5 | capped by D5 (pilot <= 5) | separate Astra design + result reviews | D5 |
 | **M3b-PPTA-F** (only after PPTA-S passes) | production PPTA full model; P-1 to P-6 | PPTA-S | from PPTA-S measurements | R-M3b-PPTA-F | new allocation |
@@ -829,7 +920,7 @@ user.
 | R2 | Loss of an independent timing oracle under D1 | low / medium | PINT secondary (T2); G1/G5 independent; fingerprint |
 | R3 | PPTA common grid irrecoverable (image unavailable, fingerprint ambiguous) | medium / high for PPTA | P-C0 on both hypotheses; PPTA claim downgraded |
 | R4 | EPTA fork unavailable or unreadable | low-medium / high for EPTA | D6 default = downgrade; ask EPTA |
-| R5 | Builder mismatches (masked spans, non-harmonic grids, ECORR quantisation, `int()` counts, informed priors; the 2.541-nat offset) | medium / medium | manifest checks, fingerprint, N1 per-block comparison |
+| R5 | Builder mismatches (masked spans, non-harmonic grids, ECORR quantisation, `int()` counts, informed priors; the -0.003872-nat residual) | medium / medium | manifest checks, fingerprint, N1 per-block comparison |
 | R6 | Shelves and funnels | high / medium | frozen jumps, transport gate by class, diverse inits |
 | R7 | Event-epoch discontinuities mishandled | medium / medium | t0 by MH only; numerical-reference validation with a negative control |
 | R8 | Reweighting overlap or precision inadequate | low-medium / low | k-hat rules, batch-means MCSE, per-chain stability, fallback |
@@ -892,10 +983,15 @@ The CURN amplitude reaches -17.97 and noise amplitudes reach -18.0.
 * **Prior-volume column:** freegam -467.6058, fixgam -465.1003. The difference is
   2.5055 = ln(49/4): gamma width 7 and amplitude width 7 vs amplitude width 4, which confirms the
   fixed-gamma U(-18, -14).
-* A first reconstruction of all boxes from `noiseFiles/3sig` with the builder rules gives
-  -470.1466 / -467.6411. That is a constant 2.5408-nat discrepancy in both chains, so the
-  common-process boxes are consistent and at least one noise-box rule is still misread (an M3b-0P
-  item).
+* **Reconstruction** with the released rules (informed bounds under the builder's noisename keys,
+  e.g. `band_noise_low`, not the parameter's `band_noise_low_low`; shared per-pulsar group bounds):
+  -467.601929 (free) and -465.096403 (fixed), against the logged -467.605801 and -465.100276. That
+  is a constant **-0.003872** nats in both, matching the reviewer's independent value. Row spread
+  of the logged column: 5.0e-7 (six-decimal storage). Revision 2's "2.5408" came from looking the
+  band-noise bounds up under the parameter names, which silently fell back to (-18, -11) / (0, 7).
+* **Product-space logged prior:** -935.211603 (free) and -930.200551 (fixed), i.e. 2 x the
+  single-model values. This is `HyperModel.get_lnprior` summing both constituent models' priors.
+* Storage: all PPTA `.npy` arrays are float64; lnlike and lnpost carry six decimals.
 * Group noise in the 30-pulsar array: J0437 8 parameters (4 groups), J1017 4, J1022 4, J1713 8,
   J1909 2.
 
