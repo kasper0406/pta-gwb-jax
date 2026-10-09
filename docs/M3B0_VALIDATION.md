@@ -901,6 +901,36 @@ All gate results (T1, prior volume, fingerprint, G5-PTA, t0 conditional, runtime
 conditional occupancy) were regenerated at 39cf5e6 and are bound to it. The driver's dry-run
 passes.
 
+## 9a. EPTA pilot, first attempt (2026-10-09): stopped in warmup, config change needed
+
+The coordinator released the pilot after review round 5 (APPROVE of b8eb2df).
+`epta_pilot_curn_freegamma_v1` ran through the driver at e95280e: committed config, GPU free,
+ledger empty. **It was stopped by the operator after 60 of its 300 warmup transitions**, under the
+standing rule that a pilot suggesting a config change ends the work.
+
+**Ledger.** `worker_exit_-15`, charged **1,740 s = 0.483 GPU-h**. This is the supervisor's
+`CLOCK_BOOTTIME` duration of 1,676 s, rounded up. Pilot phase remaining: 1.517 GPU-h. Total
+remaining: 12 - 0.21 (D3 benchmark) - 0.483 = 11.31 GPU-h.
+
+**What was measured** (warmup only; 4 chains):
+* **NUTS.** 322-443 leapfrog steps per transition (chunk means). Trees hit depth 10 (1,023 steps).
+  Mean acceptance 0.78; 13 divergences, all in warmup.
+* **Cost.** About 28 s per 4-chain transition, i.e. **about 7 s per chain-transition**. The D3
+  projection assumed 1.48 s, measured at 71 steps per transition after 40 warmup steps.
+* **t0 MH.** Acceptance 0.53; t0 visited the whole window, with 92 % of draws in the reference
+  interval I0.
+* **Prior-independence block MH** (chunks 1-5). Median acceptance 0.03, range 0.00-0.55. Four
+  noise pairs accepted 0-0.5 % (J1012+5307 RN, J1600-3053 chromatic, J1909-3744 DM, J1022+1001 DM).
+
+**Why the config cannot do its job.** At this cost, the 300-transition warmup alone needs about
+2 GPU-h before the dense metric settles (first window update at transition 100), against a 1.5
+GPU-h allocation. The run would have ended inside warmup with no post-warmup draws, so ESS per
+transition, R-hat, transport and the projection could not be measured. That is the pilot's
+purpose.
+
+`epta_pilot_curn_g433_v1` (0.5 GPU-h, 150 warmup transitions) has the same structure and was
+**not started**. No config was changed.
+
 ## 10. Open issues
 
 Needed before the pilot:
