@@ -9,6 +9,41 @@ and blocks nothing (plan Sec. 7).
 has been run.** The pilot waits for the independent review of this revision and the
 coordinator's confirmation.
 
+**Revision 3 (after review round 2 of 50f8d68, REQUEST_CHANGES; `review_m3b0_r2.out`; the pilot
+may not start yet).** The reviewer confirmed G5 (all 24 points reproduce exactly), the common domain,
+the conditional quantiles, the headline rule, the projection and the provenance wording, and
+approved the T2/occupancy deferral with the before-pilot deadline. Changes:
+1. **Hard cap** (`ptagwb.budget`, driver):
+   * admission and every ledger write hold a file lock and use unique temporary files;
+   * an open run is charged its **full allocation** (active, or crashed until reconciled), so
+     concurrent admissions cannot overbook;
+   * the watchdog kills the run when a heartbeat write fails, independently of the ledger;
+   * an exclusive GPU lock is held for the whole run.
+   * Tests: 3 concurrent 1.5 GPU-h admissions against 2 GPU-h admit exactly one; a crash between
+     heartbeats stays charged in full; a failing heartbeat kills (Sec. 8.4).
+2. **E-6** is now classified against a frozen **same-domain** reference, ln B_D of the released
+   chains (4.2245 +- 0.0371). The published ln 60 is context only. E-5 is context only
+   (acceptance v3, Sec. 7.3).
+3. **The conditional path is wired end to end**: ln B_D = ln mean(w I_D) - ln mean(I_D) with paired
+   OBM / block-bootstrap MCSE, plus domain-aware k-hat, Kish, stability and quantiles in
+   `accept_reweighting`. `classify_from_frozen` consumes v2+ rows. An end-to-end test runs on the
+   frozen schema (Sec. 7.2).
+4. **Runtime binding**:
+   * the explicit `--pin` flag is preserved and no longer self-validates; a re-pin is refused;
+   * the installed runtime's actual file contents are compared with the committed pin;
+   * the oracles (`tests/dense_oracle.py`), library versions and oracle-env package versions are
+     bound;
+   * immutable-input evidence is separated from runtime evidence (Sec. 1).
+5. **Validators**: the fingerprint requires the CURN+HD inventory and a complete, non-empty set of
+   alternative grids. The exclusion boundaries must be finite and ordered. Negative tests were
+   added.
+6. **Runtime sensitivity**: both runtime summaries, the shifts with **paired** MCSE, overlap
+   diagnostics, and the conditional shifts (Sec. 3).
+7. **T2 and the conditional-occupancy diagnostics are completed** (Sec. 7.4, 7.5). The milestone
+   table is updated.
+
+All gate results were regenerated at the final code and are bound to it.
+
 **Revision 2 (after the review of 2ee1bb7, REQUEST_CHANGES; `review_m3b0.out`), and the user's
 second set of decisions of 2026-10-09** (recorded in the plan):
 1. **G5-PTA**: the post-hoc restriction is withdrawn. All 16 points are kept, 8 fixed cases are
@@ -48,8 +83,9 @@ second set of decisions of 2026-10-09** (recorded in the plan):
 | 2'. tempo2 runtime | pinned runtime `epta-dr2-chain-runtime-v1` reproducing the stored likelihoods; the 2026 bundle gives a parameter-dependent 0.67-nat scatter, reported as a sensitivity | 3 |
 | 3. Model builder, tempo2 export, T1, MH for t0 | `ptagwb.epta`, `ptagwb.eventmh`; **T1 PASS** on the complete roster (25 pulsars, 45,428 TOAs, every consumed array bit-identical, released vs canonical included) | 5, 7 |
 | 4. Fingerprint, G5-PTA | **PASS** (chi2/dof 0.074 / 0.063; discrimination resolved; c_HD - c_CURN consistent); **G5-PTA PASS** on all 24 points (16 random + 8 fixed), mixed criterion frozen before the rerun, padded and bucketed production configurations | 6 |
-| 5. Reweighting + acceptance tooling, frozen files | `ptagwb.reweight`, `ptagwb.acceptance`; acceptance file v2 (revised D9 common domain, 24 exclusions; revised headline rule: 8 + E-6) and relevance file committed before any production run | 7 |
-| 6. D3 benchmark and production projection | benchmark 0.21 GPU-h; per-run provisional projection 4.1 / 6.1 / 12.3 GPU-h incl. a 2 GPU-h pilot; D4 cap 12 GPU-h enforced by the driver | 8 |
+| 5. Reweighting + acceptance tooling, frozen files | `ptagwb.reweight`, `ptagwb.acceptance` (conditional path end to end); acceptance file **v3** (revised D9 common domain, 24 exclusions; 8 headline quantities + E-6 against the same-domain reference ln B_D = 4.2245 +- 0.0371; E-5 context) and relevance file, committed before any production run | 7 |
+| 6. D3 benchmark and production projection | benchmark 0.21 GPU-h; per-run provisional projection 4.1 / 6.1 / 12.3 GPU-h incl. a 2 GPU-h pilot; D4 cap 12 GPU-h enforced by the locked ledger and driver (revision 3) | 8 |
+| 7. T2 (engine sensitivity) and conditional-occupancy diagnostics | **completed** before the pilot: every engine shift <= 0.003 sigma68 (immaterial); U regions have conditional occupancy <= 3e-3 (supporting only) | 7.4, 7.5 |
 
 Reproduction (CPU unless noted; the envs are built without root):
 
@@ -94,6 +130,11 @@ were copied from them.
 | `src/ptagwb/reweight.py`, `src/ptagwb/acceptance.py` | **N7** and the Sec. 5.3 / 6.1 / 6.6 rules |
 | `scripts/m3b_freeze_acceptance.py`, `configs/m3b/acceptance_epta.json`, `configs/m3b/relevance/epta.json` | reference products (Appendix A reproduced) and the frozen acceptance / relevance files |
 | `scripts/m3b_bench.py` | the D3 benchmark and the production projection |
+| `src/ptagwb/binding.py` | evidence binding: code, oracles, configs, immutable exported inputs, the installed runtime verified file by file against the pin, library and oracle-env versions |
+| `src/ptagwb/budget.py`, `scripts/m3b_run_epta.py`, `configs/m3b/run_configs/` | D4: locked GPU-time ledger, full-allocation reservation, GPU lock, deadlines and watchdog; the run driver; pilot configs (not started) |
+| `src/ptagwb/fastcond.py` | numpy evaluator of the exact likelihood for many hyperparameter values (equal to `EPTAModel.logL`; T2 and the occupancy diagnostics) |
+| `scripts/m3b_reference_weights.py`, `scripts/m3b_runtime_sensitivity.py`, `scripts/m3b_projection.py` | reweighting of the released draws (HD/CURN, paired runtimes), runtime sensitivity, per-run projection |
+| `scripts/m3b_t2.py`, `scripts/m3b_conditional_occupancy.py` | gate T2 (reported) and the Rao-Blackwellised conditional-occupancy diagnostics (supporting) |
 | `tests/test_m3b_*.py` | strict-suite tests (Sec. 9) |
 
 ---
@@ -206,24 +247,43 @@ reproduces the stored lnlike of both chains to six-decimal storage precision (60
 CURN mean -4.6e-7, sd 2.9e-7; HD -5.2e-7, 2.7e-7). Note: this runtime is less accurate physically
 (stale GPS-UTC after Oct 2020); it is the right one for *reproduction*, not for Stage 2.
 
-**Runtime sensitivity (parameter-dependent; it cannot be absorbed into a constant).** With the
-tempo2 2026 bundle runtime (the D1 runtime as first set up), lnL changes by +19.67 nats on
-average, with sd **0.633** nats over the 22,493 retained CURN draws (range 17.1-22.3); for HD the
-values are +19.78 and sd 0.627 (every 5th draw). A paired-runtime reweighting of the released draws
-(`scripts/m3b_reference_weights.py`; CPU, no sampling; weights = the lnL difference) gives good
-overlap (k-hat 0.18 CURN / -0.02 HD; Kish ESS 15,275 / 3,123). The displacement of the headline
-quantiles if the 2026 runtime had been used is below. It is a sensitivity of the reproduction to
-the evaluator runtime, not a posterior result.
+**Runtime sensitivity (parameter-dependent; it cannot be absorbed into a constant).** The
+reproduction holds **under the pinned chain runtime**; it is **not runtime-insensitive** and does
+not automatically carry over to the 2026-runtime model. With the tempo2 2026 bundle runtime (the
+D1 runtime as first set up), lnL changes by +19.67 nats on average:
+* CURN: sd **0.633** nats over the 22,493 retained draws (range
+  17.1-22.3);
+* HD: +19.78 and sd 0.627 (every 5th draw).
 
-| quantity | displacement (MC SE) | margin m |
-|---|---|---|
-| CURN log10 A q50 / q95 | +0.023 (0.006) / +0.009 (0.005) | 0.038 / 0.063 |
-| CURN gamma q05 / q50 | -0.032 (0.020) / -0.057 (0.017) | 0.167 / 0.100 |
-| HD log10 A q50 / q95 | +0.007 (0.005) / +0.001 (0.005) | 0.027 / 0.046 |
-| HD gamma q05 / q50 / (q95, reported) | +0.019 (0.015) / -0.014 (0.015) / -0.079 (0.066) | 0.131 / 0.079 / 0.131 |
+`scripts/m3b_runtime_sensitivity.py` (CPU, no sampling) summarises both runtimes on the released
+draws:
+* chain runtime = the released draws;
+* 2026 runtime = the same draws reweighted by L_2026 / L_chain;
+* overlap is good: k-hat 0.18 / -0.02 and Kish ESS
+  15,275 / 3,123 (CURN / HD), essentially the
+  same conditional on D;
+* each shift has the **paired** displacement MCSE (``reweight.paired_quantile_shift``: one
+  linearisation of the difference on the ordered draws). Revision 2's table showed the weighted
+  endpoint's MCSE instead, which ignores the covariance of the endpoints.
 
-The runtime alone moves the CURN medians by 0.6x their margins. This is why the runtime is part of
-the model identity.
+| quantity | chain runtime | 2026 runtime | shift (paired MCSE) | endpoint MCSE (rev. 2 label) | shift on D (paired MCSE) |
+|---|---|---|---|---|---|
+| CURN log10 A q05 | -14.7657 | -14.6943 | +0.0714 (0.0154) | 0.0485 | +0.0712 (0.0152) |
+| CURN log10 A q50 | -13.9966 | -13.9736 | +0.0230 (0.0025) | 0.0064 | +0.0228 (0.0025) |
+| CURN log10 A q95 | -13.7185 | -13.7090 | +0.0094 (0.0024) | 0.0049 | +0.0091 (0.0023) |
+| CURN gamma q05 | 2.0374 | 2.0055 | -0.0319 (0.0106) | 0.0205 | -0.0325 (0.0106) |
+| CURN gamma q50 | 2.9060 | 2.8488 | -0.0572 (0.0072) | 0.0168 | -0.0572 (0.0071) |
+| CURN gamma q95 | 4.6269 | 4.4501 | -0.1768 (0.0310) | 0.1010 | -0.1768 (0.0310) |
+| HD log10 A q05 | -14.4177 | -14.3843 | +0.0334 (0.0110) | 0.0357 | +0.0334 (0.0115) |
+| HD log10 A q50 | -13.9353 | -13.9284 | +0.0069 (0.0020) | 0.0046 | +0.0069 (0.0021) |
+| HD log10 A q95 | -13.7067 | -13.7054 | +0.0013 (0.0019) | 0.0047 | +0.0013 (0.0019) |
+| HD gamma q05 | 1.9830 | 2.0025 | +0.0195 (0.0080) | 0.0146 | +0.0187 (0.0081) |
+| HD gamma q50 | 2.7146 | 2.7009 | -0.0137 (0.0066) | 0.0146 | -0.0139 (0.0066) |
+| HD gamma q95 | 3.8765 | 3.7911 | -0.0854 (0.0233) | 0.0663 | -0.0788 (0.0226) |
+
+The shifts persist on D: the CURN amplitude median moves by +0.0228 and the gamma median by
+-0.0572, against margins m = 0.038 and 0.100. This sensitivity widens no margin and calls for no
+sampling (review); it is why the runtime is part of the model identity.
 
 **Common modes.** The CLI value is not released. The fingerprint discriminates: 9 modes passes,
 8 and 10 fail with chi2 >= 2.7e7 (Sec. 6.1).
@@ -417,13 +477,32 @@ the accurately computed E and d. The reviewer confirmed the scope: earlier M1/M2
   * eligibility: complete check / headline / model inventories, excluded-draw counts reported,
     non-integer or NaN counts rejected; the unconditional verdict is fixed to INCONCLUSIVE in a
     frozen dataclass.
+* **Conditional path, end to end (revision 3).**
+  * `reweight.raw_bf`, `mcse_lnbf_obm` and `mcse_lnbf_block_bootstrap` take a domain mask: ln B_D =
+    ln mean(w I_D) - ln mean(I_D). The MCSE is the delta method on the *paired* (w I, I) series
+    (OBM per chain, chain order kept). The bootstrap resamples blocks of the pairs. Draws outside
+    D stay in the chains with weight 0; no -inf weights, no deletion.
+  * `chain_stability` and `accept_reweighting` take the mask. On D they compute k-hat and Kish
+    from the weights of draws in D, the weight share from w I, and the per-chain ln B_D and
+    medians.
+  * Coverage on AR(1) chains with a correlated domain is 0.85-0.99, required and met. The
+    no-mask results are unchanged.
+  * `classify_from_frozen` reads v2+ rows (`q_ref_D`, `mcse_ref_D`). It rejects mixed or
+    non-finite rows. `classify_e6_from_frozen` classifies E-6 against the same-domain reference.
+  * **End-to-end test on the frozen acceptance file**
+    (`test_conditional_acceptance_end_to_end_on_the_frozen_schema`). It runs domain indicators on
+    the released CURN draws split into 4 ordered chains, conditional CURN quantiles, HD quantiles
+    and ln B_D by reweighting with w I_D, the classification of every headline row and E-6, and
+    D9 eligibility with the file's inventories. The CURN rows and E-6 come out EQUIVALENT against
+    themselves, as they must.
 * **Retired:** p*, p_star_lo90, epsilon_m and the epsilon-qualified BF test. No coverage claim on
   missing mass remains. The mixture envelope (`descriptive_envelope`) and the BF domain correction
   ln(1 - p_CURN) - ln(1 - p_HD) (`bf_domain_correction`) are labelled descriptive.
 
-### 7.3 Frozen acceptance and relevance files (v2, committed before any production run)
+### 7.3 Frozen acceptance and relevance files (v3, committed before any production run)
 
-`configs/m3b/acceptance_epta.json` (version 2) and `configs/m3b/relevance/epta.json`. The generator
+`configs/m3b/acceptance_epta.json` (version 3; v2 plus the same-domain E-6 reference and E-5 as
+context) and `configs/m3b/relevance/epta.json`. The generator
 recomputes them, and the strict suite checks that they are unchanged. Appendix A is reproduced
 exactly in `reference_summary_unconditional` (e.g. CURN log10_A: q50 -13.997, MCSE 0.0067,
 bulk/tail ESS 984 / 1,108).
@@ -455,9 +534,25 @@ conditional on D, with the ordered-chain ratio-estimator MCSE. Headline iff 1.64
 | E-4 CURN gamma q05 / q50 / q95 | 2.038 / 2.906 / 4.627 | 0.017 / 0.0174 / 0.105 | 0.167 / 0.100 / 0.167 | yes / yes / no | 0.048 / 0.025 / 0.020 |
 
 So there are **8 headline quantities plus E-6**. E-2 q95 is reported-only; its estimate and
-classification will still be reported. E-6 uses ln B_D (common domain); the correction to the
-unrestricted BF is reported descriptively. For reference only: the released CURN draws reweighted
-to HD give ln BF_raw = 4.224 (MCSE 0.037, k-hat 0.34) against the published ln 60 = 4.094.
+classification will still be reported.
+
+**E-6 (acceptance v3, review round 2).** The reference is the same-domain ln B_D of the released
+chains, frozen with its uncertainty:
+* computed from the released CURN draws (every 5th retained draw, chain order kept) reweighted to
+  HD with the pinned fork likelihoods;
+* **ln B_D,ref = 4.22451 +- 0.03714** (paired OBM MCSE; k-hat 0.34, Kish ESS 908 of 4,492 draws in
+  D);
+* the unrestricted value is ln B_full = 4.22382 +- 0.03715;
+* headline rule: 1.645 x 0.0371 = 0.061 <= m/2 = 0.15, so E-6 is a headline quantity;
+* max_our_MCSE = 0.083, and the 0.10 cap also applies;
+* the source npz is bound by sha256.
+
+The **published ln 60 = 4.094** (unrestricted, EPTA's own BF methods; re-estimates 56-66) is context
+only. It is never a classification target.
+
+**E-5** is context only. No released fixed-gamma chain exists, so no reference conditional on D
+can be formed. The paper's rounded unconditional values are context, and our value will be
+reported.
 
 **Frozen claim wording.** The text is `ptagwb.acceptance.D9_TEMPLATE`, copied into the file. It
 says "CONDITIONALLY EQUIVALENT ON THE COMMON DOMAIN D", is not presented as the original
@@ -466,6 +561,113 @@ verdict INCONCLUSIVE.
 
 **Superseded (revision 1).** The model-specific zero-visit lists (39 regions) and the conclusion
 "not reachable because of 16 few-event regions" are replaced by the common domain above.
+
+### 7.4 Gate T2: timing-engine sensitivity (reported, not gating; completed before the pilot)
+
+`scripts/m3b_t2.py` (CPU). Setup:
+* conditional posteriors of the common process, CURN and HD, on a 61 x 61 grid (exact likelihood
+  via `ptagwb.fastcond`);
+* every other parameter fixed at the released CURN chain's posterior medians;
+* the TOAs common to both engines: 45,361, i.e. the published roster minus the 67
+  M3a removals (65 clock-uncovered, 2 duplicates) that the PINT legs carry;
+* TOAs matched per backend and site frequency to the nearest site arrival time;
+* ORF positions identical across variants.
+
+Variants:
+* tempo2 (D1);
+* PINT for every leg;
+* PINT for one E8-named leg at a time: J1600-3053 and the DDH class J1022+1001, J1640+2224,
+  J1918-0642.
+
+| model | variant | log10 A median (sigma68) | shift / sigma68 | gamma median (sigma68) | shift / sigma68 | max outer-quantile shift / w90 |
+|---|---|---|---|---|---|---|
+| CURN | tempo2 | -14.0093 (0.153) | +0.0000 | 2.8019 (0.438) | +0.0000 | 0.0000 |
+| CURN | pint | -14.0097 (0.153) | -0.0025 | 2.8031 (0.439) | +0.0028 | 0.0008 |
+| CURN | pint:J1600-3053 | -14.0089 (0.153) | +0.0026 | 2.8009 (0.438) | -0.0021 | 0.0012 |
+| CURN | pint:J1022+1001 | -14.0094 (0.153) | -0.0005 | 2.8022 (0.439) | +0.0008 | 0.0003 |
+| CURN | pint:J1640+2224 | -14.0093 (0.153) | +0.0000 | 2.8019 (0.438) | -0.0000 | 0.0000 |
+| CURN | pint:J1918-0642 | -14.0093 (0.153) | -0.0000 | 2.8019 (0.438) | +0.0000 | 0.0000 |
+| HD | tempo2 | -13.9788 (0.143) | +0.0000 | 2.7176 (0.421) | +0.0000 | 0.0000 |
+| HD | pint | -13.9791 (0.143) | -0.0021 | 2.7186 (0.421) | +0.0022 | 0.0008 |
+| HD | pint:J1600-3053 | -13.9784 (0.143) | +0.0028 | 2.7167 (0.421) | -0.0021 | 0.0012 |
+| HD | pint:J1022+1001 | -13.9789 (0.143) | -0.0005 | 2.7180 (0.421) | +0.0009 | 0.0003 |
+| HD | pint:J1640+2224 | -13.9788 (0.143) | +0.0000 | 2.7176 (0.421) | -0.0000 | 0.0000 |
+| HD | pint:J1918-0642 | -13.9788 (0.143) | -0.0002 | 2.7177 (0.421) | +0.0002 | 0.0001 |
+
+**Every shift is <= 0.003 sigma68.** Under the plan's rule (<= 0.1 sigma68) the engine choice is
+immaterial for the EPTA common-process posterior, for all legs and for each E8-named leg alone. The
+1-5 ns PINT/tempo2 floor of E8 does not move this posterior; E8 itself stays open (D1).
+
+Note: the PINT legs use M3a's pinned PINT clock files, not the chain runtime. The T2 difference
+therefore mixes engine and clock-file differences, and both are immaterial here. The large
+runtime sensitivity of Sec. 3 comes from the tempo2 **2026 bundle's** clock and EOP files, which
+neither variant uses.
+
+### 7.5 Conditional-occupancy diagnostics (supporting only; completed before the pilot)
+
+`scripts/m3b_conditional_occupancy.py` (CPU; 28 processes; 20 min CURN,
+160 min HD). Setup:
+* 2,000 retained draws of each released chain, evenly spaced, chain order kept;
+* pi_i = P(region | all other parameters at x_i), with the exact likelihood (`ptagwb.fastcond`):
+  * every shelf-prone amplitude by 2-D midpoint quadrature over its (log10_A, gamma) pair (the dip:
+    (log10_Amp, log10_tau)) on 32 x 14 cells, the shelf S = [lower, lower + 1 dex] on a cell edge;
+  * the dip epoch by the trapezoid rule on 801 window points plus both sides of each TOA;
+* grid check: 64 x 28 cells and 1,601 points on 20 draws; largest |delta pi| = 0.0008;
+* per region: mean(pi), the batch-means MCSE over the ordered draws, ESS, the largest single-draw
+  share, and split-half means (in the result file).
+
+**Supporting only (plan Sec. 5.3).** These numbers never classify support and never resolve an
+UNRESOLVED occupancy. They estimate occupancy only over the conditioning states the chains
+visited; a basin the chains never visit is invisible to them (the plan's counterexample).
+
+| region (shelf of ...) | in U | CURN mean pi (MCSE) | CURN max share | HD mean pi (MCSE) | HD max share |
+|---|---|---|---|---|---|
+| J0030+0451_red_noise | no | 0.26 (4.1e-04) | 0.00052 | 0.27 (1.5e-04) | 0.00051 |
+| J0613-0200_dm_gp | no | 0.14 (0.0014) | 0.00064 | 0.13 (0.0011) | 0.00065 |
+| J0751+1807_dm_gp | yes | 1.0e-04 (1.9e-05) | 0.13 | 6.4e-05 (7.5e-06) | 0.047 |
+| J0900-3144_dm_gp | yes | 4.2e-07 (3.7e-08) | 0.027 | 4.3e-07 (3.4e-08) | 0.019 |
+| J0900-3144_red_noise | yes | 2.1e-06 (1.1e-06) | 0.42 | 6.3e-06 (2.5e-06) | 0.27 |
+| J1012+5307_dm_gp | yes | 3.3e-04 (9.8e-07) | 0.00067 | 5.0e-04 (2.5e-06) | 0.00079 |
+| J1012+5307_red_noise | yes | 5.5e-78 (3.4e-78) | 0.56 | 3.7e-80 (2.9e-80) | 0.76 |
+| J1022+1001_dm_gp | yes | 2.7e-20 (1.5e-20) | 0.33 | 5.7e-19 (5.6e-19) | 0.98 |
+| J1022+1001_red_noise | no | 0.25 (3.5e-04) | 0.00053 | 0.25 (3.5e-04) | 0.00054 |
+| J1024-0719_dm_gp | yes | 0.0012 (9.4e-05) | 0.03 | 0.0011 (8.2e-05) | 0.023 |
+| J1455-3330_red_noise | no | 0.12 (0.001) | 0.0009 | 0.09 (7.5e-04) | 0.00096 |
+| J1600-3053_chrom_gp | yes | 9.0e-16 (9.1e-16) | 1 | 4.6e-18 (4.6e-18) | 1 |
+| J1600-3053_dm_gp | yes | 5.1e-08 (3.4e-08) | 0.64 | 1.8e-08 (9.1e-09) | 0.31 |
+| J1640+2224_dm_gp | yes | 4.0e-04 (1.1e-05) | 0.0033 | 3.7e-04 (7.3e-06) | 0.0029 |
+| dipmp | yes | 3.4e-21 (2.1e-21) | 0.44 | 1.9e-21 (8.2e-22) | 0.42 |
+| J1713+0747_dm_gp | yes | 3.1e-18 (2.6e-19) | 0.025 | 2.6e-18 (2.1e-19) | 0.039 |
+| J1713+0747_red_noise | no | 0.22 (0.0031) | 0.00066 | 0.27 (0.0022) | 0.00057 |
+| J1730-2304_dm_gp | no | 0.021 (6.8e-04) | 0.0033 | 0.011 (3.7e-04) | 0.0051 |
+| J1738+0333_dm_gp | yes | 4.3e-09 (1.5e-09) | 0.32 | 2.7e-10 (4.3e-11) | 0.12 |
+| J1744-1134_dm_gp | yes | 1.5e-18 (8.6e-20) | 0.025 | 9.2e-18 (4.7e-19) | 0.016 |
+| J1751-2857_dm_gp | yes | 1.2e-07 (2.5e-09) | 0.0087 | 2.0e-07 (3.5e-09) | 0.0032 |
+| J1801-1417_dm_gp | yes | 7.4e-24 (6.5e-24) | 0.87 | 1.8e-25 (1.6e-26) | 0.045 |
+| J1804-2717_dm_gp | yes | 8.3e-04 (2.3e-05) | 0.0071 | 0.003 (5.8e-05) | 0.0037 |
+| J1843-1113_dm_gp | yes | 4.5e-127 (4.6e-127) | 1 | 7.0e-160 (7.1e-160) | 1 |
+| J1857+0943_dm_gp | yes | 5.9e-06 (1.9e-06) | 0.27 | 1.0e-08 (2.6e-09) | 0.2 |
+| J1909-3744_dm_gp | yes | 5.8e-81 (1.8e-81) | 0.19 | 5.0e-81 (1.6e-81) | 0.2 |
+| J1909-3744_red_noise | no | 0.26 (9.8e-04) | 0.00057 | 0.29 (4.3e-04) | 0.00053 |
+| J1910+1256_dm_gp | yes | 5.8e-06 (1.1e-06) | 0.11 | 2.4e-07 (4.8e-08) | 0.12 |
+| J1911+1347_dm_gp | no | 0.0011 (1.1e-05) | 0.0012 | 0.0017 (1.4e-05) | 0.0014 |
+| J1918-0642_dm_gp | yes | 3.3e-04 (3.3e-05) | 0.043 | 2.9e-04 (2.6e-05) | 0.037 |
+| J2124-3358_dm_gp | no | 0.026 (2.6e-04) | 0.0013 | 0.045 (2.9e-04) | 0.00085 |
+| J2322+2057_red_noise | no | 0.24 (1.4e-05) | 0.0005 | 0.24 (1.7e-05) | 0.0005 |
+| common | yes | 4.0e-04 (2.2e-04) | 0.3 | 2.3e-07 (1.6e-07) | 0.58 |
+| t0:rest | yes | 3.2e-05 (5.7e-06) | 0.054 | 2.5e-05 (5.1e-06) | 0.052 |
+
+Reading (descriptive):
+* Every region in U has a mean conditional occupancy <= 3e-3 in both models.
+* The largest are the few-event shelves: the DM shelves of J1024 (1.2e-3 / 1.1e-3), J1804
+  (8e-4 / 3e-3) and J1640 (4e-4), and the CURN common amplitude (4.1e-4 +- 2.2e-4). These agree in
+  order of magnitude with the reference's own few-event visit fractions (e.g. common amplitude:
+  7 entries, occupancy 6e-4).
+* Many zero-visit shelves are below 1e-6. Where the largest single-draw share is close to 1, the
+  mean is dominated by one conditioning state, as for J1600 chromatic, J1843 DM and J1022 DM.
+* The t0 rest region has 3e-5 (CURN) and 2.6e-5 (HD).
+* The non-U shelves (red noise of J0030, J1022, J1455, J1713, J1909, J2322; DM of J0613, J1730,
+  J1911, J2124) have 0.001-0.29, consistent with their estimable reference occupancies.
 
 ---
 
@@ -544,28 +746,38 @@ complete kernel) shows adequate mixing and projects these targets within the cap
 **Superseded (revision 1).** The 41 / 81 / 199 GPU-h projection charged E-2 q95's free-gamma tail
 requirement (ESS 23,629) to both runs and omitted the block-MH cost.
 
-### 8.4 D4: mechanical cap and run driver (user decision 2026-10-09, second set)
+### 8.4 D4: mechanical cap and run driver (user decision 2026-10-09, second set; revision 3)
 
 `ptagwb.budget` and `scripts/m3b_run_epta.py`:
-* **Ledger.** An append-only GPU-time ledger. Caps: total 12, pilot 2, production 8, contingency 2
-  GPU-h. A run must fit its `max_gpu_hours` in what is left of its phase and of the total. A
-  run_id is never repeated or resumed. A heartbeat keeps a crashed run's time counted.
-* **Deadline.** max_gpu_hours minus two watchdog grace periods. Before every chunk of 10
-  transitions the previous chunk's time must fit. A watchdog thread writes the ledger and
-  terminates the process if a chunk overruns.
-* **Fixed configuration.** The driver refuses an uncommitted config or any work-tree change in
-  src/scripts/tests/configs, unknown config keys, inits from the reference chain, stale or failed
-  gate evidence (bound hashes), and a GPU used by another process.
-* **Stop rules.** The deadline, the transition count, or a non-finite lnL.
-* **Pilot configs** (committed, **not started**): `configs/m3b/run_configs/epta_pilot_curn_freegamma.json`
-  (1.5 GPU-h) and `epta_pilot_curn_g433.json` (0.5 GPU-h), together exactly the 2 GPU-h pilot phase.
-  Both use the complete kernel with prior-independence block proposals. Production configs
-  (frozen metric, histogram proposals fitted from the pilot) are written only after the pilot and
-  its review; a pilot that suggests a change to a committed config ends the work.
+* **Locked ledger.** Every admission, heartbeat and close is a read-modify-write under an
+  exclusive `fcntl` lock. Each write goes through a unique temporary file and an atomic rename.
+* **Charging.** An open entry (active, or crashed and not reconciled) is charged its **full
+  allocation**; a closed one is charged its recorded time. Admission therefore reserves every
+  active allocation in full. A crash stays charged in full until `reconcile`, which requires the
+  pid to be gone and an operator note.
+* **Caps.** Total 12, pilot 2, production 8, contingency 2 GPU-h. A run_id is never repeated or
+  resumed.
+* **GPU lock.** An exclusive per-device lock is held for the whole run. `nvidia-smi` must also show
+  no other compute process.
+* **Deadline and watchdog.** The deadline is the allocation minus two grace periods. The previous
+  chunk's time must fit before every chunk. The watchdog (poll = grace/4) kills the process on a
+  deadline overrun **or a failed heartbeat write**. Its ledger close is best-effort and its failure
+  does not stop the exit, so the process ends before its allocation is used up.
+* **Fixed configuration.** The driver refuses an uncommitted config or work-tree change, unknown
+  keys, inits from the reference chain, and stale or failed evidence (bound hashes, now including
+  T2 and the occupancy diagnostics).
+* **Tests.**
+  * 3 concurrent 1.5 GPU-h admissions against the 2 GPU-h pilot cap admit exactly 1 (spawned
+    processes);
+  * the reviewer's crash case is refused: 1.98 GPU-h allocated, last heartbeat at 7,080 s, death
+    at 7,139 s, then a 120-s request;
+  * a heartbeat that raises, with a ledger close that also fails, still exits;
+  * reconciliation of a live process is refused;
+  * the GPU lock is exclusive.
+* **Pilot configs** (committed, **not started**): `epta_pilot_curn_freegamma.json` (1.5 GPU-h) and
+  `epta_pilot_curn_g433.json` (0.5 GPU-h).
 
-The D3 benchmark (0.21 GPU-h, revision 1) is not part of the ledger. Its evidence preconditions
-were met only under the then-unbound check and the since-withdrawn G5 restriction. Its timings
-remain valid as timing evidence (review).
+The D3 benchmark (0.21 GPU-h, revision 1) is not in the ledger. It remains timing evidence only.
 
 ## 9. Strict suite
 
@@ -596,36 +808,36 @@ The suite was run with `PTAGWB_REQUIRE_ORACLES=1` on the CPU, at revision 2 (202
 
 Needed before the pilot:
 
-1. **Independent review of this revision.** It covers the frozen acceptance file v2, the revised D9
-   wording, the run driver and its cap enforcement, and the G5 mixed criterion. The coordinator's
-   confirmation must follow. The pilot does not start before both.
-2. **Proposed deferral of T2 and the conditional-occupancy diagnostics** to M3b-EPTA, before the
-   pilot (plan, top). This needs the reviewer's acceptance; otherwise both are done in M3b-0E first.
-3. **The chain-reproducing runtime** (`epta-dr2-chain-runtime-v1`) is part of the D1 profile.
-   The reviewer supported the manifest revision with the provenance wording now used.
+1. **Independent review of revision 3.** The pilot needs this review and the coordinator's
+   confirmation. The driver's dry-run passes every precondition, including T2 and the occupancy
+   diagnostics, all bound to 39cf5e6.
 
-Needed after the pilot (before production):
+Needed after the pilot, before production:
 
-4. Production configs: a frozen dense metric and step size from the pilot, histogram block
-   proposals fitted from pilot draws only (frozen with sha256), and inits from pilot draws. These
-   need a review.
-5. The pilot's measured ESS per transition replaces the bracket in Sec. 8.3. Production is released
-   only if the targets project within the remaining cap.
+2. **Production configs.** These fix the metric, step size and histogram block proposals from the
+   pilot (frozen with sha256), and the inits from pilot draws. They need review. A pilot that
+   suggests a change to a committed config ends the work.
+3. **Measured efficiency.** The pilot's ESS per transition replaces the bracket in Sec. 8.3.
+   Production is released only within the remaining cap.
+4. **Aligning the projection with the conditional acceptance.** It uses the HD/CURN reweighting
+   efficiency of all draws. On D, 4,492 of 4,499 draws carry weight, with the same k-hat and Kish,
+   so the effect is negligible but not yet formalised.
 
 Recorded, no action:
 
-6. E-2 / paper inconsistency; dip index (paper 4/2, code 1); N_c = 9 (fingerprint-discriminated).
+5. E-2 / paper inconsistency; dip index (paper 4/2, code 1); N_c = 9 (fingerprint-discriminated).
    The code that produced the chains is followed.
-7. Reference reweighting gives ln BF_raw = 4.224 +- 0.037 against the published ln 60 = 4.094. This
-   is context for E-6 and not a classification.
-8. E-C0 belongs to M3b-EPTA (review). E8 stays open (D1).
+6. **Runtime.** The reproduction holds under the pinned chain runtime and is runtime-sensitive
+   (Sec. 3). The 2026-runtime model is a different model. E8 stays open (D1).
+7. E-C0 belongs to M3b-EPTA.
 
 Engineering notes:
 
-9. Two multi-threaded XLA:CPU processes running at once oversubscribed the 32 cores badly; run the
-   CPU gates one at a time.
-10. `libstempo.telescope()` fails under numpy 2 in the plain tempo2 env. It is not consumed.
-11. The forks' 2022/23 `setup.py` files no longer build. The env puts the pinned checkouts on the
+8. Two multi-threaded XLA:CPU processes running at once oversubscribe the 32 cores. The occupancy
+   run (28 single-threaded processes) took about 4x the single-process estimate.
+9. `libstempo.telescope()` fails under numpy 2 in the plain tempo2 env. It is not consumed.
+10. The forks' 2022/23 `setup.py` files no longer build. The env puts the pinned checkouts on the
     path through a `.pth` file and pins `setuptools<70`.
-12. `.gitignore` ignores every `runs/` directory, so the run configs live in
-    `configs/m3b/run_configs/`.
+11. `.gitignore` ignores every `runs/` directory, so the run configs live in
+    `configs/m3b/run_configs/`. The ledger is in `data/processed/m3b/epta/runs/`; the GPU lock is
+    `~/.cache/ptagwb/gpu0.lock`.
