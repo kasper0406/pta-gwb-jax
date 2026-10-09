@@ -7,15 +7,55 @@ ingestion, profiles, general multi-block likelihood, gates G1-G9; approved in re
 E2-C's original all-oracle criterion unmet and E7/E8 open).
 
 **This is a design and pre-registration document. Nothing has been implemented, sampled or run on
-a GPU for it.** The only computations behind it are CPU reads of released products (reference-chain
-quantiles, effective sample sizes and mode counts; Appendix A). Every compute number is a
-**projection** unless it is marked as measured and cited. Tolerances in Sec. 6 are fixed here,
-before any M3b run. They change only through a documented revision that is made before the run it
-affects and is reviewed.
+a GPU for it.** The only computations behind it are CPU reads of released products: reference-chain
+quantiles, MCSEs, prior-volume columns, mode counts and builder source code (Appendix A). Every
+compute number is a **projection** unless it is marked as measured and cited. The decision rules
+in Sec. 6 are fixed here. The practical margins are **provisional** until the user confirms them
+(D2); after confirmation they change only through a documented revision made before the run it
+affects, and that revision is reviewed.
+
+**Revision 2 (after independent review of 25436e9, REQUEST_CHANGES).** The review endorsed
+EPTA-first, the tempo2 evaluator, keeping E8 open and deferring option C / E7. Changes:
+1. The **PPTA common-process grid** is not fixed by the mode count. `get_crn_model_dict` does not
+   pass `Tspan` to `enterprise_extensions.blocks.common_red_noise_block`, and the resulting grid
+   depends on the extensions version and differs between CURN and HD (Sec. 2.2). The chain-producing
+   versions must be established, and frequencies, normalisations and bases are exported separately
+   for CURN and HD. The evidence-ladder endpoint is fixed for unequal grids (Sec. 5.4).
+2. A complete **version-pinned prior/model manifest** is an M3b-0 exit condition (Sec. 4.5). The
+   EPTA fork audit (enterprise *and* enterprise_extensions) is mandatory for a full-reproduction
+   claim; there is no inferred-prior fallback. PPTA exceptions are added: fixed-gamma amplitude
+   U(-18, -14), confirmed from the chains' prior columns; SW-GP bound rules.
+3. **T1 covers every consumed array** (barycentric epochs, row order and deletion masks, ORF
+   positions, SW geometry, timing-model rank, frequency convention) and checks original released
+   inputs against canonical ones. Acceptance needs the complete roster; a dropout is a separately
+   labelled sensitivity analysis (Sec. 4.1).
+4. **Sampled event epochs** leave NUTS and are updated by exact MH, validated against a numerical
+   reference. Divergence rules apply to NUTS sub-steps only (Sec. 5.1, 5.3).
+5. The **transport gate** requires bidirectional transport only when both regions have material
+   reference support. It is defined separately for amplitudes, event epochs and other parameters
+   (Sec. 5.3).
+6. **Reweighting**: raw and PSIS estimators are specified, with autocorrelation-aware MCSE for
+   weights and weighted quantiles, independent-chain stability, precision gates on HD outputs, and
+   an ordered-chain bootstrap of the PPTA product-space reference (Sec. 5.4).
+7. **Acceptance** uses the uncertainty of both estimates: EQUIVALENT / INCOMPATIBLE / INCONCLUSIVE,
+   where equivalence means the difference's 90 % interval lies inside the margin. Reference-limited
+   quantities are identified now (Sec. 6).
+8. **BF**: cross-model lnL_HD - lnL_CURN oracle checks including normalisations, a maximum BF
+   uncertainty, and an uncertainty-aware classification (Sec. 6.2, 6.3).
+9. **PPTA cost**: group-selection columns added (J0437 -> 1,816); non-harmonic group grids; the
+   arithmetic is corrected; Gibbs is labelled as unvalidated speculation; no dense Q_perp
+   (Sec. 3, 5.5).
+10. **Target corrections**: the EPTA HD gamma lower error and the paper's internal discrepancy;
+    J1022 NE_SW is fitted and marginalised; PPTA samples 16 mean SW densities; E-5 is an explicit
+    fixed-gamma HD target with provenance (Sec. 2).
+11. **Structure**: M3b-0 is split so that EPTA is not blocked by PPTA or cross-check
+    infrastructure. PPTA defaults to conditional-only, and PPTA sampler development is a separate,
+    separately reviewed milestone. OS is optional. D1-D8 carry the reviewer's recommendations,
+    marked as such (Sec. 8).
 
 Notation follows M3_PLAN: **leg** = one PTA's par + tim of one pulsar; **K_a** = sampled GP columns
 of pulsar a; **N_c** = number of common-process frequencies; **[UNCERTAIN]** = not pinned down from
-papers or released files. "Reference chain" means the PTA's released posterior samples.
+papers or released files. "Reference chain" = the PTA's released posterior samples.
 
 ---
 
@@ -23,34 +63,39 @@ papers or released files. "Reference chain" means the PTA's released posterior s
 
 | PTA (release) | Published target (headline) | Reference products | Class we can claim | Order |
 |---|---|---|---|---|
-| **EPTA DR2new** (GitLab 2911d0e) | HD log10 A = -13.94 (+0.23/-0.48), gamma = 2.71 (+1.18/-0.71) (90 %); BF(HD/CURN) = 60 | full noise model in machine-readable files; released CURN/HD chains with **all** noise parameters (Zenodo 8091568) | **full reproduction** | 1 |
-| **PPTA DR3** (GitHub fdbe6eb) | CURN log10 A = -14.50 (+0.14/-0.16), gamma = 3.87 +- 0.36 (68 %) | max-likelihood noise JSONs, 3-sigma prior files, the model builder (`commonNoise.py`), CURN / product-space chains with all ~260 parameters | **conditional implementation check** first (cheap); **full reproduction** only if the compute decision D5 allows it | 2 |
+| **EPTA DR2new** (GitLab 2911d0e) | HD log10 A = -13.94 (+0.23/-0.48), gamma = 2.71 (+1.18/-0.73 or -0.71; paper inconsistent) (90 %); BF(HD/CURN) = 60 | machine-readable noise files and dicts; model script; released CURN/HD chains with **all** 67 parameters plus lnlike and lnpost columns (Zenodo 8091568) | **full reproduction**, conditional on the fork audit and the manifest (Sec. 4.5); otherwise downgraded | 1 |
+| **PPTA DR3** (GitHub fdbe6eb) | CURN log10 A = -14.50 (+0.14/-0.16), gamma = 3.87 +- 0.36 (68 %) | max-likelihood noise JSONs, 3-sigma prior files, model builder, CURN / product-space chains with all ~260 parameters plus lnlike/lnpost | **conditional implementation check by default**; full reproduction only as a separate milestone (M3b-PPTA-S/F, D5) | 2 |
 | **MPTA 4.5-yr** | ER CURN log10 A = -14.25 (+0.21/-0.36), gamma = 3.60 (+1.31/-0.89) | par/tim; noise only in rounded paper tables and an unofficial WN dictionary | **approximate cross-check** | 3 |
 | **InPTA DR2** | 95 % UL log10 A < -13.47 (gamma = 13/3, uniform-A prior) | par/tim with T2EFAC; RN/DM/chromatic/SW table in the noise paper; no WN values, no chains | **approximate cross-check** | 4 |
 
-Key decisions proposed here (Sec. 8 lists all human decision points):
+Key decisions (Sec. 8 lists all human decision points):
 
-* **E8 legs (Sec. 4.1).** For per-PTA published-model reproductions, use **tempo2 (libstempo, the
-  pinned oracle env) as the primary evaluator of non-NG legs**, as the published analyses did, and
-  keep PINT as an independent secondary evaluator whose effect is quantified per PTA as an
-  "engine sensitivity". PINT-vs-tempo2 parity becomes a non-blocking research item. This
-  re-scopes E8 and needs the user's and the reviewer's agreement (D1).
-* **Stage 1 needs neither option C nor E7.** Each PTA has one leg per pulsar. J1022+1001 /
-  J0437-4715 admissibility and E7 move to the M3c preparation (Sec. 4.4).
-* **Published TOA sets.** Reproductions use the TOAs the PTA analysed, so M3a's clock-coverage
-  exclusions (65 EPTA TOAs) and conservative duplicate removals (2 EPTA, 3 PPTA) are **not** applied
-  in published profiles. Their effect is a reported robustness check (Sec. 4.2).
-* **Sampling (Sec. 5).** NUTS with a fixed dense metric plus the exact frozen block-MH jumps of
-  FS_PILOT for weakly constrained (log10 A, gamma) pairs and deterministic-event blocks. HD
-  posteriors and BF(HD/CURN) come first from importance reweighting of CURN draws, with PSIS k-hat
-  and Kish ESS checks; an HD NUTS run is made only if those checks fail.
-* **The PPTA full model is the compute risk.** Its per-pulsar GP blocks reach K_a ~ 1,000-1,400
-  columns. The projected cost is about 760x the NG15 per-pulsar cubic work, i.e. ~0.1-1.5 s per
-  value+gradient and tens to hundreds of GPU-hours with NUTS (Sec. 5.5). A measured benchmark
-  (M3b-0) comes before any commitment. A coefficient-Gibbs kernel is the main alternative lever.
-* **Budget (projection).** M3b without the PPTA full model: **~6-50 GPU-h**. The PPTA full model
-  adds **~5-60 GPU-h** with a validated Gibbs kernel or **~50-800 GPU-h** with plain NUTS + jumps
-  (Sec. 7).
+* **E8 legs (Sec. 4.1).** Published-model reproductions use **tempo2 (libstempo, pinned oracle env)
+  as the primary evaluator of non-NG legs**, as the published analyses did. PINT is kept as an
+  independent secondary evaluator whose effect is reported per PTA. E8 stays open (re-scoped as a
+  PINT-parity diagnostic). Reproduction acceptance needs an expanded T1 on the **complete roster**.
+* **Model identity (Sec. 4.5).** Two end-to-end checks come before any sampling:
+  * a **chain fingerprint**: our lnL at released draws minus the stored lnlike must be constant;
+  * a **prior-volume check**: our log prior must equal the stored lnpost - lnlike.
+
+  A first CPU check already gives:
+  * EPTA's prior volume matches noise log10 A U(-18, -10), gamma U(0, 7), the dip boxes, and a
+    **common log10 A U(-18, -10)**, to 1e-4 nats;
+  * PPTA's fixed-gamma amplitude is U(-18, -14);
+  * the other PPTA informed-prior rules are not yet reproduced: a constant 2.541-nat offset
+    remains (Appendix A).
+* **Stage 1 needs neither option C nor E7** (one leg per pulsar per PTA, Sec. 4.4).
+* **Published TOA sets** are used (no M3a clock exclusions or duplicate removals), and the M3a
+  defaults are a reported sensitivity (Sec. 4.2).
+* **Sampling (Sec. 5).** NUTS with a fixed dense metric on the continuous parameters. Frozen block-MH
+  jumps for shelf-prone (log10 A, gamma) pairs. Exact MH for event epochs. HD and BF(HD/CURN) by
+  importance reweighting first (raw and PSIS estimators, autocorrelation-aware MCSE), and an HD run
+  only if that fails.
+* **PPTA full model is the compute risk.** Up to K_a ~ 1,800 columns per pulsar (J0437). Projected
+  ~56-2,100 GPU-h per NUTS run (Sec. 5.5). A coefficient-Gibbs kernel is unvalidated research. PPTA
+  therefore defaults to the conditional check.
+* **Budget (projection).** M3b without PPTA sampler work: **~7-100 GPU-h** (central ~15). The PPTA full model is a
+  separate decision (D5).
 
 ---
 
@@ -58,386 +103,403 @@ Key decisions proposed here (Sec. 8 lists all human decision points):
 
 ### 1.1 Three kinds of comparison (never mixed)
 
-From the M3 plan review (round 2, item 6) and M3_PLAN Sec. 5.2:
-
-* **Full reproduction.** Our implementation of the PTA's *published* model (same data, timing
-  profile, noise components, sampled and fixed parameters, priors, N_c and grid), compared with
-  the released chains under the Sec. 6 criteria. Only EPTA DR2new and PPTA DR3 release enough for
-  this.
-* **Conditional implementation check.** All non-target noise is fixed at released values. Our
-  conditional posterior (or likelihood surface) of the common-process parameters is compared with
-  enterprise evaluated on **the same conditional model and inputs**. This validates code, not
-  published numbers. A conditional posterior is **not** expected to match the published
-  noise-marginalised chains.
+* **Full reproduction.** Our implementation of the PTA's *published* model: same data, timing
+  evaluator, TOA roster, noise components, sampled and fixed parameters, priors, frequency grids
+  and normalisations. Compared with the released chains under Sec. 6. Requires the manifest
+  (Sec. 4.5) to be complete and verified. Only EPTA DR2new and PPTA DR3 release enough for this.
+* **Conditional implementation check.** All non-target noise fixed at released values. Our
+  conditional likelihood surface / posterior of the common process is compared with enterprise on
+  **the same conditional model and inputs**. This validates code, not published numbers. It is
+  **not** expected to match the published noise-marginalised chains.
 * **Approximate cross-check.** Products needed for an exact configuration are missing (MPTA,
-  InPTA). We compare against published summaries with loose, pre-declared tolerances. Nothing
-  else depends on the outcome.
+  InPTA). Comparison against published summaries with loose, pre-declared rules. Nothing depends on
+  it.
+
+A claim is downgraded, never stretched. If the manifest of a full reproduction stays unresolved,
+or the roster is incomplete, the result is reported as an "approximate comparison" with the reason.
 
 ### 1.2 Ordering
 
-EPTA first: highest value (BF ~60 is the strongest European evidence; the chains contain every
-noise parameter) and highest feasibility (67 sampled parameters, K_a <= 416, 45k TOAs). PPTA
-second: complete products but a much larger model. Its conditional check is cheap and comes
-first, and the full model waits for a compute decision. MPTA and InPTA come last as approximate
-cross-checks. They are not prerequisites for Stage 2.
+EPTA first: highest value (BF ~60; chains contain every parameter plus lnlike/lnpost) and highest
+feasibility (67 parameters, K_a <= 416, 45k TOAs). PPTA second, conditional check by default. MPTA
+and InPTA last as approximate cross-checks; they are not prerequisites for Stage 2.
 
 ### 1.3 Out of scope for M3b
 
-NG15 (done in M1/M2). Combinations (Stage 2+). Sampled white noise in array runs. BayesEphem
-(EPTA and PPTA robustness variants only). Free spectra, binned/spline ORFs, OS and pair-wise
-statistics, unless listed as optional in Sec. 2. Sky scrambles and phase shifts. EPTA DR2full and
-DR2new+ (DR2new+ contains InPTA DR1; never combine it with InPTA).
+NG15 (done). Combinations (Stage 2+). Sampled white noise in array runs. BayesEphem. Free spectra and
+ORF reconstructions. Sky scrambles and phase shifts. EPTA DR2full and DR2new+ (DR2new+ contains
+InPTA DR1). The OS is optional everywhere.
 
 ---
 
 ## 2. Per-PTA specifications
 
-Numbers from papers were checked against the arXiv sources (survey Sec. 3.7-3.10) and, for this
-plan, re-checked against the arXiv abstracts or HTML (2306.16214, 2306.16215, 2306.16229,
-2412.01153) and the InPTA GWB LaTeX (2608.02808v1). Reference-chain numbers were recomputed from
-the released files on 2026-10-09 (Appendix A).
+Numbers from papers were checked against the arXiv sources (survey Sec. 3.7-3.10) and re-checked for
+this plan against arXiv abstracts or HTML (2306.16214, 2306.16215, 2306.16229, 2412.01153) and the
+InPTA GWB LaTeX (2608.02808v1). Reference-chain numbers were recomputed from the released files
+(Appendix A).
 
-### 2.1 EPTA DR2new: full reproduction
+### 2.1 EPTA DR2new: full reproduction (subject to Sec. 4.5)
 
-**Targets** (Antoniadis et al. 2023, *EPTA DR2 III: search for GW signals*, A&A 678 A50,
-arXiv:2306.16214, DR2new section and summary table; 90 % credible, enterprise):
+**Targets** (Antoniadis et al. 2023, *EPTA DR2 III*, A&A 678 A50, arXiv:2306.16214; 90 % credible,
+enterprise):
 
-| ID | quantity | published | reference chain (ours, Appendix A) |
-|---|---|---|---|
-| E-1 | HD^gamma log10 A | -13.94 (+0.23/-0.48) | -13.935 [-14.418, -13.702] (5/50/95), MCSE(q50) 0.005 |
-| E-2 | HD^gamma gamma | 2.71 (+1.18/-0.71) | 2.710 [1.978, 3.894] |
-| E-3 | CURN^gamma log10 A | -14.00 (+0.28/-0.77) | -13.997 [-14.766, -13.718] |
-| E-4 | CURN^gamma gamma | 2.91 (+1.72/-0.87) | 2.906 [2.038, 4.626] |
-| E-5 | gamma = 13/3 log10 A | -14.61 (+0.11/-0.12) | no released 13/3 chain in DR2new **[UNCERTAIN: check the Zenodo record and the GitLab repository again in M3b-0]** |
-| E-6 | BF(HD/CURN) | 60 (enterprise); 62 (fortytwo); re-estimates 66, 56, 62 | not derivable from the released chains (separate runs, no evidences) |
-| E-7 (optional) | OS (13/3) A^2 = 10.0 (+5.1/-4.9) x 10^-30, S/N 3.5 (+2.4/-1.7) | `os/hd_amp_sn.txt` | |
+| ID | quantity | published | reference (Appendix A) | role |
+|---|---|---|---|---|
+| E-1 | HD^gamma log10 A | -13.94 (+0.23/-0.48) | -13.935 [-14.418, -13.702] | headline |
+| E-2 | HD^gamma gamma | 2.71 (+1.18 / -0.73 in one passage, -0.71 in another; see note) | 2.710 [1.978, 3.894] (lower error 0.732) | headline |
+| E-3 | CURN^gamma log10 A | -14.00 (+0.28/-0.77) | -13.997 [-14.766, -13.718] | headline |
+| E-4 | CURN^gamma gamma | 2.91 (+1.72/-0.87) | 2.906 [2.038, 4.626] | headline |
+| E-5 | HD log10 A at gamma = 13/3 | -14.61 (+0.11/-0.12) | no released chain | secondary (provenance below) |
+| E-6 | BF(HD/CURN) | 60 (enterprise); 62 (fortytwo); re-estimates 66, 56, 62 | not derivable from released chains | headline |
+| E-7 (optional) | OS (13/3): A^2 = 10.0 (+5.1/-4.9) x 10^-30, S/N 3.5 | `os/hd_amp_sn.txt` | optional |
 
-The released CURN and HD chains (`DR2new/{crn_pl,hd_pl}/chain_1.txt`, 29,990 rows, 67 parameters
-+ 4 sampler columns) reproduce the published E-1 to E-4 to the last printed digit (Appendix A).
-They are the reference for E-1 to E-4 and for every noise parameter.
+Notes:
+* **E-2 discrepancy.** The released chain gives a lower error of 0.732. The paper prints -0.73 and
+  -0.71 in different places: the reviewer reads Table 2 as -0.71 and the main text as -0.73, and
+  our survey extraction recorded -0.71. The chain is the reference; the discrepancy is recorded.
+  The released chains reproduce E-1, E-3 and E-4 to the printed precision and E-2 to the -0.73
+  variant.
+* **E-5 provenance.** The paper says that "when fixing the spectral index to 13/3" the amplitude is
+  log10 A = -14.61 (+0.11/-0.12). It describes this as a slice of the 2-D posterior, the lower error
+  differs between passages, and the slice method is not specified. **Our target definition:** the
+  posterior of log10 A in the **HD model with gamma fixed at 13/3** and the same amplitude prior.
+  This is exactly the conditional p(log10 A | gamma = 13/3, data) that a slice estimates. We obtain
+  it from a fixed-gamma CURN run reweighted to HD (Sec. 5.4). Because the reference method and its
+  uncertainty are not reconstructible, E-5 is **secondary**: classified and reported, not part of
+  the REPRODUCED verdict.
 
 **Published-analysis profile.**
 * Data: DR2new par/tim (25 pulsars, 45,428 TOAs, 2011.1-2021.5, T_array = 10.33 yr).
-* Clock and ephemeris: TT(BIPM2021), DE440, the release's corrected Nancay clock file.
-* Units: TCB, evaluated natively by tempo2 under the D1 strategy.
-* Timing model: analytically marginalised (`tm_svd=True, tm_marg=True`).
+* Clock and ephemeris: TT(BIPM2021), DE440, the release's corrected Nancay clock.
+* Units: TCB, evaluated natively by tempo2 (D1).
+* Timing model: marginalised (`tm_svd=True, tm_marg=True`). Solar wind is the par's deterministic
+  NE_SW = 7.9 cm^-3 for all pulsars except **J1022+1001**, whose NE_SW = 9.70 +- 0.55 is
+  **fitted** (fit flag 1). Its design column is therefore analytically marginalised with the
+  timing model (flat prior), not fixed.
 * WN: EFAC + TNEQUAD per `-group`, fixed at `noisefiles/DR2new/*.json`, no ECORR.
-* Model code: `EPTA-DR2/scripts_gwb/model_single.py`, i.e. `enterprise_extensions.models.model_general`
-  from EPTA's modified fork (tag `EPTADR2-v1.1`, gitlab.in2p3.fr; **not fetched**, decision D6).
+* Model code: `EPTA-DR2/scripts_gwb/model_single.py`, which calls `model_general` from EPTA's
+  modified enterprise and enterprise_extensions (tag `EPTADR2-v1.1`, gitlab.in2p3.fr; **audit
+  mandatory**, Sec. 4.5).
 
-**Noise model per pulsar** (released `red_dict.json`, `dm_dict.json`, `chrom_dict.json`; counts
-on each pulsar's own span):
+**Noise model per pulsar** (released `red_dict.json`, `dm_dict.json`, `chrom_dict.json`):
 
-| component | where | basis | status in the GWB run |
+| component | where | basis (to be confirmed by the fork audit) | status |
 |---|---|---|---|
-| achromatic RN | 8 pulsars (10-99 modes) | Fourier, pulsar span | **sampled** (log10 A, gamma) |
+| achromatic RN | 8 pulsars (10-99 modes) | Fourier on the pulsar span | **sampled** |
 | DM GP | 22 pulsars (11-100 modes) | nu^-2, TempoNest normalisation (`tndm=True`) | **sampled** |
 | scattering GP | J1600-3053 (93 modes) | nu^-4 (`chrom_kernel='diag'`) | **sampled** |
-| exponential dip | J1713+0747, one event (t0 in [57490, 57530], chromatic index 1) | deterministic | **sampled** (log10 Amp, log10 tau, t0) |
-| solar wind | all, deterministic n_earth = 7.9 cm^-3 in the par (J1022 fitted) | timing model | fixed (in par) |
-| band/system noise, ECORR | none | - | - |
+| exponential dip | J1713+0747, one event (t0 in [57490, 57530], chromatic index 1) | deterministic, Heaviside onset at t0 | **sampled** (log10 Amp, log10 tau continuous; **t0 by MH**, Sec. 5.1) |
+| solar wind | NE_SW in the par; J1022 fitted (above) | timing model | fixed / marginalised |
+| common process | 9 modes **[UNCERTAIN until audit: array span via `model_general`'s `Tspan`]**; `freq_bins/freqs_dr2new.txt` lists multiples of 3.066e-9 Hz = 1/(10.33 yr) | | sampled |
 
-Sampled parameters: 62 GP + 3 dip + 2 common = **67**, matching the chain columns. The common
-process uses N_c = **9** modes (paper) on T_array; `freq_bins/freqs_dr2new.txt` gives the
-spacing 3.066e-9 Hz = 1/(10.33 yr). Priors inferred from the chain ranges, to be pinned from the
-fork: noise log10 A U(-18, -10), gamma U(0, 7); dip log10 tau U(0, 2.5); common log10 A
-U(-18, -11) **[UNCERTAIN: upper bound -11 vs -10]**, gamma U(0, 7).
+Sampled parameters: 62 GP + 3 dip + 2 common = **67** (matches the chain). The prior volume in the
+chain (lnpost - lnlike = -135.4959, constant) equals, to 1e-4 nats:
+* noise log10 A U(-18, -10) and gamma U(0, 7) for all 31 processes;
+* dip log10 Amp width 8, log10 tau U(0, 2.5), t0 width 40 d;
+* common log10 A **U(-18, -10)** and gamma U(0, 7).
 
-*Discrepancy recorded:* the GW paper gives dip chromatic indices 4 and 2. The released code
-(`dm_expdip_idx=[1,4]`, windows [57490, 57530] and [54650, 54850]) and the noise file key
-`expd-1.0_57490_57530` give index **1** for the 2016 event, the only one inside DR2new. We follow
-the code, because it produced the reference chain.
+The alternative common upper bound -11 gives -135.362 and is excluded. A volume match is a
+consistency check, not an identification of each bound, so the audit (Sec. 4.5) is still
+required.
+
+*Discrepancy recorded:* the GW paper gives dip indices 4 and 2. The released code
+(`dm_expdip_idx=[1,4]`) and the noise file key `expd-1.0_57490_57530` give index **1** for the 2016
+event, the only one inside DR2new. We follow the code that produced the chains.
 
 **M3a support and gaps.**
-* Supported: per-block spans and mode counts (`FourierBlock`), TempoNest DM normalisation, nu^-4
-  chromatic blocks, TN EQUAD, namespacing, distinct common and noise grids (prefix identity broken),
-  and padding for variable K_a.
-* To add: the sampled exponential dip (N3); the EPTA model builder with exact enterprise semantics
-  (N1); stage-2 bucketing (N8).
-* Largest K_a: J0900-3144, 398 noise columns + 18 common = 416. Sum over pulsars of K_a^3 is
-  ~16x NG15's with size buckets and ~124x if every pulsar is padded to 416.
+* Supported: per-block spans and mode counts, TempoNest DM normalisation, nu^-4 blocks, TN EQUAD,
+  namespacing, distinct grids, padding.
+* To add: the dip with MH t0 (N3, N13); the EPTA builder (N1); stage-2 buckets (N8); the manifest
+  and fingerprint tooling (N11).
+* Largest K_a = 416 (J0900-3144: 398 + 18 common). Sum of K_a^3 ~16x NG15's with buckets.
 
 **Comparisons.**
-* Conditional implementation check E-C0: noise fixed at the noisefile values, the 141 x 141
-  (log10 A, gamma) CURN and HD likelihood surfaces against enterprise built with the same fixed
-  noise. CPU only.
-* Full reproduction of E-1 to E-6, with E-5 against the paper's interval only (no chain).
-* Optional E-7.
+* E-C0, a conditional implementation check: fixed noisefile values; CURN/HD surfaces on 141 x 141
+  grids vs enterprise from the audited fork (CPU).
+* Full reproduction of E-1 to E-4 and E-6.
+* E-5 secondary; E-7 optional.
 
-### 2.2 PPTA DR3: conditional check first, full reproduction gated
+### 2.2 PPTA DR3: conditional implementation check by default
 
-**Targets** (Reardon et al. 2023, *Search for an isotropic GWB with the PPTA DR3*, ApJL 951 L6,
-arXiv:2306.16215; 68 % credible). Reference: GitHub fdbe6eb
+**Targets** (Reardon et al. 2023, ApJL 951 L6, arXiv:2306.16215; 68 %). Reference: GitHub fdbe6eb
 `analysis_codes/data/all/chains/chain_commonNoise_*_DE440.npy`.
 
-| ID | quantity | published | reference chain (Appendix A) |
+| ID | quantity | published | reference (Appendix A) |
 |---|---|---|---|
 | P-1 | CURN^gamma log10 A | -14.50 (+0.14/-0.16) | -14.496 (+0.138/-0.159), 2,978 draws, bulk ESS 549 |
-| P-2 | CURN^gamma gamma | 3.87 +- 0.36 | 3.869 (+0.359/-0.364), ESS 619 |
-| P-3 | CURN 13/3 log10 A | -14.69 +- 0.05 (A = 2.04 (+0.25/-0.22) x 10^-15) | -14.681 (+0.047/-0.054), ESS 1,569 |
-| P-4 | HD^gamma log10 A, gamma | -14.51 (+0.18/-0.20); 3.87 +- 0.47 | HD-active product-space draws: -14.514 (+0.177/-0.195); 3.906 (+0.483/-0.462), ESS ~350 (approximate: subsequence of a product-space chain) |
-| P-5 | HD 13/3 log10 A | -14.68 +- 0.06 | -14.675 (+0.060/-0.059) |
-| P-6 | BF(HD/CURN) | ~1.5 (free gamma), ~2 (13/3) | product-space count ratios 1.85 / 1.69 **[UNCERTAIN: assumes equal model weights (HyperModel default); not the paper's numbers]** |
-| P-7 (diagnostic) | "basic" noise model CURN | -14.08 +- 0.06, gamma 2.9 +- 0.2 | no chain |
+| P-2 | CURN^gamma gamma | 3.87 +- 0.36 | 3.869 (+0.359/-0.364) |
+| P-3 | CURN fixed-gamma (4.333) log10 A | -14.69 +- 0.05 | -14.681 (+0.047/-0.054) |
+| P-4 | HD^gamma log10 A, gamma | -14.51 (+0.18/-0.20); 3.87 +- 0.47 | HD-active product-space draws: -14.514 (+0.177/-0.195); 3.906 (+0.483/-0.462) |
+| P-5 | HD fixed-gamma log10 A | -14.68 +- 0.06 | -14.675 (+0.060/-0.059) |
+| P-6 | BF(HD/CURN) | ~1.5 (free), ~2 (fixed) | product-space count ratios 1.85 / 1.69 **[UNCERTAIN: model weights; Sec. 6.3]** |
 
 **Published-analysis profile.**
-* Data: 30 pulsars (J1741+1351 and J1824-2452A excluded), GitHub par/tim, 112,556 TOAs
-  (canonical PINT count), 2004.1-2022.2.
-* Clock: TT(BIPM2020) with the release's `pks2gps.clk`.
-* Ephemeris: **DE440** (the GW paper's override of the par's DE436).
-* Units: TCB (implicit; no UNITS line).
-* Timing model: marginalised (`MarginalizingTimingModel(use_svd=True)`).
-* WN fixed at `noiseFiles_maxlike/*_singlePsrNoise_sw_nesw0_noise.json`: EFAC + TNEQUAD per
-  backend, plus ECORR per band split (40/20/10 cm, UWL and non-UWL separately), a global ECORR
-  over UWL and a global ECORR over non-UWL TOAs (`global_ecorr`), and group ECORRs. These are
-  overlapping selections. ECORR epochs follow enterprise's quantisation (dt = 1 s, nmin = 2) per
-  selection.
+* Data: 30 pulsars (J1741+1351 and J1824-2452A excluded), 112,556 TOAs, 2004.1-2022.2.
+* Clock: TT(BIPM2020) with `pks2gps.clk`. Ephemeris: DE440 (override of the par's DE436). Units:
+  TCB (implicit).
+* Timing model marginalised (SVD).
+* WN fixed at `noiseFiles_maxlike/*`: EFAC + TNEQUAD per backend; band-split ECORR (40/20/10 cm,
+  UWL and non-UWL); global UWL and global non-UWL ECORR (`global_ecorr`); group ECORRs. These are
+  overlapping selections, with enterprise quantisation per selection.
 
-**Noise model** (from `commonNoise.py` and `ppta_dr3_utils.py`; spans T_p are per pulsar, modes =
-int(T_p / cadence)):
+**Common-process grid: unresolved, and it differs between models.**
+* `get_crn_model_dict(tspan)` computes `components = int(T_array / 240 d)` = **27**. Our 30-pulsar
+  span is 6,604.7 d; the paper prints the inconsistent "floor(6605/240) = 28".
+* It does **not** pass `Tspan` to `crn_block` = `enterprise_extensions.blocks.common_red_noise_block`
+  (imported in `ppta_dr3_models.py`). The frequencies then depend on the extensions version:
+  * **2023-era extensions** (reviewer's reading and two-pulsar check): CURN (`orf=None`) builds
+    `FourierBasisGP`, i.e. 27 harmonics of **each pulsar's own span**. HD builds
+    `FourierBasisCommonGP`, which infers the **array span**.
+  * **Installed extensions 3.0.3** (read here): both use `createfourierdesignmatrix_red(Tspan=None)`
+    inside `BasisGP` / `BasisCommonGP`, i.e. per-pulsar spans for **both**.
+* The chain-producing versions are in the unreleased Singularity image `entpptadr3_bilby_nano.sif`
+  (the repository README says it will be on the CSIRO DAP).
+* **Resolution (M3b-0P exit condition):**
+  1. obtain the image or its package list;
+  2. independently, run the **chain fingerprint test** (Sec. 4.5): evaluate each grid hypothesis
+     at >= 50 released draws and compare with the stored lnlike column;
+  3. export frequency labels, normalisations and bases **separately for CURN and HD**, and handle
+     per-pulsar vs array spans explicitly.
+
+  If the grids differ between CURN and HD, both are reproduced as published, and the HD/CURN
+  reweighting and any evidence ladder use the correct endpoints (Sec. 5.4).
+
+**Noise model** (`commonNoise.py`, `ppta_dr3_utils.py`; modes = int(T / cadence); spans to be
+confirmed per block by N1):
 
 | component | where | basis | status |
 |---|---|---|---|
 | achromatic RN | all 30 | T_p/240 d | **sampled**, informed prior |
 | DM GP | all 30 | nu^-2, T_p/60 d | **sampled**, informed prior |
 | chromatic GP | 7 (J0437, J0613, J1017, J1045, J1600, J1643, J1939) | nu^-4, T_p/240 d | **sampled** |
-| band noise low (<= 960 MHz) | 9; J0437 also mid and high | T_p/60 d, frequency row mask | **sampled** |
+| band noise low (<= 960 MHz) | 9; J0437 also mid and high | T_p/60 d, frequency mask | **sampled** |
 | HF achromatic | 8 (J0437, J1017, J1022, J1600, J1713, J1744, J1909, J2241) | T_p/30 d | **sampled** |
-| group noise | pulsars in `psr_groupnoise_dict_dict['all']` | flag mask, f_max = 1/30 d on the masked span **[UNCERTAIN: span of the masked TOAs vs T_p; to be pinned against enterprise]** | **sampled**, one shared prior per pulsar |
-| deterministic SW | n_earth sampled in 17 pulsars (prior from the 3-sigma file, within [0, 20]); fixed at 4 cm^-3 otherwise | solar-wind geometry, linear in n_earth | **sampled** where listed |
-| SW GP | 10 (J0437, J0711, J0900, J1024, J1643, J1713, J1730, J1744, J1909, J2145) | `createfourierdesignmatrix_solar_dm`, T_p/60 d | **sampled** |
-| exponential dips | J1713 (2: t0 in [54650, 54850], [57400, 57600]; index U(1, 3), U(0, 2)), J0437 (1, index U(-1, 2)), J1643 (1, U(-2, 0)), J2145 (1, U(-2, 2)) | deterministic, chromatic | **sampled** (log10 Amp U(-10, -2), log10 tau U(0, 2.5), t0, index) |
-| annual DM sinusoid | J0613 | deterministic nu^-2 | **sampled** (log10 Amp, phase) |
-| Gaussian DM event | J1603 (epoch U(53800, 54000)) | deterministic nu^-2 | **sampled** |
-| J1600 20-cm bump, achromatic quadratic | defined, **off** in the GWB run (`bump_1600 = False`, `do_quad` unset) | - | not modelled |
+| group noise | J0437 (4 groups), J1017 (2), J1022 (2), J1713 (4), J1909 (1) (`psr_groupnoiselist_dict_all`) | `FourierBasisGP_ppta(fmax=1/30 d)` on the **masked** TOAs: frequencies `linspace(1/T_mask, fmax, n)`, **not integer harmonics**; one shared prior per pulsar from the sup/inf of the groups' 3-sigma bounds | **sampled** |
+| deterministic SW | n_earth **sampled in 16 pulsars** (the code lists 17, including the excluded J1824); prior [max(0, q_lo - 1), min(20, q_hi + 1)]; fixed at 4 cm^-3 otherwise | geometry x n_earth (linear) | **sampled** |
+| SW GP | 10 (J0437, J0711, J0900, J1024, J1643, J1713, J1730, J1744, J1909, J2145) | `createfourierdesignmatrix_solar_dm`, T_p/60 d | **sampled**; prior log10 A [max(-10, q_lo - 1), min(-3, q_hi + 1)], gamma [max(-4, q_lo - 0.5), min(4, q_hi + 0.5)], **negative slopes allowed** (released chains contain them) |
+| exponential dips | J1713 (2; index U(1, 3), U(0, 2)), J0437 (1, U(-1, 2)), J1643 (1, U(-2, 0)), J2145 (1, U(-2, 2)) | deterministic, Heaviside onset | log10 Amp U(-10, -2), log10 tau U(0, 2.5), index sampled continuously; **t0 (200-d windows) by MH** |
+| annual DM sinusoid | J0613 | deterministic nu^-2 | **sampled** |
+| Gaussian DM event | J1603 (epoch U(53800, 54000), log10 sigma U(0, 3)) | deterministic nu^-2 | **sampled** (smooth in epoch: NUTS) |
+| J1600 bumps, achromatic quadratic | off in the GW run | - | not modelled |
 
-The common process uses N_c = int(T/240 d) modes on the array span. Our 30-pulsar span is
-6,604.7 d, so **N_c = 27**; the paper prints 28 (survey [UNCERTAIN]). The released builder fixes 27
-from the data, and we follow it. Priors: common log10 A U(-18, -11), gamma U(0, 7). The fixed-gamma
-runs use **gamma = 4.333** (`gamma_val=4.333`), not 13/3 exactly, and we replicate that. Informed
-noise priors: log10 A in [max(-18, q_0.15% - 2), min(-11, q_99.85% + 1)], gamma in
-[max(0, q - 0.5), min(7, q + 0.5)], from `noiseFiles/3sig` (`get_informed_rednoise_priors`).
-About 260 sampled parameters; the CURN^gamma chain has 262 including an inert `nmodel`.
+Priors: common log10 A U(-18, -11) and gamma U(0, 7) for free gamma. **Fixed-gamma runs use
+gamma = 4.333 and log10 A U(-18, -14).** The width-4 box is confirmed: the freegam and fixgam
+chains' prior columns differ by exactly ln(49/4) = 2.5055. Informed noise priors:
+* log10 A in [max(-18, q_0.15% - 2), min(-11, q_99.85% + 1)];
+* gamma in [max(0, q - 0.5), min(7, q + 0.5)], from `noiseFiles/3sig`;
+* SW and group rules as in the table.
 
-**M3a support and gaps.**
-* Supported: overlapping ECORR (L3), TN EQUAD, band and flag row masks, nu^-4 blocks, per-block
-  spans.
-* To add: informed-prior configuration (N9); SW GP basis (N4); deterministic SW with a finite
-  prior (N5); sampled dips with free chromatic index, annual DM and Gaussian DM (N3);
-  enterprise-exact group-noise span semantics (N1); bucketed stage 2 at K_a up to ~1,400 (N8).
-* Projected size: K_a reaches 1,042-1,388 for J1713, J1909, J1600 and J0437 before group noise.
-  Sum of K_a^3 is ~760x NG15's.
+A first reconstruction of the complete box set reproduces the chains' prior volume up to a
+**constant 2.541 nats** in both chains. At least one rule is still misread; resolving it is an
+M3b-0P exit condition (Sec. 4.5).
 
 **Comparisons.**
-* **P-C0 conditional implementation check (first deliverable):** all noise hyperparameters,
-  including dips, SW and n_earth, fixed at the max-likelihood JSON values; CURN/HD surfaces in
-  (log10 A, gamma) and the 13/3 amplitude, ours vs enterprise built with the released
-  `ppta_dr3_models.py` functions on the same inputs. A small GPU run, or a CPU grid.
-* **Full reproduction of P-1 to P-6** only after decision D5 (Sec. 5.5).
-* P-7 is an optional diagnostic: it exercises the same code with fewer blocks.
+* **P-C0 conditional implementation check (default deliverable).** All noise hyperparameters
+  (incl. dips, SW, n_earth) fixed at the max-likelihood JSONs. CURN and HD surfaces on the
+  established grids, ours vs enterprise built with the released `ppta_dr3_models.py` under the
+  established extensions version.
+* **Full reproduction (P-1 to P-6)** only via the separate milestones M3b-PPTA-S/F (D5).
 
 ### 2.3 MPTA 4.5-yr: approximate cross-check
 
-**Targets** (Miles et al. 2025, *MPTA 4.5-yr GW search*, MNRAS, arXiv:2412.01153; median and 68 %):
-
-| ID | quantity | published |
-|---|---|---|
-| M-1 | DATA CURN log10 A, gamma | -14.25 (+0.21/-0.34); 3.52 (+1.12/-0.90) |
-| M-2 | ER CURN log10 A, gamma | -14.25 (+0.21/-0.36); 3.60 (+1.31/-0.89) |
-| M-3 | DATA HD log10 A, gamma | -14.28 (+0.23/-0.30); 4.50 (+1.00/-0.93) |
-| M-4 (info) | OS (DATA, fixed parameters) A^2 = (5.7 +- 1.2) x 10^-29, i.e. the abstract's h_c,yr = 7.5e-15 at alpha = -0.26 and 4.8e-15 at alpha = -2/3 | not a Bayesian posterior; not compared |
+**Targets** (Miles et al. 2025, MNRAS, arXiv:2412.01153; median and 68 %): M-1 DATA CURN -14.25
+(+0.21/-0.34), gamma 3.52 (+1.12/-0.90). M-2 ER CURN -14.25 (+0.21/-0.36), gamma 3.60 (+1.31/-0.89).
+M-3 DATA HD -14.28 (+0.23/-0.30), gamma 4.50 (+1.00/-0.93). The abstract's h_c,yr = 7.5e-15
+(alpha = -0.26) and 4.8e-15 (alpha = -2/3) come from the fixed-parameter OS (A^2 = (5.7 +- 1.2) x
+10^-29). They are not Bayesian posteriors and are not compared.
 
 **Profile.**
-* 83 pulsars (J1825-0319 loads under tempo2; it is quarantined in the PINT path), 245,907 TOAs,
-  single system KAT_MKBF.
-* Clock: TT(BIPM2020) from the pars as the default; BIPM2022 (the paper's) as a variant (D7).
-* Ephemeris DE440; WN fixed (paper).
-* Noise (Miles et al. 2025, arXiv:2412.01148, tables): evidence-selected EFAC/TNEQUAD/ECORR; RN
-  (12 pulsars; all pulsars in ER); DM GP; chromatic GP with fitted or fixed (4) beta; solar wind
-  n_earth and SW GP; Gaussian chromatic events (15); annual chromatic terms (8).
-* No machine-readable release: tables are rounded and MattTMiles/MPTAGW `example_noise.json` is
-  unofficial.
-* N_c and per-pulsar T for the Bayesian common process **[UNCERTAIN]**.
+* 83 pulsars under tempo2 (J1825-0319's signed H3 is handled by tempo2), 245,907 TOAs, KAT_MKBF.
+* Clock: decision D7. The reviewer recommends the paper's BIPM2022 for the published-target
+  comparison, with the par's BIPM2020 as a sensitivity.
+* DE440; WN fixed. Noise from the arXiv:2412.01148 tables (rounded); unofficial MPTAGW
+  `example_noise.json` as a transcription cross-check.
+* N_c and T of the Bayesian common process **[UNCERTAIN]**.
 
-**What we do.** A conditional approximation: WN from the tables (the unofficial JSON as a cross-check
-of transcription); RN/DM/chromatic/SW/event parameters fixed at the tabulated MAP values, with
-beta fixed at its table value (no per-call basis rebuild); CURN^gamma and HD^gamma on the array
-span with N_c from the MPTAGW scripts (or 30 if unresolvable; flagged). Comparing a fixed-noise
-posterior with noise-marginalised published intervals is approximate by construction.
-
-**M3a support:** the components above, with fixed hyperparameters and absorbed in stage 1 (cheap).
-**To add:** Gaussian chromatic and annual chromatic deterministic terms as *fixed* residual
-corrections (N3 fixed mode), and the SW GP basis (N4).
+**What we do.** A conditional approximation: WN from the tables; RN/DM/chromatic/SW/event
+parameters fixed at the tabulated MAP; beta fixed; CURN and HD on the array span. Fixed-noise
+posteriors vs noise-marginalised published intervals is approximate by construction.
 
 ### 2.4 InPTA DR2: approximate cross-check
 
-**Targets** (InPTA DR2 GWB paper, arXiv:2608.02808v1, abstract and Table "solar cuts"):
-
-| ID | quantity | published |
-|---|---|---|
-| I-1 | 95 % UL at gamma = 13/3, uniform-in-A prior (LinearExp by reweighting a log-uniform chain) | log10 A < -13.47 (A < 3.4 x 10^-14) |
-| I-2 | the same, log-uniform prior quantile | -13.55 |
-| I-3 | CURN^gamma (broad, prior-dominated) | log10 A = -13.71 (+1.06/-3.28), gamma = 2.98 (+3.62/-2.70) |
-| I-4 (info) | Savage-Dickey BF(CURN/none) | 2.5 |
+**Targets** (arXiv:2608.02808v1): I-1 95 % UL at gamma = 13/3, uniform-in-A prior (LinearExp by
+reweighting a log-uniform chain): log10 A < -13.47. I-2 log-uniform quantile -13.55. I-3 CURN^gamma
+log10 A = -13.71 (+1.06/-3.28), gamma = 2.98 (+3.62/-2.70). Info: Savage-Dickey BF 2.5.
 
 **Profile.**
-* 27 pulsars, 83,120 TOAs, TT(BIPM2023), DE440, TCB.
-* DMX removed, DM + DM1 + DM2 (`InPTA.DR2.NA` pars).
-* Noise from the noise paper (arXiv:2512.20455) table: ARN, DMN, free-chromatic noise with sampled
-  chi, deterministic n_earth (+ derivative for J1909).
-* Single-pulsar noise parameters **fixed** in the UL run (paper Sec. "upper limit").
-* WN: only `T2EFAC` per group in the release pars. No EQUAD/ECORR values are public (**known
-  gap**: our WN will under-model the white noise where EQUAD/ECORR were selected).
+* 27 pulsars, 83,120 TOAs, TT(BIPM2023), DE440, TCB; DM + DM1 + DM2 (`InPTA.DR2.NA`).
+* Noise from the arXiv:2512.20455 table: ARN, DMN, free-chromatic noise at the tabulated chi,
+  deterministic n_earth (+ derivative for J1909), all fixed.
+* WN: only release `T2EFAC`; EQUAD = ECORR = 0, a **known gap**.
 
-**What we do.** Fixed noise from the table (chi fixed at its tabulated value), EQUAD = ECORR = 0,
-UL by the paper's reweighting recipe, and the Kish ESS reported.
-
-**M3a support:** all fixed components. **To add:** deterministic SW with n_earth-dot (N5 fixed
-mode), and free-chromatic blocks at a fixed chi (supported by `FourierBlock` idx).
+**What we do.** The fixed-noise UL by the paper's recipe, with an autocorrelation-aware ESS of the
+reweighted chain (Sec. 5.4).
 
 ---
 
-## 3. New components (implementation list for M3b-0)
+## 3. New components (implementation list)
 
 | # | component | needed for | design | validation |
 |---|---|---|---|---|
-| N1 | Per-PTA model builders reproducing the published enterprise semantics: block spans (pulsar span vs masked-subset span), `int(T/cadence)` mode counts, enterprise ECORR quantisation per selection, `tndm`, `gamma_val=4.333` | EPTA, PPTA | config-driven (`configs/m3b/<pta>_model.json`), generated from the released dicts/JSONs, never hand-typed | block-by-block column-space and prior comparison with enterprise `PTA` objects (sin < 1e-10 per block) |
-| N2 | tempo2 evaluator path: per-leg residuals, design matrix (fit flags as tempo2), errors, freqs, flags from libstempo in the oracle env, written to our leg format with provenance | all non-NG reproductions | `scripts/t2py` export; the container already accepts arbitrary per-leg arrays (M3A open issue 1) | gate T1 (Sec. 4.1) |
-| N3 | Parameter-dependent deterministic residual terms: exponential dip (free index), Gaussian DM event, annual DM sinusoid; also a fixed mode (residual correction in stage 1) | EPTA, PPTA (sampled); MPTA (fixed) | **affine residual update**: with all fixed blocks and WN absorbed in stage 1, c(theta) = c_0 - G d(theta) and the orthogonal-complement term s_perp(theta) = norm(Q_perp^T W (r - d(theta)))^2, with G and Q_perp^T W precomputed. Cost O(N_toa x K_a) per call for affected pulsars only | dense oracle with a dip; enterprise; gradient vs FD |
-| N4 | SW GP block (`createfourierdesignmatrix_solar_dm` geometry x Fourier) | PPTA, MPTA | new basis in `gp.FourierBlock` | column equality vs enterprise basis |
-| N5 | Deterministic solar wind with finite prior: n_earth enters linearly, so it is a sampled scalar on a fixed column (not a flat timing column); n_earth-dot variant | PPTA (sampled), InPTA/MPTA (fixed) | column s_SW(t, nu) precomputed; contributes like N3 with d = n_earth s_SW | vs enterprise `solar_wind` |
-| N6 | Free chromatic index at fixed value | InPTA, MPTA | existing `FourierBlock` idx | existing tests |
-| N7 | Product-space-free BF tooling: reweighting with PSIS k-hat, Kish ESS, block bootstrap; bridge when both chains exist | EPTA, PPTA | extend `ptagwb.evidence` | synthetic tests with known BF |
-| N8 | Stage-2 size buckets for K_a up to ~1,400 (pad within buckets, not to the global max) and a memory model | EPTA, PPTA | L6 of M3_PLAN | padding invariance (G5-style, 1e-10) |
-| N9 | Per-parameter prior boxes (informed PPTA priors; EPTA fork priors) | EPTA, PPTA | `ModelSpec` prior table from config | prior recovery under a flat likelihood |
-| N10 | Hybrid kernel blocks for M3 parameter names (pairs, dip blocks) and the generalised fail-closed gate | all sampled runs | reuse `ptagwb.hybrid`, `diagnostics.freespec_gate` logic | existing invariance tests + new block shapes |
-| N11 | Reference-product loaders with frozen identity (sha256, burn-in, thinning) | EPTA, PPTA | `scripts/m3b_reference.py` | reproduces Appendix A |
-| N12 | Coefficient-Gibbs kernel (candidate; only if D5 selects it): sample Fourier coefficients b given hyperparameters (one Cholesky per pulsar), then hyperparameters given b (per-block conditionals; MH for deterministic terms), exact by construction (van Haasteren & Vallisneri 2014, PRD 90, 104012) | PPTA full model | separate design note before implementation | invariance on toys + agreement with NUTS on EPTA |
-
-Not added in M3b: sampled chromatic index in a GP basis (per-call basis rebuild). The PPTA GW run
-has none, since its chromatic GP uses idx = 4. InPTA/MPTA fix it.
+| N1 | Per-PTA model builders with enterprise-exact semantics: block spans (pulsar span, array span, masked-subset span), `int(T/cadence)` counts, non-harmonic `linspace` grids for PPTA group noise, enterprise ECORR quantisation per selection, `tndm`, `gamma_val=4.333`, separate CURN and HD common grids | EPTA, PPTA | generated from the manifest (Sec. 4.5); never hand-typed | per-block frequencies, normalisations and column space vs enterprise objects of the pinned versions (sin <= 1e-10) |
+| N2 | tempo2 evaluator export of every consumed array (Sec. 4.1, T1) | non-NG legs | `scripts/t2py` + oracle env | T1 |
+| N3 | Parameter-dependent deterministic residuals: exponential dip (free index), Gaussian DM event, annual DM; fixed mode for MPTA events | EPTA, PPTA, MPTA | **affine update without a dense complement**. With fixed blocks and WN absorbed, c(theta) = c_0 - G d(theta), where G = R^-T [M F]^T N^-1 is applied through the stage-1 whitening operator and the thin QR factors. s_perp(theta) = (r - d)^T N^-1 (r - d) - norm(Q_[M F]^T W (r - d))^2 is evaluated with thin factors only. Cost O(N_toa (n_M + K_a)) per call for affected pulsars; memory O(N_toa (n_M + K_a)) | dense oracle with a dip; enterprise; gradients in the continuous parameters vs FD away from onset crossings |
+| N4 | SW GP basis (`createfourierdesignmatrix_solar_dm`) and SW geometry export | PPTA, MPTA | `gp.FourierBlock` | column equality vs enterprise; geometry in T1 |
+| N5 | Deterministic SW with finite prior (linear in n_earth; n_earth-dot variant) | PPTA (sampled), InPTA/MPTA (fixed) | precomputed column times scalar, via N3 | vs enterprise `solar_wind` |
+| N6 | Free chromatic index at a fixed value | InPTA, MPTA | existing | existing |
+| N7 | Reweighting / BF tooling (Sec. 5.4): raw and PSIS estimators, batch-means MCSE, weighted-quantile MCSE, per-chain stability, ordered block bootstrap | EPTA, PPTA | `ptagwb.evidence` | synthetic targets with known BF and quantiles, including correlated draws |
+| N8 | Stage-2 size buckets for K_a up to ~1,800 and a memory model | EPTA, PPTA | M3_PLAN L6 | padding invariance 1e-10 |
+| N9 | Per-parameter prior table from the manifest | EPTA, PPTA | `ModelSpec` | prior-volume check vs chain lnprior (Sec. 4.5) |
+| N10 | Hybrid kernel generalisation and the generalised fail-closed gate (Sec. 5.3) | sampled runs | `ptagwb.hybrid`, `diagnostics` | invariance tests incl. negative controls |
+| N11 | Reference loaders, manifest and fingerprint tooling (Sec. 4.5) | EPTA, PPTA | `scripts/m3b_reference.py`, `scripts/m3b_fingerprint.py` | reproduces Appendix A |
+| N12 | Coefficient-Gibbs kernel: **unvalidated research**, only via D5 | PPTA-S | separate design note. Plain conditional updates of power-law hyperparameters mix poorly (van Haasteren & Vallisneri 2014, arXiv:1407.1838, Sec. VI.3); collapsed joint updates are needed | toys with PPTA-like overlapping weak processes, then agreement with NUTS on EPTA |
+| N13 | Masked NUTS (NUTS over the continuous coordinates, conditional on the MH-updated event epochs) composed with exact MH for t0 | EPTA, PPTA | Metropolis-within-Gibbs; NUTS caches refreshed after each MH update (as in `ptagwb.hybrid`) | small numerical reference (Sec. 5.1) |
+| N14 | CURN common block on per-pulsar spans with shared hyperparameters (if the PPTA grid resolves that way) | PPTA | a per-pulsar sampled block with tied (A, gamma) | dense oracle |
 
 ---
 
 ## 4. Remaining M3a obligations that block Stage 1
 
-### 4.1 E8 tempo2-parity legs: strategy
+### 4.1 E8 tempo2-parity legs: strategy and the expanded T1
 
-**The problem.** E8 (G3 < 1 ns and < 0.01 sigma; G4 sin < 1e-6) fails for every non-NG validation
-leg. Most legs have a 1-5 ns floor; PPTA J1022 and J0437 (DDK) are at ~30 ns. The named blocking
-legs:
-* EPTA and PPTA J1600-3053 (T2 -> DD / DDH);
-* PPTA J1713+0747 (T2 -> DDK);
-* PPTA J2241-5236 (PB + FB series; G3 0.93 ns but G4 3.5e-5);
-* the DDK (10) and DDH (21) classes in general.
+**Problem (unchanged).** E8 fails for every non-NG validation leg: a 1-5 ns floor, and ~30 ns for
+PPTA DDK. The named legs are EPTA/PPTA J1600-3053, PPTA J1713+0747 and J2241-5236, plus the DDK (10)
+and DDH (21) classes. The post-hoc RN+DM likelihood impact is up to 34 / 58 nats (PPTA J1909 /
+J0437), almost entirely from the residuals.
 
-The post-hoc likelihood impact reaches 34 nats (PPTA J1909) and 58 nats (PPTA J0437) in an RN+DM
-model, almost all of it from the residuals rather than the design matrix (M3A Sec. 4).
+**Options considered.**
+* (a) Fix PINT parity: open-ended. The floor on ordinary legs has no identified cause.
+* (b) tempo2 as evaluator for non-NG legs: matches the published evaluator; handles signed H3,
+  DDK, DDH and FB series as released.
+* (c) Quarantine: would empty the PTAs, and changes the target data set.
 
-**Options.**
+**Decision proposed (D1): (b), PINT as secondary, E8 kept open.** The reviewer endorses this, with
+the conditions below.
 
-| option | what | pro | con |
-|---|---|---|---|
-| (a) fix PINT parity | find and fix each PINT-vs-tempo2 difference: DDK Kopeikin terms, DDH, FB series, the TCB -> TDB "approximate" conversion, unsupported DILATEFREQ/TIMEEPH | keeps one engine; physically clean | open-ended; the 1-5 ns floor on *ordinary* legs has no identified cause (TCB -> TDB is a suspect, unproven); blocks Stage 1 indefinitely |
-| (b) tempo2 as evaluator for non-NG legs | residuals and design matrices from tempo2/libstempo (pinned oracle env), as the EPTA, PPTA, MPTA and InPTA analyses did, and as YA did for non-NG legs | matches the evaluator of the published target, so the engine difference stops being a reproduction error; works for signed H3 (MPTA J1825), DDK, DDH and FB series as released | tempo2 is also the G3 oracle, so it is no longer an independent check of the timing evaluation; tempo2 2026.04.1 is not the 2023 versions the PTAs used |
-| (c) quarantine with quantified impact | drop failing legs; report a dropout shift | simple | E8 fails for *all* non-NG legs, so quarantine would empty the PTA; for the named legs alone it changes the target data set |
+* **Evaluator profile `published-tempo2-v1`.** tempo2 2026.04.1 / libstempo 2.5.1 (oracle env,
+  hashes pinned):
+  * native units and the published clock/ephemeris profile;
+  * tempo2 site coordinates (the release convention already adopted in M3a);
+  * pre-fit residuals at the par values, as enterprise's libstempo `Pulsar` produces them.
 
-**Decision proposed (D1): (b) for published-model reproductions, with PINT kept as an independent
-secondary evaluator and (c) as the fallback for any leg that fails gate T1.** Concretely:
-
-* **Evaluator profile `published-tempo2-v1`.** Non-NG legs are evaluated by tempo2 2026.04.1 /
-  libstempo 2.5.1 (oracle env, hashes pinned):
-  * with the leg's native units (TCB) and published clock/ephemeris profile (Sec. 2);
-  * from our canonical flat tim (G1-identical TOAs);
-  * with tempo2's site coordinates, which are the release-reproduction convention already adopted
-    in M3a.
-  * Residuals are pre-fit at the par values, as enterprise's libstempo `Pulsar` does. The design
-    matrix is libstempo's `designmatrix()` for the par's fit flags.
-  * NG15 stays on PINT (its published profile).
-* **Gate T1 (exactness of the export).** For every leg in a reproduction, our exported arrays equal
-  enterprise `Pulsar(par, tim, timing_package='tempo2')` arrays built in the same env from the
-  same files: residuals and errors |diff| <= 1e-12 s; design matrix column space sin <= 1e-10;
-  flags and frequencies identical. A failing leg is quarantined (option c) with a dropout shift
-  reported.
-* **Gate T2 (engine sensitivity, reported, not gating).** For each PTA, the conditional
-  posterior of the common process (as in M3A Sec. 12b: fixed released noise, 141 x 141 grids) is
-  computed with the tempo2 and the PINT evaluator for every leg that loads in PINT. Reported: shift
-  of each Sec. 6 quantity in units of sigma68 and w90, per PTA and with the E8-named legs swapped
-  one at a time. **Pre-declared interpretation:** a shift <= 0.1 sigma68 means the engine choice is
-  immaterial at the posterior level for that PTA; a larger shift is reported as an
-  evaluator-dependence of the published result, and the tempo2 result stays the reproduction.
-* **Gate T3 (sanity against the release).** Per leg, the tempo2 post-fit weighted rms against the
-  par's TRES (screen only, as in the survey). The legs the survey flagged as "residual excess"
-  (J1600 EPTA/PPTA, PPTA J1713, J2241) are explained or listed.
-* **E8 is re-scoped, not declared passed.** G3/G4 stay in the suite as PINT-vs-tempo2 diagnostics
-  with the strict xfail kept. Statements about *PINT* timing parity remain restricted. PINT-parity
-  work (DDK/DDH formulae, TCB -> TDB) continues as a non-blocking research item.
-* **Version risk.** tempo2 2026.04.1 differs from the 2023 tempo2 builds inside the PTAs'
-  containers (clock/EOP files, bug fixes). No released residuals exist to check against (EPTA's
-  whitened residuals are PDF plots). The published chains themselves are the end-to-end check
-  (Sec. 6). A mismatch is traced first to this item.
-
-This keeps the oracle structure honest. G1 (TOA identity) stays independent of tempo2: our reader
-vs PINT vs libstempo. G5 stays independent: our likelihood vs the long-double arbiter vs
-enterprise, all fed the same arrays. What we give up is an independent check that tempo2's delays
-are physically right, which a reproduction of tempo2-based published results does not need.
+  NG15 stays on PINT.
+* **Gate T1 (exactness of every consumed array).** For every leg of a reproduction, compare our
+  export with `enterprise.Pulsar(par, tim, ephem=..., timing_package='tempo2')` of the **pinned
+  chain-producing enterprise version**, built in the same env. Compared:
+  * TOA epochs used by the bases (`psr.toas`, with the time scale stated);
+  * residuals and errors (|diff| <= 1e-12 s);
+  * **row order and the deletion mask** (TOAs deleted by tempo2 or dropped by enterprise; counts
+    and indices identical);
+  * radio frequencies **with the convention stated**. Enterprise uses SSB frequencies
+    (`ssbfreqs`) and our M3a export uses site frequencies. The published model's chromatic and
+    band selections use whatever enterprise used, so we use that convention and record it.
+  * flags and backend selections;
+  * design matrix column space (sin <= 1e-10) **and numerical rank**;
+  * ORF sky positions (`psr.pos`);
+  * the time-dependent geometry used by solar-wind terms (`pos_t`, `sunssb`, `planetssb`, or the
+    derived impact angle; |diff| <= 1e-12 relative).
+* **Released vs canonical inputs.** Enterprise is built twice, from the **original released**
+  par/tim (as the PTA did) and from our canonical files, and every array above is compared. This
+  catches shared canonicalisation errors (e.g. tempo2 reading a released quirk differently from our
+  canonical rewrite). Differences must be zero or explained by a listed rule.
+* **Complete roster.** Reproduction acceptance requires every intended pulsar and TOA of the
+  published roster to pass T1. A failing leg means **no full-reproduction claim** for that PTA.
+  Results without it are a separately labelled **dropout sensitivity analysis**.
+* **Gate T2 (engine sensitivity, reported).** Conditional posteriors (fixed released noise, grids)
+  with the tempo2 and the PINT evaluator for every leg that loads in PINT, and with the E8-named
+  legs swapped one at a time. Shifts in sigma68 / w90 units. A shift <= 0.1 sigma68 means the engine
+  choice is immaterial for that PTA. Larger shifts are reported as an evaluator dependence; the
+  tempo2 result stays the reproduction.
+* **Gate T3 (screen).** tempo2 post-fit wrms vs the par's TRES per leg. The survey's
+  residual-excess legs are explained or listed.
+* **E8 status.** Re-scoped, not passed. G3/G4 stay as PINT-vs-tempo2 diagnostics with the strict
+  xfail. PINT-parity work continues as a non-blocking item.
+* **Version risk.** tempo2 2026.04.1 is not the PTAs' 2023 build. The chain fingerprint (Sec. 4.5)
+  measures the end-to-end effect: residual-level differences show up as non-constant
+  lnL_ours - lnlike_ref.
 
 ### 4.2 Published TOA sets vs M3a removals
 
-M3a's default ingestion excludes 65 EPTA TOAs without nanosecond clock coverage
-(`exclude-uncovered`; J1600-3053 has 54) and removes 7 within-leg same-channel pairs (EPTA 2,
-PPTA 3, NG15 2) under a conservative project policy. The published analyses used those TOAs.
-
-**Rule for published profiles:** `clock_coverage = "keep"` (tempo2's own interpolation, which is
-what the PTA's tempo2 did) and **no duplicate removal**. Both choices are recorded in provenance.
-The M3a defaults are run as a robustness variant (conditional posterior shift, as in T2). For the
-combined profile (Stage 2) the M3a defaults stay.
+Published profiles use `clock_coverage = "keep"` (tempo2's own interpolation) and **no duplicate
+removal**. The 65 EPTA clock-uncovered TOAs and the conservative removals (EPTA 2, PPTA 3) are not
+applied. The M3a defaults are run as a reported conditional sensitivity. The combined profile
+(Stage 2) keeps the M3a defaults. T1's roster check uses the published set.
 
 ### 4.3 Band-overlap covariance/pruning inventory
 
-Status from M3a: simultaneous recordings in overlapping bands by different backends (same photons,
-different channels) are correlated, not identical. There are 16,186 such PPTA channel pairs
-(Medusa/UWL vs PDFB4 in 20 pulsars, CASPSR vs Medusa in 13), 235 in EPTA and 19 in NG15.
+The published analyses kept simultaneous overlapping-band recordings (PPTA 16,186 channel pairs,
+EPTA 235, NG15 19). A reproduction keeps them too, so this does not block Stage 1 acceptance. M3b
+deliverables (in M3b-0X, not on the EPTA path):
+1. Inventory per pulsar and system pair:
+   * pair counts and their share of the TOA weight;
+   * channel overlap;
+   * whether the published model already correlates the pair. For PPTA, check whether the pair
+     falls in one epoch of the global UWL / non-UWL ECORR under enterprise's dt = 1 s quantisation
+     [UNCERTAIN for PDFB4/CASPSR], and in a band-ECORR selection.
+2. Conditional sensitivity: the partner pruned (newer backend kept) vs kept.
+3. The Stage-2 decision (pruning rule or a cross-backend term) is deferred to M3c-prep.
 
-**Stage-1 position.** The published analyses kept these data and modelled them with their own
-noise models. A *reproduction* must keep them too, so this item does not block Stage 1
-acceptance. It is a required M3b deliverable for Stage 2 and for model adequacy:
+### 4.4 Other open items, and why they do not block Stage 1
 
-1. **Inventory** (CPU, `scripts/m3b_band_overlap.py`). Per pulsar and system pair:
-   * the number of pairs and their share of the pulsar's total TOA weight;
-   * channel overlap fraction;
-   * whether the published model already correlates them. For PPTA, check whether both TOAs fall
-     in the same epoch of the global non-UWL / UWL ECORR under enterprise's dt = 1 s quantisation.
-     Simultaneous PDFB4/CASPSR TOAs with different timestamps are probably **not** grouped
-     [UNCERTAIN]. Also check whether both lie in one band-ECORR selection.
-2. **Sensitivity (conditional, reported):** the PPTA and EPTA conditional posteriors (T2 set-up)
-   with the overlapping-band partner pruned (keep the newer backend, EPTA's rule) vs kept. Shift in
-   sigma68 units.
-3. **Decision for Stage 2** (not M3b): pruning rule or an explicit cross-backend correlated-noise
-   term, chosen from 1-2.
-
-### 4.4 Other open M3a items, and why they do not block Stage 1
-
-* **E7 (G6 reference-swap linearity) and option C.** Each per-PTA reproduction has exactly one leg
-  per pulsar, so no reference model is copied. E7 matters for M3c only. Its remedy (re-linearise at
-  a joint fit of all legs, iterated) is scheduled in the M3c preparation.
-* **J1022+1001 / J0437-4715 admissibility for later combination.** Stage 1 does not need option C.
-  Plan for M3c-prep (not M3b):
-  1. align binary models across legs before any copy (J1022: PPTA DDH with frozen H3/STIG vs NG15
-     DD; J0437: DDK KIN/KOM free in PPTA, frozen in MPTA);
-  2. local or per-leg DM offsets (shared DM wraps both pulsars);
+* **E7 / option C.** One leg per pulsar per PTA, so no reference copy. Moved to M3c-prep, together
+  with the re-linearisation remedy.
+* **J1022 / J0437 admissibility.** M3c-prep:
+  1. align binary models across legs (J1022 PPTA DDH with frozen H3/STIG vs NG15 DD; J0437 DDK
+     KIN/KOM free vs frozen);
+  2. per-leg DM;
   3. joint re-linearisation;
-  4. re-run admissibility (threshold 0.1 whitened, unchanged).
+  4. admissibility re-run (threshold 0.1 unchanged).
 
-  Under the D1 strategy the value copy happens in tempo2 par space for non-NG legs, as in YA.
-  Option B remains available for any multi-leg check before then.
-* **E2-C (original all-oracle criterion).** It stays on record. For M3b the likelihood gate per
-  PTA (G5-PTA, Sec. 5.3) is the independent long-double arbiter, extended to N3/N5 terms (shape
-  <= 1e-6 nats, gradient <= 1e-8 relative), plus enterprise on the PTA's own model code. Enterprise
-  is reported against a pre-declared budget of 1e-4 nats shape at > 40k TOAs (M3a measured up to
-  7.6e-5 at 87k).
-* **Signed H3 (MPTA J1825-0319).** Evaluated by tempo2 under D1. If T1 fails, it is quarantined for
-  the MPTA cross-check (1 of 83 pulsars).
+  Under D1 the value copy happens in tempo2 par space, as in YA.
+* **E2-C** stays on record. Per PTA, **G5-PTA** applies:
+  * value and gradient of our likelihood against the long-double arbiter, extended to N3/N5 terms
+    (shape <= 1e-6 nats, gradient <= 1e-8 relative, at points away from onset crossings);
+  * against enterprise (pinned version), with a pre-declared 1e-4-nat budget at > 40k TOAs;
+  * the **cross-model check** (Sec. 6.2).
+* **Signed H3 (MPTA J1825-0319)**: under tempo2. If T1 fails it is not admitted, and the MPTA
+  cross-check is labelled with the roster change.
+
+### 4.5 Model identity: version-pinned prior/model manifest (M3b-0E / M3b-0P exit condition)
+
+For each full-reproduction target, `configs/m3b/manifest_<pta>.json` must hold, for every
+parameter and block, the following with its provenance (repository, commit, file, line):
+* prior family and bounds;
+* basis type, frequency labels and spacing rule, span definition and normalisation;
+* row selection and ECORR quantisation;
+* chain-producing dependency versions: enterprise, enterprise_extensions, PTMCMCSampler, tempo2,
+  libstempo and their clock/EOP files, where recoverable.
+
+It is verified in three ways:
+
+1. **Source audit.**
+   * EPTA: the modified **enterprise and enterprise_extensions** of tag `EPTADR2-v1.1`
+     (gitlab.in2p3.fr) are fetched and pinned in the oracle env (D6). Every function `model_general`
+     calls on the DR2new path is read; frequency/span rules, `tndm`, dip parameterisation and all
+     priors are recorded.
+   * PPTA: the extensions version of the Singularity image (CSIRO DAP), or failing that the
+     fingerprint discrimination of item 3.
+
+   Running the fork in production is not required, if our replacement is shown equivalent
+   (items 2-3).
+2. **Prior-volume check.** sum_j ln(width_j) from the manifest equals -(lnpost - lnlike) from
+   every released chain to <= 1e-6 nats (EPTA crn_pl and hd_pl; PPTA freegam, fixgam and both
+   product-space chains, accounting for the inert `nmodel`).
+   * Status today: EPTA matches the candidate manifest to 1e-4 at the chain's printed precision.
+   * PPTA: the fixed-gamma U(-18, -14) is confirmed, but a constant 2.541-nat offset remains in the
+     first reconstruction.
+3. **Chain fingerprint.** At >= 50 released draws per chain (spread over the chain), compute
+   Delta_i = lnL_ours(x_i) - lnlike_ref(x_i).
+   * Pass: sd_i(Delta_i) <= 0.01 nats.
+   * Investigate: 0.01-1 nats. This range is plausible from tempo2-version residual differences;
+     it is traced and the claim may be kept, with the measured scatter stated.
+   * Fail: > 1 nat.
+   * Grid hypotheses (PPTA CURN/HD spans) are discriminated by this test. A hypothesis is accepted
+     only if its scatter passes and every alternative's scatter is >= 10x larger.
+   * The test runs on CPU or as a < 0.1 GPU-h job: ~50-200 likelihood values per chain.
+
+**No inferred-prior fallback.** If any item stays unresolved, the PTA's result is downgraded to
+"approximate comparison (model identity unresolved: <items>)" and is not called a reproduction.
 
 ---
 
@@ -445,252 +507,317 @@ acceptance. It is a required M3b deliverable for Stage 2 and for model adequacy:
 
 ### 5.1 Kernel per model
 
-| model | dims | kernel | why |
-|---|---|---|---|
-| EPTA CURN^gamma, CURN 13/3 | 67 / 66 | NUTS (fixed dense metric from a pilot) + frozen block-MH jumps for (log10 A, gamma) pairs whose reference marginal has >= 0.5 % mass within 1 dex of the lower prior bound, and a 3-D dip block | the reference chain shows RN/DM amplitudes reaching -18.0 (shelves at the prior floor). FS_PILOT showed plain NUTS trapping on peak + shelf targets (CURN^free A/B: max R-hat 1.470 -> 1.007 with jumps) |
-| EPTA HD^gamma | 67 | **reweighting of CURN draws first** (Sec. 5.4); NUTS + jumps only if the overlap checks fail | ln BF ~ 4.1; overlap likely adequate, to be verified |
-| PPTA P-C0 (conditional) | 2 / 1 | deterministic grid (141 x 141; 1,401 at 4.333) | fixed noise |
-| PPTA full CURN^gamma, 13/3 | ~262 | decision D5: (i) NUTS + jumps; (ii) N12 coefficient-Gibbs; (iii) not run | Sec. 5.5 |
-| PPTA HD | ~262 | reweighting of CURN draws (ln BF ~ 0.4-0.7, so near-identical posteriors are expected) | |
-| MPTA, InPTA | 2 / 1 | grid, or NUTS on 2 parameters | fixed noise |
+| model | parameters | kernel |
+|---|---|---|
+| EPTA CURN^gamma | 67 | NUTS (fixed dense metric from a pilot) on the 66 continuous coordinates **excluding the dip t0**. Exact MH for t0 each iteration (N13): random walk within the window plus a 20 % independence draw from the prior window. Frozen block-MH jumps for shelf-prone (log10 A, gamma) pairs (Sec. 5.3 definition) and a joint (t0, log10 tau, log10 Amp) independence block fitted from pilot draws |
+| EPTA CURN gamma = 13/3 (for E-5) | 66 | same |
+| EPTA HD^gamma, HD 13/3 | 67 / 66 | reweighting of the corresponding CURN draws first (Sec. 5.4); the same kernel as CURN only if reweighting fails |
+| PPTA P-C0 | 2 / 1 | deterministic grids on the established CURN and HD grids |
+| PPTA full (M3b-PPTA-F only) | ~262 | D5 |
+| MPTA, InPTA | 2 / 1 | grids, or NUTS on 2 parameters |
 
-Jump proposals follow FS_PILOT Sec. 8: 20 % prior box + 80 % equal-mass histogram, exact density,
-MH ratio in physical coordinates. They are **fitted from our own pilot draws only** (never the
-reference chain under test) and committed before the production run (frozen file + sha256).
+**Event epochs.** The released exponential waveform switches on with a Heaviside step at t0. The
+likelihood is discontinuous in t0 whenever t0 crosses a TOA, so neither NUTS dynamics nor
+derivative checks are valid in t0. t0 is therefore never a NUTS coordinate. The other event
+parameters are continuous given t0 (amplitude, timescale, chromatic index; the Gaussian DM event's
+epoch is smooth). **Validation** of the composed kernel:
+* a single-pulsar toy with one dip and realistic TOA gaps, against a numerical reference: 2-D
+  quadrature over (t0, log10 Amp) with the other parameters fixed, plus a 3-D grid with log10 tau.
+  t0 interval occupancies (the inter-TOA intervals with >= 1 % mass) must agree within 3.5 combined
+  SEs, and the marginal quantiles of t0 and log10 Amp likewise;
+* a negative control: the same kernel with the MH ratio's proposal term removed must fail;
+* the EPTA J1713 conditional: t0 | others on a fine grid vs the kernel's conditional draws.
 
 ### 5.2 Warmup, initialisation, metric (FS_PILOT and PERF lessons)
 
-* Never start dual averaging at step 1.0. Start at a step size measured in the pilot. The v2
-  pilots saturated at tree depth 10 from a poor start, and the CURN A/B warmup cost 1.3-1.6x a
-  sampling iteration when started at a workable step.
-* Fixed dense metric from the pilot's draws (M2 recipe). No windowed adaptation in production.
-* Inits: overdispersed, from our pilot draws with independently randomised shelf/peak region starts
-  (`init_rho_low_frac`-style, generalised to noise pairs). Never from the reference chain. PPTA's
-  own practice of initialising from single-pulsar chains is allowed for *pilots* only.
-* 4-8 vectorised chains. Lockstep loss and step-size landing are measured and reported (PERF
-  Sec. 4).
-* Every run has a committed config, a recorded SHA and a pre-set abort rule (projected cost > 1.5x
-  its allocation: stop and report).
+* Never start dual averaging at step 1.0. Use the step size measured in the pilot.
+* Fixed dense metric from pilot draws. No windowed adaptation in production.
+* Overdispersed inits from our own pilot draws, with randomised shelf/peak starts. Never from the
+  reference chain under test.
+* 4-8 vectorised chains. Lockstep loss is reported.
+* Committed configs, recorded SHA and pre-set abort rules: stop at 1.5x the allocation.
+* Jump proposals: 20 % prior + 80 % equal-mass histogram, fitted from **our** pilot draws only,
+  frozen with sha256 before production.
 
 ### 5.3 Pre-registered convergence gate (fail-closed)
 
-`ptagwb.diagnostics` generalised from `freespec_gate` (N10). A run gets PASS only if **all** of the
-following hold; otherwise FAIL or INCONCLUSIVE, never a silent pass:
+PASS only if all of the following hold; otherwise FAIL or INCONCLUSIVE.
 
-1. **Every sampled parameter**: rank-normalised split R-hat < 1.01; bulk and tail ESS >= 400.
-2. **Target parameters** (common log10 A, gamma): bulk and tail ESS >= 1,000, and MCSE of every
-   Sec. 6 quantile <= 0.05 sigma68_ref, so that MC noise uses at most a third of the tolerance.
-3. **Region transport.** For every (parameter, region) declared relevant, the declaration is frozen
-   from the reference chain with its sha256 and burn-in before the run. A region is relevant if the
-   reference puts >= 0.5 % of its mass below log10 A_min + 1 (shelf) or in the complementary
-   peak. Each relevant region needs >= 10 entries and >= 10 exits pooled, in >= 2 chains, with the
-   longest sojourn <= 50 % of its draws and occupancy MCSE <= 0.01.
-4. **Zero divergences** after warmup; any divergence makes the run INCONCLUSIVE pending
-   explanation.
-5. **No undeclared configuration drift**: dirty files none, run metadata matching the config.
-6. **G5-PTA passed** for the exact model and SHA, before the run.
+1. **All sampled parameters** (including MH-updated ones): rank-normalised split R-hat < 1.01;
+   bulk and tail ESS >= 400.
+2. **Target parameters:** bulk and tail ESS >= 1,000. MCSE of every Sec. 6 quantity small enough
+   that the decision is not limited by our sampling (Sec. 6.1, max_our_MCSE column).
+3. **Transport, by parameter class.** Region occupancies and their MCSEs in the *reference* are
+   computed with the ordered-chain batch-means method of Sec. 5.4, frozen with the reference's
+   sha256 and burn-in.
+   * **(a) Shelf-prone amplitudes** (noise and common log10 A). Shelf S = [lower bound, lower
+     bound + 1 dex], peak P = the complement. Reference support of a region is **material** if
+     p_ref - 2 MCSE_ref >= 0.01, **absent** if p_ref + 2 MCSE_ref < 0.01, and **ambiguous**
+     otherwise.
+     * Both material: bidirectional transport is required: >= 10 entries and >= 10 exits pooled,
+       in >= 2 chains, longest sojourn <= 50 % of the region's draws, and occupancy MCSE <= 0.01.
+     * One region absent: occupancy consistency only. Our p_ours must satisfy
+       |p_ours - p_ref| <= 3.5 sqrt(MCSE_ours^2 + MCSE_ref^2), with no transport requirement. An
+       example is PPTA's free-gamma common amplitude, whose reference minimum is -16.27.
+     * Ambiguous: transport required. If transport is missing the parameter is INCONCLUSIVE, not
+       FAIL.
+   * **(b) Event epochs t0.** Intervals = the inter-TOA gaps that hold >= 1 % reference mass, plus
+     one "rest of window" bin. Every material interval must be visited by >= 2 chains, with interval
+     occupancy MCSE <= 0.02 and consistency with the reference as in (a). R-hat and ESS of t0 as in
+     item 1.
+   * **(c) Other parameters** (gamma, timescales, indices, n_earth, phases): items 1-2 only.
+4. **NUTS sub-steps:** zero divergences after warmup; any divergence makes the run INCONCLUSIVE
+   pending explanation. This is a conservative rule, not a proof of correctness, and it does not
+   apply to the MH/Gibbs components. Those report per-block acceptance rates and pass item 3.
+5. No configuration drift (no dirty files, run metadata matching the config).
+6. G5-PTA, T1 and the manifest checks (Sec. 4.5) passed for the exact model and SHA before the
+   run.
 
-The EPTA and PPTA reference chains contain every noise parameter, so relevance can be declared
-from them for all parameters, as was done for Fig. 1a.
+### 5.4 HD posteriors and Bayes factors
 
-### 5.4 HD posteriors and Bayes factors: overlap diagnostics before anything expensive
+Applies wherever HD (or HD 13/3) is obtained from CURN draws x_i (i = 1..N, C chains).
 
-Order, cheapest first, stopping when a step passes:
+**Precondition.** Identical shared parameters and priors in both models. The two models may differ
+in **ORF and common grid** (PPTA; possibly EPTA), so the weight is the full likelihood ratio
+w_i = L_HD(x_i) / L_CURN(x_i), with each model's own common basis and normalisation. Any
+normalisation difference must pass the cross-model oracle check (Sec. 6.2).
 
-1. **CURN -> HD reweighting.** w_i = L_HD(x_i) / L_CURN(x_i) at the CURN draws (identical noise
-   parameters, priors and N_c). BF = mean(w). HD posterior = CURN draws weighted by w.
-   * Diagnostics: Kish ESS = (sum w)^2 / sum w^2; PSIS Pareto k-hat of the log-weights; a block
-     bootstrap over chains and batches for the SE of ln BF.
-   * **Accept** if k-hat < 0.7 **and** Kish ESS >= 1,000 (posterior use) or >= 200 (BF only).
-   * Cost: one HD *value* per CURN draw (value only, no gradient).
-2. If 1 fails: **HD NUTS run** with the same gate, then reverse reweighting (HD -> CURN) and
-   bridge sampling with both chains. Their spread is reported as part of the estimator
-   uncertainty, as in M2.
-3. If the estimators disagree beyond their SEs: an evidence ladder (stepping stones along
-   Gamma_lambda = (1 - lambda) I + lambda Gamma_HD, as M3_PLAN L14 describes). Needs human
-   approval (D8).
+**Estimators.**
+* Raw: BF_raw = mean(w). HD quantiles are weighted quantiles with raw normalised weights.
+* PSIS: Pareto-smoothed weights (largest-weight tail smoothed; Vehtari et al., arXiv:1507.02646)
+  give BF_psis and smoothed weighted quantiles.
+* Rule by k-hat (computed on the pooled log-weights and per chain):
+  * k-hat < 0.5: raw estimator primary, PSIS reported;
+  * 0.5 <= k-hat < 0.7: **PSIS estimator primary**, raw reported and flagged; acceptance requires
+    raw and PSIS to agree within their combined MCSE;
+  * k-hat >= 0.7: reweighting rejected, and the HD model is sampled directly.
 
-No nested sampling or product-space runs are planned. PERF Sec. 4 measured them as expensive, and
-the M2 reweighting/bridge estimators sufficed on NG15.
+**Uncertainty (autocorrelation-aware).** Kish ESS is reported but never gates, because it ignores
+serial dependence.
+* MCSE of ln BF comes from overlapping batch means on each chain's ordered weight series
+  (batch length >= 5x the integrated autocorrelation time of w), combined across chains, and
+  cross-checked by a moving-block bootstrap.
+* Weighted quantile q_p is a ratio estimator: sum_i w_i 1[x_i <= q] / sum_i w_i = p. Its MCSE
+  comes from batch means of the pair (w_i 1[x_i <= q_p], w_i) with the delta method, converted to
+  quantile units by the weighted density at q_p (kernel estimate, bandwidth recorded).
 
-### 5.5 Cost projections (labelled projections; to be replaced by the M3b-0 benchmark)
+**Independent-chain stability.** Per-chain ln BF and weighted medians must be mutually
+consistent: chi-squared of the per-chain estimates about their mean, p > 0.01, using per-chain
+MCSEs. No single chain may carry > 50 % of the total weight.
+
+**Precision gates on the HD outputs.** Sec. 6's max_our_MCSE for each HD quantile, and
+MCSE(ln BF) <= 0.10. If either fails: more CURN draws (cheap), then an HD run.
+
+**Fallback.** An HD NUTS run, then reverse reweighting and bridge sampling. Their spread enters the
+reported estimator uncertainty.
+
+**Evidence ladder (only via D8).** If the CURN and HD grids are equal, an ORF path
+Gamma_lambda = (1 - lambda) I + lambda Gamma_HD connects the endpoints. If they **differ**, the
+ORF-only path has the wrong CURN endpoint. Use the covariance path
+C_lambda = (1 - lambda) C_CURN + lambda C_HD (both common blocks present, tied hyperparameters).
+Its endpoints are exactly the two published models, and every intermediate covariance is positive
+definite.
+
+**PPTA product-space reference.**
+* BF_ref: the HD-active count ratio requires equal model weights. The weights are verified from
+  the HyperModel configuration in the manifest; if they are unresolved, P-6 is "reference
+  unresolved".
+* Its SE comes from a moving-block bootstrap of the **original ordered chain**, keeping model
+  occupancy: blocks >= 5x the autocorrelation time of the nmodel indicator.
+* HD-active reference quantiles are computed as indicator-weighted quantiles of the full ordered
+  chain, with the same ratio-estimator MCSE as above. They are not computed from an extracted
+  subsequence treated as a chain.
+
+### 5.5 Cost projections (projections; replaced by measured M3b-0 benchmarks)
 
 **Measured anchors** (RTX 5090, float64; PERF Sec. 2-4, M2_RESULTS Sec. 4):
-* NG15 HD value+gradient: 15.0 ms (B = 1) and 5.8 ms per chain (B = 16), of which 3.5 ms is the
-  per-pulsar stage (67 pulsars, K = 60, 0.14 GF at 0.04 TFLOP/s).
-* NG15 CURN: 3.6 ms (B = 1).
-* M2 CURN^gamma (4 x 1500 draws): 8.3e5 chain-gradients in 25 min. HD^13/3 (4 x 500): 3.0e5
-  chain-gradients in 61 min.
+* NG15 HD value+gradient: 15.0 ms (B = 1) and 5.8 ms per chain (B = 16), of which the per-pulsar
+  stage is 3.5 ms (67 pulsars, K = 60, 0.14 GF at 0.04 TFLOP/s). NG15 CURN: 3.6 ms.
+* M2 CURN^gamma (4 x 1500): 8.3e5 chain-gradients in 25 min. HD^13/3 (4 x 500): 3.0e5 in 61 min.
 
-**Projection model.** Per-call cost is roughly (per-pulsar stage) + (core). The per-pulsar stage is
-cubic in K_a: square-root absorption of a K_a x K_a block, ~3.3 K_a^3 flops forward and ~2x more
-for the gradient. The core is cubic in N_psr x 2 N_c for HD and negligible for CURN. Efficiency is
-bracketed between the measured small-block rate (0.04 TFLOP/s) and the measured batched-Cholesky
-rate (~1.3 TFLOP/s).
+**Projection model.** The per-pulsar stage is ~3.3 K_a^3 flops forward and ~2x more for the
+gradient. Efficiency is bracketed between 0.04 TFLOP/s (measured small blocks) and ~1.3 TFLOP/s
+(measured batched Cholesky). Chain-gradient counts are 1.5-3x M2's, for the stricter
+all-parameter gate.
 
-| model | sum K_a^3 / NG15 | core dim (HD) | projected value+grad, B = 1 | chain-gradients for the gate (projection) | projected GPU-h per production run |
-|---|---|---|---|---|---|
-| EPTA CURN^gamma (bucketed) | ~16 | - | 10-60 ms | 1-3 x 10^6 | **~3-40** (central ~5) |
-| EPTA HD reweighting, 2 x 10^4 draws | ~16 | 450 | 5-30 ms (value) | - | **< 0.2** |
-| PPTA P-C0 grids (fixed noise; stage 1 absorbs everything) | - | 1,620 | ~2-10 ms (value) | 2 x 10^4 grid points | **< 0.1** (or CPU) |
-| PPTA full CURN^gamma, NUTS + jumps | ~760 (before group noise) | - | 0.1-1.5 s | 2-5 x 10^6 | **~50-800** |
-| PPTA full, coefficient-Gibbs (N12, unvalidated) | one Cholesky per pulsar per sweep, ~0.3 K_a^3 | - | 5-40 ms per sweep | 10^5-10^6 sweeps | **~5-60** |
-| MPTA / InPTA conditional | fixed noise | 82 x 2N_c | ~2-20 ms (value) | grid | **< 0.5 each** |
+| item | sum K_a^3 / NG15 | projected value+grad (B = 1) | chain-gradients per run | GPU-h per run (projection) |
+|---|---|---|---|---|
+| EPTA CURN^gamma or CURN 13/3 (bucketed) | ~16 | 10-60 ms | 1-3 x 10^6 | 3-50 (central ~5) |
+| EPTA HD reweighting (2 x 10^4 draws, value only) | ~16 | 5-30 ms | - | < 0.2 |
+| PPTA P-C0 grids (fixed noise) | - | 2-10 ms (value) | 2 x 10^4 points per grid x (CURN, HD) | < 0.2 |
+| PPTA full model, NUTS + jumps | ~760 before group noise; J0437 K_a 1,388 -> **1,816** with its ~428 group columns | 0.1-1.5 s | 2-5 x 10^6 | **56 (2e6 x 0.1 s) to 2,083 (5e6 x 1.5 s)** |
+| PPTA full model, coefficient-Gibbs (N12) | - | - | - | **not projected: unvalidated speculation** (cost per sweep ~1 Cholesky per pulsar, but mixing unknown; collapsed updates required) |
+| MPTA / InPTA conditional | fixed noise | 2-20 ms (value) | grids | < 0.5 each |
 
-Assumptions and caveats:
-* The chain-gradient counts assume NUTS tree sizes like M2 (88-128 leapfrog steps). The stricter
-  all-parameter gate needs about 1.5-3x M2's draws, and jumps add ~10 %.
-* Lockstep loss of 10-30 % is included in the range. Memory for batched PPTA blocks (~16 MB per
-  1,400^2 block per chain) is projected to fit, but is not yet measured.
-* The PPTA-NUTS range is wide because both the efficiency and the step count at ~260 dimensions are
-  unknown. It is the main reason for D5.
-* The Gibbs row assumes autocorrelation times of 10^2-10^3 sweeps for weakly constrained
-  amplitudes. That is not measured on our data; it is a literature-informed guess.
+PPTA full-model totals would multiply by the number of runs: free gamma and 4.333, plus any HD
+fallback. Batching (B = 4) is assumed to give no per-chain gain at these block sizes. Memory for
+batched 1,800^2 blocks is not yet measured.
 
-**M3b-0 benchmark (first GPU use, D3, <= 1 GPU-h).** EPTA and PPTA full-model value+gradient and
-value-only throughput, and peak memory, at B in {1, 4, 8}, production and bucketed kernels, plus 50
-fixed-step NUTS transitions per model to measure tree sizes. The table above is then rewritten
-with measured per-call costs. Ranges on chain-gradient counts stay ranges until a pilot exists.
+**Benchmarks (D3).** M3b-0E: EPTA value+gradient, value-only, memory at B in {1, 4, 8}, and 50
+fixed-step NUTS transitions (<= 0.5 GPU-h). M3b-0P: the same for P-C0 grids (and, only if D5 asks,
+the full PPTA model) (<= 0.5 GPU-h).
 
 ---
 
 ## 6. Pre-registered acceptance criteria
 
-### 6.1 General rules (all PTAs)
+### 6.1 Decision rule (all PTAs)
 
-* **Quantities.** For EPTA the published 90 % intervals (q05, q50, q95); for PPTA the 68 %
-  intervals (q16, q50, q84). All are computed from our draws, with the reference values recomputed
-  from the reference chain (Appendix A), not from the rounded paper numbers.
-* **Definitions.** Delta = q_ours - q_ref. s = sqrt(MCSE_ours^2 + MCSE_ref^2), using quantile MCSE
-  (Vehtari et al. 2021), as in M2. sigma68_ref = (q84 - q16)/2 of the reference.
-* **Tier A, agreement within MC error:** |Delta| <= 3.5 s for every listed quantile (the same
-  threshold as the M2 / Fig. 1a agreement rule).
-* **Tier B, equivalence within a practical margin:**
-  * medians: |Delta| <= 0.15 sigma68_ref;
-  * outer quantiles: |Delta| <= 0.25 sigma68_ref.
-  * The margins are motivated by the measured posterior-level effect of evaluator conventions
-    (NHARMS: <= 0.10 sigma68, M3A Sec. 12b) plus software-version differences. They are fixed here
-    and confirmed by the user (D2) before any run.
-* **Verdicts per PTA:**
-  * **REPRODUCED** = convergence gate PASS + G5-PTA PASS + T1 PASS + Tier A and Tier B for all
-    headline quantities.
-  * **REPRODUCED WITHIN TOLERANCE** = as REPRODUCED, but Tier A fails while Tier B passes. This is
-    plausible because tempo2 versions differ.
-  * **NOT REPRODUCED** = Tier B fails for any headline quantity. The discrepancy is traced (order:
-    evaluator version, TOA set, model-builder semantics, priors, N_c) and reported. No retuning of
-    tolerances.
-  * **INCONCLUSIVE** = convergence gate not passed, or MCSE above the bound.
-* **Reported, not gating:**
-  * 2-D (log10 A, gamma) KS and energy distances;
-  * per-noise-parameter z for all ~65 (EPTA) or ~260 (PPTA) parameters (count of |z| > 3.5
-    reported, with the expected number under independence);
-  * T2 engine sensitivity;
-  * the M3a-default TOA-set variant;
-  * the band-overlap sensitivity.
+For each quantity: D = q_ours - q_ref, SE_D = sqrt(MCSE_ours^2 + MCSE_ref^2), with the MCSEs from
+Sec. 5.4 (quantile MCSE; ratio-estimator MCSE for weighted outputs and for product-space
+references). Let I_D = D +- 1.645 SE_D (a 90 % interval: two one-sided tests at 5 %). With
+practical margin m:
+
+* **EQUIVALENT** if I_D lies within [-m, m];
+* **INCOMPATIBLE** if I_D lies entirely outside [-m, m];
+* **INCONCLUSIVE** otherwise. It is **reference-limited** if 1.645 MCSE_ref >= m (more sampling on
+  our side cannot resolve it), and **ours-limited** otherwise. To make "ours-limited" avoidable, the
+  convergence gate requires MCSE_ours <= max_our_MCSE = sqrt((m / 1.645)^2 / 4 - MCSE_ref^2), floored
+  at 0.2 m / 1.645. This means our sampling uses at most half the decision budget where the
+  reference allows it.
+
+Also reported, not gating: Tier A, i.e. statistical distinguishability |D| > 3.5 SE_D (an
+EQUIVALENT but distinguishable result is reported as such); 2-D KS and energy distances;
+per-noise-parameter differences (count beyond 3.5 SE_D vs the expected count); T2; TOA-set and
+band-overlap sensitivities.
+
+**Margins (provisional, D2):**
+* m = 0.15 sigma68_ref for medians and 0.25 sigma68_ref for outer quantiles;
+* ln BF: m = 0.30 nats (EPTA), 0.40 (PPTA);
+* InPTA UL: 0.15 dex.
+
+**Verdict per PTA.**
+* **REPRODUCED**: every *decidable* headline quantity is EQUIVALENT; no headline is INCOMPATIBLE;
+  the convergence gate, G5-PTA, T1 (complete roster) and the manifest checks pass.
+* **NOT REPRODUCED**: any headline INCOMPATIBLE. The cause is traced (evaluator version, TOA set,
+  builder semantics, priors, grid) and tolerances are not retuned.
+* **INCONCLUSIVE**: any headline ours-limited INCONCLUSIVE, or a gate unmet.
+
+Reference-limited quantities are listed as such, and are moved out of the headline set *now*,
+before any run (tables below), so that the verdict cannot hinge on reference MC noise.
 
 ### 6.2 EPTA DR2new
 
-| ID | quantity | reference q05 / q50 / q95 | sigma68_ref | Tier B margin (median / tails) | role |
-|---|---|---|---|---|---|
-| E-1 | HD log10 A | -14.418 / -13.935 / -13.702 | 0.183 | 0.027 / 0.046 | headline |
-| E-2 | HD gamma | 1.978 / 2.710 / 3.894 | 0.525 | 0.079 / 0.131 | headline |
-| E-3 | CURN log10 A | -14.766 / -13.997 / -13.718 | 0.254 | 0.038 / 0.064 | headline |
-| E-4 | CURN gamma | 2.038 / 2.906 / 4.626 | 0.669 | 0.100 / 0.167 | headline |
-| E-5 | 13/3 log10 A | paper -14.61 (+0.11/-0.12) | ~0.07 | median within +-0.035 of -14.61; 90 % bounds within +-0.03 of the paper's | headline (no chain: rounding of 0.01 is the reference uncertainty) |
-| E-6 | ln BF(HD/CURN) | ln 60 = 4.09; published estimator range [ln 56, ln 66] = [4.03, 4.19] | - | \|ln BF_ours - 4.09\| <= 0.30 + 2 SE_ours, with the Sec. 5.4 overlap checks passed | headline |
+Reference MCSEs from Appendix A. "Decidable" = 1.645 MCSE_ref < m.
 
-The E-6 margin of 0.30 nats is ~4x the half-width of EPTA's own estimator range. It is fixed here,
-before any run. If the overlap checks fail, E-6 is INCONCLUSIVE until step 2 of Sec. 5.4 is done.
+| ID | quantile | q_ref | MCSE_ref | m | 1.645 MCSE_ref | decidable | role |
+|---|---|---|---|---|---|---|---|
+| E-1 | HD log10 A q05 | -14.418 | 0.0368 | 0.046 | 0.061 | **no** (reference-limited) | reported |
+| E-1 | q50 | -13.935 | 0.0046 | 0.027 | 0.008 | yes | headline |
+| E-1 | q95 | -13.702 | 0.0038 | 0.046 | 0.006 | yes | headline |
+| E-2 | HD gamma q05 | 1.978 | 0.0127 | 0.131 | 0.021 | yes | headline |
+| E-2 | q50 | 2.710 | 0.0121 | 0.079 | 0.020 | yes | headline |
+| E-2 | q95 | 3.894 | 0.0704 | 0.131 | 0.116 | yes (narrowly) | headline |
+| E-3 | CURN log10 A q05 | -14.766 | 0.0581 | 0.064 | 0.096 | **no** | reported |
+| E-3 | q50 | -13.997 | 0.0067 | 0.038 | 0.011 | yes | headline |
+| E-3 | q95 | -13.718 | 0.0040 | 0.064 | 0.007 | yes | headline |
+| E-4 | CURN gamma q05 | 2.038 | 0.0190 | 0.167 | 0.031 | yes | headline |
+| E-4 | q50 | 2.906 | 0.0169 | 0.100 | 0.028 | yes | headline |
+| E-4 | q95 | 4.626 | 0.1069 | 0.167 | 0.176 | **no** | reported |
+| E-5 | HD (gamma = 13/3) log10 A q50, q05, q95 | -14.61 / -14.73 / -14.50 (paper, rounded, slice method unknown) | not available | 0.035 / 0.03 / 0.03 | - | classified with SE_D = MCSE_ours plus a reference rounding term of 0.005 (half the last digit), labelled "reference uncertainty incomplete" | secondary |
+| E-6 | ln BF(HD/CURN) | ln 60 = 4.094 | - (see below) | 0.30 | - | yes | headline |
+
+**E-6 rule.**
+* Reference treatment: the published 60 is a point target with no calibrated SE. EPTA's other
+  estimates (56-66, i.e. ln 4.03-4.19) are context, and the 0.30-nat margin is ~3.75x their
+  half-range.
+* Our SE: MCSE(ln BF) from Sec. 5.4 plus the spread of our estimators (raw vs PSIS, and bridge if
+  run) added in quadrature. **Maximum allowed SE: 0.10 nats**; above it E-6 is INCONCLUSIVE.
+* Classification: EQUIVALENT if ln BF_ours +- 1.645 SE lies within [4.094 - 0.30, 4.094 + 0.30];
+  INCOMPATIBLE if the interval lies entirely outside; otherwise INCONCLUSIVE. Valid only after the
+  overlap rules (Sec. 5.4) and the cross-model check pass.
+
+**Cross-model oracle check (G5-PTA addition).** At >= 12 random shared-parameter points:
+* (lnL_HD - lnL_CURN)_ours vs the arbiter (<= 1e-6 nats) and vs enterprise of the pinned version
+  (<= 1e-4 nats), **including every normalisation constant**: the timing marginalisation, GP-block
+  log-determinants, and each model's common-grid normalisation;
+* both likelihoods' absolute values against enterprise with a common constant convention, so that
+  no model-dependent constant can hide;
+* the fingerprint (Sec. 4.5) on both released chains, which tests each model's absolute lnL.
 
 ### 6.3 PPTA DR3
 
-Full reproduction (only if D5 authorises it):
+**P-C0 (default; gating for PPTA code, not a reproduction claim).** On identical inputs, fixed
+noise, and the established grids:
+* lnL-shape differences <= 1e-6 nats (arbiter) and <= 1e-4 nats (enterprise);
+* cross-model lnL_HD - lnL_CURN within the same tolerances;
+* conditional posterior quantiles within grid resolution (0.002 dex in log10 A, 0.005 in gamma).
 
-| ID | quantity | reference q16 / q50 / q84 | sigma68_ref | Tier B margin (median / tails) |
-|---|---|---|---|---|
-| P-1 | CURN log10 A | -14.655 / -14.496 / -14.358 | 0.149 | 0.022 / 0.037 |
-| P-2 | CURN gamma | 3.505 / 3.869 / 4.228 | 0.362 | 0.054 / 0.090 |
-| P-3 | CURN 4.333 log10 A | -14.735 / -14.681 / -14.634 | 0.051 | 0.008 / 0.013 |
-| P-4 | HD log10 A, gamma (reweighted) | -14.709 / -14.514 / -14.337; 3.444 / 3.906 / 4.389 | 0.186; 0.473 | 0.028 / 0.047; 0.071 / 0.118 (Tier A uses the product-space subsample's approximate MCSE) |
-| P-5 | HD 4.333 log10 A | -14.734 / -14.675 / -14.615 | 0.060 | 0.009 / 0.015 |
-| P-6 | ln BF(HD/CURN) | paper ~1.5 / ~2 (ln 0.41 / 0.69); count ratios 1.85 / 1.69 | - | \|Delta ln BF\| <= 0.40 + 2 SE_ours against the paper's value; secondary (rounded, weights uncertain) |
+**Full reproduction (only M3b-PPTA-F).**
 
-The P-3 margin (0.008 dex) is tight because the reference is narrow. The reference MCSE(q50) is
-0.0014, so Tier A is also achievable. This is deliberate: P-3 is the most precise test of the full
-model.
-
-**P-C0 conditional implementation check** (gating for the PPTA code, not a reproduction claim).
-Ours vs enterprise on identical inputs and fixed noise:
-* lnL-shape differences over the grids <= 1e-6 nats (arbiter) and <= 1e-4 nats (enterprise);
-* conditional posterior quantiles (q05/q50/q95 of log10 A and gamma) agree to <= 0.002 dex /
-  0.005, i.e. grid resolution.
+| ID | quantile | q_ref | MCSE_ref | m | 1.645 MCSE_ref | decidable |
+|---|---|---|---|---|---|---|
+| P-1 | CURN log10 A q16 / q50 / q84 | -14.655 / -14.496 / -14.358 | 0.0088 / 0.0053 / 0.0078 | 0.037 / 0.022 / 0.037 | 0.014 / 0.009 / 0.013 | yes |
+| P-2 | CURN gamma q16 / q50 / q84 | 3.505 / 3.869 / 4.228 | 0.0220 / 0.0151 / 0.0155 | 0.090 / 0.054 / 0.090 | 0.036 / 0.025 / 0.025 | yes |
+| P-3 | CURN 4.333 log10 A q16 / q50 / q84 | -14.735 / -14.681 / -14.634 | 0.0017 / 0.0014 / 0.0017 | 0.013 / 0.008 / 0.013 | 0.003 / 0.002 / 0.003 | yes |
+| P-4 | HD log10 A, gamma (reweighted) | -14.709 / -14.514 / -14.337; 3.444 / 3.906 / 4.389 | ordered-chain ratio-estimator MCSE (Sec. 5.4), to be frozen in M3b-0P | 0.047 / 0.028 / 0.047; 0.118 / 0.071 / 0.118 | TBD at freeze | decided at freeze |
+| P-5 | HD 4.333 log10 A | -14.734 / -14.675 / -14.615 | as P-4 | 0.015 / 0.009 / 0.015 | TBD | decided at freeze |
+| P-6 | ln BF(HD/CURN) | paper ~1.5 / ~2; count ratios 1.85 / 1.69 | ordered block bootstrap | 0.40 | - | secondary: classified against the count ratio if the model weights are verified, else "reference unresolved"; the paper's rounded values are context |
 
 ### 6.4 MPTA and InPTA (approximate cross-checks)
 
-Declared outcomes are CONSISTENT, TENSION or UNAVAILABLE. They never gate anything else.
+Outcomes: CONSISTENT / TENSION / UNAVAILABLE. They never gate anything.
+* **MPTA.** CONSISTENT if, for log10 A and gamma, our conditional median lies in the published
+  68 % interval and the published median lies in ours. Reported: clock variants and
+  J1825-0319 inclusion.
+* **InPTA.** I-1: CONSISTENT if |UL_ours - (-13.47)| <= 0.15 dex, with the autocorrelation-aware
+  ESS of the LinearExp reweighting >= 400. I-2 the same with -13.55. I-3: the published median lies
+  in our 68 % interval.
 
-* **MPTA** (M-1, M-2, M-3).
-  * CONSISTENT if, for log10 A and gamma, our conditional median lies inside the published 68 %
-    interval **and** the published median lies inside our 68 % interval.
-  * TENSION otherwise, reported with the shift in published-sigma68 units.
-  * Also reported: the BIPM2020 vs BIPM2022 variant and the J1825-0319 inclusion/exclusion shift.
-  * Our fixed-noise intervals are expected to be narrower than the published ones. This is not
-    counted against consistency.
-* **InPTA.**
-  * I-1: CONSISTENT if |log10 A_UL,ours - (-13.47)| <= 0.15 dex (the paper's own cut-to-cut and
-    band-to-band spread is 0.03-0.05 dex; our WN is incomplete), with Kish ESS of the LinearExp
-    reweighting >= 1,000.
-  * I-2: the same rule with -13.55.
-  * I-3: CONSISTENT if the published median lies within our 68 % interval (broad, prior-dominated
-    posterior).
+### 6.5 Frozen before any run (committed, reviewed)
 
-### 6.5 Frozen before any run (committed in M3b-0, reviewed)
+* `configs/m3b/acceptance_<pta>.json`: every Sec. 6 number, the decidability table and
+  max_our_MCSE;
+* the manifests (Sec. 4.5);
+* reference identities (path, sha256; burn-in: EPTA first 25 % of `chain_1.txt`; PPTA as
+  released);
+* relevance/transport declarations (`configs/m3b/relevance/*.json`);
+* model configs and profiles;
+* the T2 template.
 
-`configs/m3b/acceptance_{epta,ppta,mpta,inpta}.json` hold every number in Sec. 6.2-6.4 and the
-reference identities (path, sha256, burn-in rule: EPTA first 25 % of `chain_1.txt` discarded;
-PPTA files as released). Alongside them:
-* relevance declarations (`configs/m3b/relevance/*.json`);
-* model configs (N1) and evaluator/clock profiles;
-* the T2 report template.
-
-Code-level tests assert that the gate reads these files and fails closed without them.
+The gate code fails closed without these files.
 
 ---
 
 ## 7. Milestones and budget
 
-Each sub-milestone ends with an independent GPT-6 Astra review (`codex exec`, read-only; fallback:
-independent Opus reviewers with the same VERDICT rule). A **REQUEST_CHANGES** blocks the next
-sub-milestone. GPU numbers are projections (Sec. 5.5) and become allocations only after D3/D4/D5.
+Every sub-milestone ends with an independent GPT-6 Astra review (fallback: independent Opus
+reviewers, same VERDICT rule). REQUEST_CHANGES blocks the dependent milestones only.
 
-| sub-milestone | content | GPU (projection) | review gate | human decision |
-|---|---|---|---|---|
-| **M3b-0** infrastructure (mostly CPU) | N1-N11; tempo2 evaluator path + T1; G5-PTA (arbiter + enterprise) for EPTA and PPTA models; reference loaders; frozen acceptance/relevance files; band-overlap inventory (4.3 step 1); T2 engine sensitivity (conditional, CPU grids); published vs M3a-default TOA sets; GPU benchmark at the end | **0.5-1** (benchmark only) | Astra R-M3b-0 (incl. the E8 re-scope) | D1, D2, D3, D6 |
-| **M3b-EPTA** | E-C0 (CPU); pilot (<= 2 GPU-h, abort rules); jump proposals frozen; production CURN^gamma and CURN 13/3; HD by reweighting (HD NUTS only if Sec. 5.4 fails); BF; optional OS | **5-45** (2 pilot + 3-40 production + HD fallback) | Astra R-M3b-EPTA | D4 (production allocation after the pilot), D8 if an evidence ladder is needed |
-| **M3b-PPTA-C** | P-C0 conditional check; band-overlap sensitivity (4.3 step 2) | **< 0.5** | Astra R-M3b-PPTA-C | D5 (full-model path) |
-| **M3b-PPTA-F** (conditional on D5) | (ii) Gibbs: design note -> toys -> agreement with NUTS on EPTA -> PPTA; or (i) NUTS + jumps; production CURN^gamma, 4.333; HD reweighting; BF | **5-60** (Gibbs, if validated) or **50-800** (NUTS) | Astra R-M3b-PPTA-F (+ Gibbs design review) | D5, D4-style allocation |
-| **M3b-MPTA** | table transcription (double-entry checked against MPTAGW JSON); fixed-noise CURN/HD; clock variant | **< 0.5** | Astra R-M3b-X (joint with InPTA) | D7 |
-| **M3b-InPTA** | fixed-noise UL and CURN | **< 0.5** | (joint) | - |
-| **M3b close-out** | `docs/M3B_RESULTS.md`; updates to M3_PLAN Stage 2 inputs (pruning rule, evaluator profile, J1022/J0437 plan) | 0 | Astra final | go/no-go for M3c-prep |
+| sub-milestone | content | depends on | GPU (projection) | review | decisions |
+|---|---|---|---|---|---|
+| **M3b-0E** EPTA infrastructure (CPU + small benchmark) | fork audit + EPTA manifest; tempo2 export + T1 (complete EPTA roster, released vs canonical); prior-volume and fingerprint checks; N1 (EPTA), N3, N7, N8, N9, N11, N13; event-epoch kernel validation; G5-EPTA incl. cross-model; reference loaders; EPTA acceptance/relevance files; EPTA T2 (CPU grids); benchmark | - | <= 0.5 | R-M3b-0E | D1, D2, D3, D6 |
+| **M3b-EPTA** | E-C0 (CPU); pilot (<= 2 GPU-h, abort rules); proposals frozen; production CURN^gamma and CURN 13/3; HD^gamma and HD 13/3 by reweighting (HD run only if Sec. 5.4 fails); BF; E-7 optional | M3b-0E | 6-100 (2 pilot + two runs at 3-50 each, central ~12) | R-M3b-EPTA | D4, D8 |
+| **M3b-0P** PPTA infrastructure (CPU) | extensions version / image; grid resolution by fingerprint; PPTA manifest (resolve the 2.541-nat offset); N1 (PPTA), N4, N5, N14; T1 (PPTA roster); P-C0 tooling; product-space reference bootstrap | M3b-0E tooling | <= 0.5 (grids + fingerprint) | R-M3b-0P | - |
+| **M3b-PPTA-C** | P-C0; band-overlap sensitivity | M3b-0P | < 0.5 | R-M3b-PPTA-C | D5 |
+| **M3b-PPTA-S** (separate experiment, only via D5) | sampler development for ~262 parameters: coefficient-Gibbs design note (collapsed updates), toys with overlapping weak processes, agreement with NUTS on EPTA; or a capped NUTS feasibility pilot | D5 | capped by D5 (pilot <= 5) | separate Astra design + result reviews | D5 |
+| **M3b-PPTA-F** (only after PPTA-S passes) | production PPTA full model; P-1 to P-6 | PPTA-S | from PPTA-S measurements | R-M3b-PPTA-F | new allocation |
+| **M3b-0X** cross-check infrastructure (CPU) | MPTA/InPTA transcription (double entry, MPTAGW JSON cross-check); band-overlap inventory (4.3 step 1) | - | 0 | joint with M3b-X | D7 |
+| **M3b-X** | MPTA and InPTA cross-checks | M3b-0X | < 1 | R-M3b-X | - |
+| **close-out** | `docs/M3B_RESULTS.md`; Stage-2 inputs (evaluator profile, pruning rule, J1022/J0437 plan) | all run milestones | 0 | final | go/no-go for M3c-prep |
 
-**Total GPU (projection):** **~6-50 GPU-h without PPTA-F** (sum of the rows: 0.5-1 + 5-45 + three items < 0.5 each). With PPTA-F, add 5-60 (Gibbs) or
-50-800 (NUTS). The NUTS upper end is not a plan: D5 is expected to choose between a validated Gibbs
-kernel, a capped NUTS run, or conditional-only PPTA, on the measured M3b-0 numbers.
+The EPTA path (M3b-0E -> M3b-EPTA) does not depend on any PPTA or cross-check work.
+
+**Total GPU (projection):** **~7-100 GPU-h** without M3b-PPTA-S/F, central ~15. The EPTA production
+range dominates. PPTA-S/F are allocated separately (D5).
 
 ---
 
 ## 8. Human decision points
 
-| # | decision | when | default if no answer |
-|---|---|---|---|
-| D1 | Adopt tempo2/libstempo as primary evaluator of non-NG legs for published reproductions and re-scope E8 (Sec. 4.1); needs reviewer agreement | before M3b-0 implementation | no non-NG reproduction claim |
-| D2 | Confirm the Sec. 6 tolerances (Tier B 0.15/0.25 sigma68; E-6 0.30 nats; P-6 0.40; InPTA 0.15 dex) | before any sampling run | not run |
-| D3 | First GPU use: M3b-0 benchmark (<= 1 GPU-h) | end of M3b-0 | not run |
-| D4 | EPTA production allocation after the pilot (cap = pilot-measured projection x 1.5) | after the EPTA pilot | stop after pilot |
-| D5 | PPTA full model: (i) capped NUTS + jumps, (ii) implement and validate the coefficient-Gibbs kernel, or (iii) conditional check only | after M3b-0 benchmark and P-C0 | (iii) |
-| D6 | Fetch EPTA's modified enterprise/enterprise_extensions fork (tag EPTADR2-v1.1, gitlab.in2p3.fr) into the oracle env, so that the EPTA oracle and priors are exact | M3b-0 | rebuild the EPTA model from standard enterprise signals; priors marked inferred |
-| D7 | MPTA clock default (par BIPM2020 vs paper BIPM2022) | M3b-MPTA | BIPM2020 default, BIPM2022 variant, both reported |
-| D8 | Any evidence ladder or HD NUTS run beyond the projected envelope | if Sec. 5.4 step 1 fails | report INCONCLUSIVE |
+The reviewer's recommendations (review of 25436e9) are marked **[R]**. All remain decisions for the
+user.
+
+| # | decision | when | default if no answer | reviewer recommendation |
+|---|---|---|---|---|
+| D1 | tempo2/libstempo as primary evaluator of non-NG legs; E8 re-scoped, kept open | before M3b-0E | no non-NG reproduction claim | **[R]** adopt tempo2, with expanded T1 and complete-roster acceptance |
+| D2 | Confirm the decision rule (Sec. 6.1) and the provisional margins | before any sampling | not run | **[R]** revise the statistical rules before approval (done in revision 2); margins can stay provisional |
+| D3 | First GPU use: benchmarks (<= 0.5 GPU-h each in M3b-0E and M3b-0P) | after the exact models are established | not run | **[R]** support the capped benchmark after exact models are established |
+| D4 | EPTA production allocation from the pilot | after the pilot | stop after the pilot | **[R]** allocate from measured cost-to-precision for all required EPTA runs |
+| D5 | PPTA: conditional-only, or a separately reviewed sampler experiment (Gibbs or capped NUTS) | after M3b-PPTA-C | conditional-only | **[R]** default to conditional-only; Gibbs as a separately reviewed experiment |
+| D6 | Fetch and audit EPTA's modified enterprise + enterprise_extensions (EPTADR2-v1.1) | M3b-0E | **no full-reproduction claim for EPTA** (downgrade) | **[R]** mandatory for full reproduction; no inferred-prior fallback |
+| D7 | MPTA clock for the published-target comparison | M3b-0X | par BIPM2020 default, BIPM2022 variant | **[R]** prefer paper BIPM2022; keep native-par clocks as a sensitivity |
+| D8 | Any evidence ladder or HD run beyond the envelope | if Sec. 5.4 fails | INCONCLUSIVE | **[R]** keep the cap and the INCONCLUSIVE fallback; validate the evidence-path endpoints first |
 
 ---
 
@@ -698,76 +825,92 @@ kernel, a capped NUTS run, or conditional-only PPTA, on the measured M3b-0 numbe
 
 | # | risk | likelihood / impact | mitigation |
 |---|---|---|---|
-| R1 | tempo2 2026.04.1 vs the PTAs' 2023 builds (clock/EOP files, fixes) shift residuals by ns, so Tier A fails | medium / low-medium | Tier B margins; T2-style evaluator comparison; trace order in Sec. 6.1 |
-| R2 | Losing the independent timing oracle under D1 hides a tempo2 error | low / medium | PINT kept as secondary evaluator (T2); G1 and G5 stay independent; published chains are the end-to-end check |
-| R3 | PPTA full model too expensive (K_a ~ 1,400, ~260 parameters) | high / high | M3b-0 benchmark; size buckets; reweighting for HD; Gibbs kernel; conditional-only fallback (D5) |
-| R4 | Enterprise-semantics mismatches in the builders: masked-subset spans of group/band noise, ECORR quantisation, `int()` mode counts, `gamma_val=4.333`, informed priors | medium / medium | N1 block-by-block comparison against enterprise objects; G5-PTA |
-| R5 | EPTA fork semantics unknown (priors, dip index, TempoNest DM) | medium / medium | D6; inferred priors from chain ranges are flagged; the released chain is the arbiter |
-| R6 | Shelves and funnels in weakly constrained noise amplitudes (RN/DM reaching -18 in the EPTA chain; IRN funnels in M2) | high / medium | frozen block-MH jumps, region-transport gate, diverse inits, pilot-first |
-| R7 | Reweighting overlap fails for EPTA HD (ln BF ~ 4) | low-medium / low | PSIS k-hat / Kish checks; HD NUTS + bridge fallback |
-| R8 | Reference chains have modest ESS (PPTA 549-1,569; product-space HD ~350; EPTA ~1,000-1,500), which inflates Tier A's s and weakens agreement claims | certain / low | Tier A uses s; Tier B uses sigma68_ref margins; reported honestly |
-| R9 | Target numbers inconsistent across paper and products (EPTA dip index; PPTA N_c 27 vs 28; PPTA BF with unknown model weights; EPTA 13/3 chain missing) | certain / low | follow the code that produced the chains; flagged [UNCERTAIN]; alternatives run where cheap (N_c = 28 as a variant) |
-| R10 | Published TOA sets include clock-uncovered TOAs and possible duplicates | certain / low | Sec. 4.2 rule + robustness variant |
-| R11 | MPTA/InPTA inputs incomplete (rounded tables; no InPTA WN) | certain / low | approximate class only; loose declared tolerances |
-| R12 | GPU contention on the shared box | medium / low | record contention in run metadata; abort rules; ESS per hour is never claimed as a kernel speedup without matched arms |
-| R13 | Scope creep into Stage 2 (combination) or free spectra | medium / medium | Sec. 1.3; each extension needs a plan revision |
+| R1 | tempo2 2026.04.1 vs the PTAs' 2023 builds shift residuals | medium / medium | fingerprint scatter quantifies it; T2; trace order |
+| R2 | Loss of an independent timing oracle under D1 | low / medium | PINT secondary (T2); G1/G5 independent; fingerprint |
+| R3 | PPTA common grid irrecoverable (image unavailable, fingerprint ambiguous) | medium / high for PPTA | P-C0 on both hypotheses; PPTA claim downgraded |
+| R4 | EPTA fork unavailable or unreadable | low-medium / high for EPTA | D6 default = downgrade; ask EPTA |
+| R5 | Builder mismatches (masked spans, non-harmonic grids, ECORR quantisation, `int()` counts, informed priors; the 2.541-nat offset) | medium / medium | manifest checks, fingerprint, N1 per-block comparison |
+| R6 | Shelves and funnels | high / medium | frozen jumps, transport gate by class, diverse inits |
+| R7 | Event-epoch discontinuities mishandled | medium / medium | t0 by MH only; numerical-reference validation with a negative control |
+| R8 | Reweighting overlap or precision inadequate | low-medium / low | k-hat rules, batch-means MCSE, per-chain stability, fallback |
+| R9 | Reference precision limits decisions (EPTA outer tails) | certain / low | decidability fixed now; reference-limited quantities moved out of the headline set |
+| R10 | PPTA full model too expensive | high / high | conditional-only default; separate PPTA-S |
+| R11 | Paper/product inconsistencies (E-2, dip index, N_c 27/28, E-5 slice, PPTA BF weights) | certain / low | follow the chain-producing code; recorded; E-5 and P-6 secondary |
+| R12 | Incomplete MPTA/InPTA inputs | certain / low | approximate class only |
+| R13 | GPU contention | medium / low | recorded; no unmatched speed claims |
+| R14 | Scope creep | medium / medium | Sec. 1.3; revisions required |
 
 ---
 
 ## 10. Open questions
 
-1. Is a DR2new gamma = 13/3 chain released anywhere (Zenodo 8091568 lists crn_pl, hd_pl, crn_fs,
-   hd_fs, ORF variants and os)? If not, E-5 is compared with the paper's rounded interval only.
-2. PPTA group-noise basis span (masked TOAs vs pulsar span) and the exact `psr_groupnoise_dict_dict['all']`
-   and `psr_groupecorr_dict_dict['all']` contents: read from `ppta_dr3_utils.py` in M3b-0.
-3. The PPTA BF definition behind "~1.5 / ~2" (product-space weights, which chain).
-4. MPTA: N_c and T for the Bayesian common process; RN modes per pulsar ("120 components up to
-   ~1/(14 d)").
-5. InPTA DR2: N_c of the UL run; whether ECORR/EQUAD values can be obtained ("available on request").
+1. Chain-producing versions of enterprise / enterprise_extensions / tempo2 for EPTA (fork tag) and
+   PPTA (Singularity image on the CSIRO DAP).
+2. Is a DR2new gamma = 13/3 chain released anywhere? Without one, E-5 stays secondary.
+3. PPTA product-space model weights; the source of "~1.5 / ~2".
+4. MPTA: N_c, T and RN mode counts of the Bayesian runs.
+5. InPTA DR2: N_c of the UL run; WN values ("available on request").
 
 ---
 
-## Appendix A. Reference-chain checks done for this plan (CPU, 2026-10-09)
+## Appendix A. Reference-product checks done for this plan (CPU, 2026-10-09)
 
-Computed with `ptagwb.diagnostics` (`ess_bulk`, `ess_tail`, `mcse_quantile`) on the released files.
-The producer becomes `scripts/m3b_reference.py` (N11) in M3b-0, which must reproduce these numbers.
+Tools: `ptagwb.diagnostics` (`ess_bulk`, `ess_tail`, `mcse_quantile`) and numpy, on the released
+files. The producer becomes `scripts/m3b_reference.py` (N11), which must reproduce these numbers.
 
-**EPTA DR2new** (`epta_dr2_gwb_chains/.../DR2new/{hd_pl,crn_pl}.tar.gz`, `chain_1.txt`, 29,990
-rows x 71 columns = 67 parameters + lnpost, lnlike, acceptance, PT acceptance; first 25 %
-discarded, 22,493 kept; medians change by <= 0.001 with no burn-in):
+**EPTA DR2new** (`DR2new/{hd_pl,crn_pl}.tar.gz`, `chain_1.txt`: 29,990 rows x 71 columns = 67
+parameters + lnpost, lnlike, acceptance, PT acceptance; first 25 % discarded, 22,493 kept; medians
+change by <= 0.001 without burn-in):
 
-| chain | parameter | q05 | q16 | q50 | q84 | q95 | bulk / tail ESS | MCSE q50 / q16 / q05 |
+| chain | parameter | q05 | q16 | q50 | q84 | q95 | bulk / tail ESS | MCSE q05 / q16 / q50 / q84 / q95 |
 |---|---|---|---|---|---|---|---|---|
-| hd_pl | log10 A | -14.418 | -14.149 | -13.935 | -13.783 | -13.702 | 1,331 / 1,120 | 0.0046 / 0.0103 / 0.0368 |
-| hd_pl | gamma | 1.978 | 2.251 | 2.710 | 3.300 | 3.894 | 1,556 / 1,213 | 0.0121 / 0.0098 / 0.0127 |
-| crn_pl | log10 A | -14.766 | -14.323 | -13.997 | -13.815 | -13.718 | 984 / 1,108 | 0.0067 / 0.0263 / 0.0581 |
-| crn_pl | gamma | 2.038 | 2.364 | 2.906 | 3.701 | 4.626 | 1,139 / 1,257 | 0.0169 / 0.0142 / 0.0190 |
+| hd_pl | log10 A | -14.418 | -14.149 | -13.935 | -13.783 | -13.702 | 1,331 / 1,120 | 0.0368 / 0.0103 / 0.0046 / 0.0039 / 0.0038 |
+| hd_pl | gamma | 1.978 | 2.251 | 2.710 | 3.300 | 3.894 | 1,556 / 1,213 | 0.0127 / 0.0098 / 0.0121 / 0.0259 / 0.0704 |
+| crn_pl | log10 A | -14.766 | -14.323 | -13.997 | -13.815 | -13.718 | 984 / 1,108 | 0.0581 / 0.0263 / 0.0067 / 0.0041 / 0.0040 |
+| crn_pl | gamma | 2.038 | 2.364 | 2.906 | 3.701 | 4.626 | 1,139 / 1,257 | 0.0190 / 0.0142 / 0.0169 / 0.0506 / 0.1069 |
 
-Published (90 %): HD -13.94 (+0.23/-0.48), 2.71 (+1.18/-0.71); CURN -14.00 (+0.28/-0.77),
-2.91 (+1.72/-0.87). All reproduced to the printed digit. Chain ranges imply noise log10 A
-U(-18, -10), gamma U(0, 7), dip log10 tau in [0, 2.5], dip t0 in [57490, 57530] (the dip is at
-MJD ~57510). The CURN amplitude reaches -17.97 and RN/DM amplitudes reach -18.0 (prior floor).
+**Prior-volume column.** lnpost - lnlike = **-135.4959** in every row of both chains. The candidate
+manifest (31 noise processes with log10 A U(-18, -10) and gamma U(0, 7); dip widths 8, 2.5, 40 d;
+common log10 A U(-18, -10), gamma U(0, 7)) gives 135.4959. With a common upper bound of -11 it
+gives 135.3623. The lnlike column ranges over 531,435-536,713 (HD) and is the fingerprint target.
+The CURN amplitude reaches -17.97 and noise amplitudes reach -18.0.
 
 **PPTA DR3** (GitHub fdbe6eb, `analysis_codes/data/all/chains/`):
 
-| chain | parameter | draws | q16 | q50 | q84 | bulk / tail ESS | MCSE q50 / q16 |
+| chain | parameter | draws | q16 | q50 | q84 | bulk / tail ESS | MCSE q16 / q50 / q84 |
 |---|---|---|---|---|---|---|---|
-| pl_nocorr_freegam_DE440 | log10 A | 2,978 | -14.655 | -14.496 | -14.358 | 549 / 727 | 0.0053 / 0.0088 |
-| pl_nocorr_freegam_DE440 | gamma | 2,978 | 3.505 | 3.869 | 4.228 | 619 / 910 | 0.0151 / 0.0220 |
-| pl_nocorr_fixgam_DE440 | log10 A | 2,967 | -14.735 | -14.681 | -14.634 | 1,569 / 2,342 | 0.0014 / 0.0017 |
-| ..._v_pl_hd_freegam (nmodel > 0.5) | HD log10 A | 3,643 | -14.709 | -14.514 | -14.337 | ~354 | - |
-| ..._v_pl_hd_freegam (nmodel > 0.5) | HD gamma | 3,643 | 3.444 | 3.906 | 4.389 | ~319 | - |
-| ..._v_pl_hd_fixgam (nmodel > 0.5) | HD log10 A | 3,226 | -14.734 | -14.675 | -14.615 | ~1,728 | - |
+| pl_nocorr_freegam_DE440 | log10 A | 2,978 | -14.655 | -14.496 | -14.358 | 549 / 727 | 0.0088 / 0.0053 / 0.0078 |
+| pl_nocorr_freegam_DE440 | gamma | 2,978 | 3.505 | 3.869 | 4.228 | 619 / 910 | 0.0220 / 0.0151 / 0.0155 |
+| pl_nocorr_fixgam_DE440 | log10 A | 2,967 | -14.735 | -14.681 | -14.634 | 1,569 / 2,342 | 0.0017 / 0.0014 / 0.0017 |
+| ..._v_pl_hd_freegam (nmodel > 0.5) | HD log10 A | 3,643 of 5,616 | -14.709 | -14.514 | -14.337 | (subsequence ESS ~354; to be replaced by the ordered-chain method) | - |
+| ..._v_pl_hd_freegam (nmodel > 0.5) | HD gamma | 3,643 | 3.444 | 3.906 | 4.389 | (~319) | - |
+| ..._v_pl_hd_fixgam (nmodel > 0.5) | HD log10 A | 3,226 of 5,139 | -14.734 | -14.675 | -14.615 | (~1,728) | - |
 
-The HD-active fractions are 0.649 (free gamma) and 0.628 (fixed), i.e. count ratios 1.85 and 1.69.
-The fixed-gamma product-space chain bounds the amplitudes to [-18, -14].
+* HD-active fractions are 0.649 / 0.628, i.e. count ratios 1.85 / 1.69.
+* The free-gamma common amplitude's minimum is -16.27, so its shelf is "absent" in the Sec. 5.3
+  sense.
+* **Prior-volume column:** freegam -467.6058, fixgam -465.1003. The difference is
+  2.5055 = ln(49/4): gamma width 7 and amplitude width 7 vs amplitude width 4, which confirms the
+  fixed-gamma U(-18, -14).
+* A first reconstruction of all boxes from `noiseFiles/3sig` with the builder rules gives
+  -470.1466 / -467.6411. That is a constant 2.5408-nat discrepancy in both chains, so the
+  common-process boxes are consistent and at least one noise-box rule is still misread (an M3b-0P
+  item).
+* Group noise in the 30-pulsar array: J0437 8 parameters (4 groups), J1017 4, J1022 4, J1713 8,
+  J1909 2.
 
-**Mode counts and spans** (from `data/processed/m3_survey/*.csv` and the released dictionaries):
-* EPTA: T_array = 10.33 yr, 45,428 TOAs; K_a (noise) max 398 (J0900-3144), median 50; sum of K_a^3
-  (incl. 18 common columns) ~16x NG15's with buckets, ~124x padded.
-* PPTA (30 pulsars): T = 6,604.7 d, so N_c = 27; 112,556 TOAs. K_a counts RN, DM, chromatic,
-  band, HF and SW-GP blocks plus 54 common columns, before group noise. The top five are J1744-1134
-  988, J1600-3053 1,042, J1713+0747 1,146, J1909-3744 1,208 and J0437-4715 1,388; the median is
-  ~540. Sum of K_a^3 is ~760x NG15's, and ~5,500x if every pulsar is padded to the maximum.
-* These counts are projections from the builder's rules applied to the survey spans; N1 replaces
-  them with the enterprise-exact counts.
+**Mode counts and spans** (survey CSVs and released dictionaries; projections until N1 replaces
+them with enterprise-exact counts):
+* EPTA: T_array = 10.33 yr, 45,428 TOAs; noise K_a max 398 (J0900-3144), median 50; sum of K_a^3
+  (with the 18 common columns) ~16x NG15's with buckets, ~124x padded.
+* PPTA (30 pulsars): T = 6,604.7 d, so int(T/240 d) = 27; 112,556 TOAs. K_a with RN, DM,
+  chromatic, band, HF and SW-GP blocks and 54 common columns: J1744 988, J1600 1,042, J1713 1,146,
+  J1909 1,208, J0437 1,388 (**1,816** with its ~428 group columns, before any basis consolidation);
+  median ~540. Sum of K_a^3 ~760x NG15's before group noise.
+
+**Builder facts read for revision 2.**
+* PPTA `ppta_dr3_models.py` line 21 imports `enterprise_extensions.blocks.common_red_noise_block as
+  crn_block`. `get_crn_model_dict` passes `components` but not `Tspan`.
+* The installed enterprise_extensions 3.0.3 builds both CURN (`BasisGP`) and HD (`BasisCommonGP`)
+  from `createfourierdesignmatrix_red(Tspan=None)`.
+* EPTA J1022+1001 DR2new par: `NE_SW 9.7014335675808864986 1 0.55246717142622825403`.
