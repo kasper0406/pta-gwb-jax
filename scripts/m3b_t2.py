@@ -10,7 +10,7 @@ released noise"), evaluated with
   (EPTA's E8-named legs: J1600-3053 and the DDH class J1022+1001, J1640+2224, J1918-0642).
 Both engines use the same TOAs: the M3a PINT legs exclude 65 clock-uncovered and 2 duplicate TOAs
 (M3a defaults), so every variant uses the common subset (matched per backend and site frequency
-to the nearest site arrival time, |dt| < 1 ms). ORF positions are our export's for every variant
+to the nearest site arrival time, |dt| < 1 s; the stoas of the two engines differ by up to ~0.1 s for TIME-offset TOAs). ORF positions are our export's for every variant
 (the engine comparison is about the timing arrays). Grid: 61 x 61 over the tempo2 baseline's
 mean +- 6 sd box (found on a 25 x 25 coarse grid). Exact likelihood (``ptagwb.fastcond``).
 
@@ -37,6 +37,7 @@ from ptagwb.fastcond import FastEPTA
 
 RES = REPO_ROOT / "data" / "processed" / "m3b" / "epta" / "results"
 PINT_LEGS = REPO_ROOT / "data" / "processed" / "m3a" / "legs" / "published" / "epta_dr2new"
+MATCH_TOL_S = 1.0  # site arrival times differ by up to ~0.1 s (TIME offsets recorded differently); TOAs of one backend and frequency are >= minutes apart
 E8_LEGS = ("J1600-3053", "J1022+1001", "J1640+2224", "J1918-0642")
 PROBS = (0.05, 0.16, 0.5, 0.84, 0.95)
 
@@ -51,7 +52,7 @@ def subset(p: Pulsar, keep: np.ndarray) -> Pulsar:
 
 def match(t2: Pulsar, pi: Pulsar) -> tuple[np.ndarray, np.ndarray]:
     """Indices (i_t2, i_pint) of the common TOAs: same backend and site frequency, nearest site
-    arrival time within 1 ms; one-to-one."""
+    arrival time within MATCH_TOL_S; one-to-one."""
     idx = {}
     for j, (b, f) in enumerate(zip(pi.backend_flags, np.round(pi.freqs_topo, 6))):
         idx.setdefault((str(b), float(f)), []).append(j)
@@ -61,7 +62,7 @@ def match(t2: Pulsar, pi: Pulsar) -> tuple[np.ndarray, np.ndarray]:
         if not cand:
             continue
         j = min(cand, key=lambda k: abs(pi.stoas[k] - s))
-        if abs(pi.stoas[j] - s) < 1e-3:
+        if abs(pi.stoas[j] - s) < MATCH_TOL_S:
             it.append(i)
             ip.append(j)
             used.add(j)
