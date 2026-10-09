@@ -28,7 +28,7 @@ The control plane (``ptagwb.budget``, ``ptagwb.binding``, this driver, the evide
 is excluded from the gate-evidence binding (it cannot change a gate's numbers) and is bound
 separately here: it must be committed and clean, and its file hashes (``control_binding``) are
 recorded with the run. Stop rules (fixed in the config): the deadline, the
-number of transitions, a non-finite log-likelihood. The driver never changes a setting; a pilot
+number of transitions, a non-finite sampler state (unconstrained z, potential energy, gradient, adaptation state, positions) or log-likelihood. The driver never changes a setting; a pilot
 that suggests a change ends the work and is reported.
 
 Usage: XLA_PYTHON_CLIENT_PREALLOCATE=false PYTHONPATH=src python scripts/m3b_run_epta.py CONFIG [--dry-run]
@@ -246,6 +246,45 @@ def load_metric(path: Path, cont_names: list[str]) -> np.ndarray:
     return imm
 
 
+REQUIRED_STATE = ("z", "z_grad", "potential_energy")       # HMCState fields that must exist and be finite
+OPTIONAL_STATE = ("energy", "r")                             # None right after init in NumPyro
+REQUIRED_ADAPT = ("step_size", "inverse_mass_matrix")        # HMCAdaptState
+OPTIONAL_ADAPT = ("mass_matrix_sqrt", "mass_matrix_sqrt_inv")
+
+
+def nonfinite_state(st, arrays: dict | None = None) -> list[str]:
+    """Names of non-finite (or missing required) components of the actual sampler state: the
+    unconstrained position, potential energy, gradient, energy/momentum, the adaptation state (step
+    size, metric and its factors), plus any ``arrays`` given (physical positions, log-likelihoods,
+    t0). Empty list = all finite (review of the v2 preparation: z = inf with finite physical
+    positions and lnL must stop the run)."""
+    bad = []
+
+    def check(name, v, required):
+        if v is None:
+            if required:
+                bad.append(f"{name}: missing")
+            return
+        a = np.asarray(v)
+        if a.dtype.kind not in "fiuc" or not np.all(np.isfinite(a)):
+            bad.append(name)
+
+    for f in REQUIRED_STATE + OPTIONAL_STATE:
+        check(f, getattr(st, f, None), f in REQUIRED_STATE)
+    ad = getattr(st, "adapt_state", None)
+    if ad is None:
+        bad.append("adapt_state: missing")
+    else:
+        for f in REQUIRED_ADAPT + OPTIONAL_ADAPT:
+            check(f"adapt_state.{f}", getattr(ad, f, None), f in REQUIRED_ADAPT)
+        ss = getattr(ad, "step_size", None)
+        if ss is not None and np.all(np.isfinite(np.asarray(ss))) and not np.all(np.asarray(ss) > 0):
+            bad.append("adapt_state.step_size: not positive")
+    for k, v in (arrays or {}).items():
+        check(k, v, True)
+    return bad
+
+
 def stop_check(rules: dict | None, num_warmup: int, L: int, chunks: list[dict], done: int,
                post_warmup_divergences: int) -> str | None:
     """Pre-registered in-run stop rules (pilot v2), evaluated after every chunk."""
@@ -392,6 +431,9 @@ def run(cfg, out, dl, ledger, prov, binding) -> str:
                                                   inverse_mass_matrix=imm,
                                                   adapt_mass_matrix=cfg["adapt_mass_matrix"])))
     st, t0 = init(keys, jnp.asarray(x0))
+    bad0 = nonfinite_state(st, {"t0": t0})
+    if bad0:
+        raise ConfigError(f"non-finite initial sampler state: {bad0}")
     W = cfg["num_warmup"]
     metric0 = np.asarray(st.adapt_state.inverse_mass_matrix)
     np.save(out / "metric_initial.npy", metric0)  # the metric actually used from transition 0
@@ -448,8 +490,10 @@ def run(cfg, out, dl, ledger, prov, binding) -> str:
         except Exception:  # noqa: BLE001
             pass
         n_chunk += 1
-        if not (np.all(np.isfinite(ll)) and np.all(np.isfinite(xs))):
-            reason = "stopped: non-finite state or log-likelihood"
+        bad = nonfinite_state(st, {"x": xs, "logL": ll, "t0": t0})
+        if bad:
+            reason = f"stopped: non-finite sampler state {bad}"
+            meta["chunks"][-1]["nonfinite"] = bad
             break
         why = stop_check(eff["stop_rules"], W, L, meta["chunks"], done, div_post)
         if why is not None:

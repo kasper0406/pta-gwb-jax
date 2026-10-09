@@ -72,6 +72,28 @@ def equal_mass_edges(v: np.ndarray, lo: float, hi: float, k: int = K_BINS) -> li
     return [float(t) for t in e]
 
 
+def verified_names(pars_path: Path, expected_sha256: str) -> list[str]:
+    """Parameter names of the released chain from ``pars.txt`` after verifying the file's actual
+    sha256 against the manifest (review of the v2 preparation: the column mapping must not rest on
+    an unverified file)."""
+    raw = Path(pars_path).read_bytes()
+    got = hashlib.sha256(raw).hexdigest()
+    if got != expected_sha256:
+        raise ValueError(f"{pars_path}: sha256 {got} != manifest {expected_sha256}")
+    return raw.decode().split()
+
+
+def verified_reference(man: dict) -> tuple[list[str], np.ndarray, int, dict]:
+    """(names, chain, burn-in, verified hashes): chain_1.txt (by the loader) and pars.txt both
+    verified against the manifest."""
+    rc = man["reference_chains"]["crn_pl"]
+    names = verified_names(epta.extract_reference("crn_pl") / "pars.txt", rc["pars_sha256"])
+    ref_names, X, burn = epta.load_reference("crn_pl", man)
+    if ref_names != names:
+        raise ValueError("pars.txt changed between verification and loading")
+    return names, X, burn, {"chain_sha256_verified": rc["chain_sha256"], "pars_sha256_verified": rc["pars_sha256"]}
+
+
 def block_layout(man: dict, names: list[str]) -> list[tuple[str, ...]]:
     sys.path.insert(0, str(REPO_ROOT / "scripts"))
     from m3b_run_epta import block_layout as bl  # the driver's layout, so they cannot diverge
@@ -81,7 +103,7 @@ def block_layout(man: dict, names: list[str]) -> list[tuple[str, ...]]:
 
 def build(man: dict) -> tuple[dict, dict, dict]:
     names, lo, hi, t0 = layout(man)
-    ref_names, X, burn = epta.load_reference("crn_pl", man)
+    ref_names, X, burn, verified = verified_reference(man)
     col = {n: i for i, n in enumerate(ref_names)}
     missing = [n for n in names if n not in col]
     if missing:
@@ -98,10 +120,9 @@ def build(man: dict) -> tuple[dict, dict, dict]:
         j = [ix[n] for n in b]
         blocks.append({"params": list(b), "lo": [float(lo[i]) for i in j], "hi": [float(hi[i]) for i in j],
                        "w_prior": W_PRIOR, "edges": [equal_mass_edges(R[:, i], lo[i], hi[i]) for i in j]})
-    rc = man["reference_chains"]["crn_pl"]
     prov = {"purpose": "disclosed efficiency aid for the EPTA CURN^gamma pilot v2 (review_epta_pilot1.out); "
                        "requires the user's approval as a protocol revision of plan Sec. 5.2",
-            "reference": {"model": "crn_pl", "chain_sha256": rc["chain_sha256"], "pars_sha256": rc["pars_sha256"],
+            "reference": {"model": "crn_pl", **verified,
                           "rows_total": int(X.shape[0]), "burn_in_rows": int(burn), "rows_used": int(R.shape[0]),
                           "column_mapping": {n: int(col[n]) for n in names}},
             "metric": {"coordinates": "66 continuous sampler coordinates, dip t0 excluded, sampler order",

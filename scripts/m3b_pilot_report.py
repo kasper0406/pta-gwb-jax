@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 from pathlib import Path
 
@@ -106,30 +107,80 @@ def dip(xs, names, rel, model_key):
             "note": "the reference t0 'rest' bin is in U; on D the dip epoch is in I0 by construction"}
 
 
+def _fin(*vals) -> bool:
+    """True iff every value is a finite real number (bools and None are not)."""
+    return all(isinstance(v, (int, float, np.integer, np.floating)) and not isinstance(v, (bool, np.bool_))
+               and math.isfinite(float(v)) for v in vals)
+
+
+def ess_min(v: dict) -> float:
+    """min(bulk, tail) that propagates NaN (builtin min(500, nan) returns 500)."""
+    return float(np.min([v["ess_bulk"], v["ess_tail"]]))
+
+
+def _diag_ok(v: dict) -> bool:
+    return (isinstance(v, dict) and _fin(v.get("rhat"), v.get("ess_bulk"), v.get("ess_tail"))
+            and v["rhat"] > 0 and v["ess_bulk"] >= 0 and v["ess_tail"] >= 0)
+
+
 def evaluate_release(n_post_per_chain: int, div_post: int, per: dict, targets, transport_items, rules=RULES) -> dict:
-    """The pre-registered pilot-v2 screening rules (pure; unit-tested)."""
-    out = {"sufficient_evidence": n_post_per_chain >= rules["min_post_warmup_per_chain"]}
-    out["divergences"] = div_post <= rules["divergences_post_warmup"]
-    out["rhat"] = bool(per) and all(v["rhat"] < rules["rhat_max"] for v in per.values())
-    out["ess_all"] = bool(per) and all(min(v["ess_bulk"], v["ess_tail"]) >= rules["ess_min_all"] for v in per.values())
-    out["ess_targets"] = all(t in per and min(per[t]["ess_bulk"], per[t]["ess_tail"]) >= rules["ess_min_targets"]
-                             for t in targets)
-    outside = [i for i in transport_items if not i["in_U"]]
-    out["transport_outside_U"] = bool(outside) and all(i["status"] == "PASS" for i in outside)
+    """The pre-registered pilot-v2 screening rules (pure; unit-tested). Fail closed: every input must
+    be finite and valid (a NaN or missing diagnostic fails its rule and ``valid_inputs``)."""
+    invalid = []
+    if not (_fin(n_post_per_chain) and n_post_per_chain >= 0):
+        invalid.append("post-warmup transitions per chain")
+    if not (_fin(div_post) and div_post >= 0):
+        invalid.append("post-warmup divergences")
+    if not per:
+        invalid.append("no per-parameter diagnostics")
+    invalid += [f"diagnostics of {k}" for k, v in per.items() if not _diag_ok(v)]
+    invalid += [f"targets: {t} missing" for t in targets if t not in per]
+    known = ("PASS", "FAIL", "INCONCLUSIVE")
+    invalid += [f"transport status of {i.get('param')}" for i in transport_items if i.get("status") not in known]
+    out = {"valid_inputs": not invalid}
+    out["sufficient_evidence"] = _fin(n_post_per_chain) and n_post_per_chain >= rules["min_post_warmup_per_chain"]
+    out["divergences"] = _fin(div_post) and 0 <= div_post <= rules["divergences_post_warmup"]
+    out["rhat"] = bool(per) and all(_diag_ok(v) and v["rhat"] < rules["rhat_max"] for v in per.values())
+    out["ess_all"] = bool(per) and all(_diag_ok(v) and min(v["ess_bulk"], v["ess_tail"]) >= rules["ess_min_all"]
+                                       for v in per.values())
+    out["ess_targets"] = all(t in per and _diag_ok(per[t]) and min(per[t]["ess_bulk"], per[t]["ess_tail"])
+                             >= rules["ess_min_targets"] for t in targets)
+    outside = [i for i in transport_items if not i.get("in_U")]
+    out["transport_outside_U"] = bool(outside) and all(i.get("status") == "PASS" for i in outside)
     out["failed"] = [k for k, v in out.items() if v is False]
+    out["invalid"] = invalid
     out["screening_pass"] = not out["failed"]
     return out
 
 
+def required_outputs(acc: dict, targets=TARGETS) -> list[str]:
+    """Every output the production admission estimate must include (requirement ids)."""
+    ids = ["floor_all"] + [f"floor_target {t}" for t in targets]
+    ids += [f"{q['id']} q{q['quantile']}" for q in acc["quantities"] if q["headline"]]
+    return ids + ["E-6 ln B_D"]
+
+
 def projection(n_post_chain_tr: int, chains: int, s_per_transition: float, warmup_s: float, requirements: list,
                hd_s_per_draw: float, pilot_used_h: float, rules=RULES) -> dict:
-    """requirements: dicts with 'id' and 'factor' = (needed / pilot) chain-transition ratio."""
+    """requirements: dicts with 'id' and 'factor' = (needed / pilot) chain-transition ratio. Fail
+    closed: any non-finite or non-positive factor or input makes it UNAVAILABLE (no affordability
+    flags)."""
+    bad = [r.get("id") for r in requirements if not (_fin(r.get("factor")) and r["factor"] > 0)]
+    if not requirements:
+        bad.append("no requirements")
+    for name, v, lo in (("post-warmup chain-transitions", n_post_chain_tr, 1), ("chains", chains, 1),
+                        ("s per transition", s_per_transition, 1e-12), ("warmup s", warmup_s, 0),
+                        ("hd s per draw", hd_s_per_draw, 0), ("pilot used h", pilot_used_h, 0)):
+        if not (_fin(v) and v >= lo):
+            bad.append(name)
+    if bad:
+        return {"status": "UNAVAILABLE", "reasons": [f"invalid or non-finite: {bad}"]}
     worst = max(requirements, key=lambda r: r["factor"])
     n_req = worst["factor"] * n_post_chain_tr
     samp_h = rules["sampling_safety_factor"] * (n_req / chains) * s_per_transition / 3600.0
     run_a = samp_h + warmup_s / 3600.0 + n_req * hd_s_per_draw / 3600.0
     remaining_total = rules["cap_total_h"] - rules["d3_benchmark_h"] - pilot_used_h
-    return {"most_demanding": worst, "chain_transitions_needed": n_req, "run_A_gpu_h": run_a,
+    return {"status": "AVAILABLE", "most_demanding": worst, "chain_transitions_needed": n_req, "run_A_gpu_h": run_a,
             "run_A_breakdown": {"sampling_x2_h": samp_h, "warmup_h": warmup_s / 3600.0,
                                 "hd_reweighting_h": n_req * hd_s_per_draw / 3600.0},
             "remaining_total_h": remaining_total, "production_phase_cap_h": rules["cap_production_h"],
@@ -138,6 +189,26 @@ def projection(n_post_chain_tr: int, chains: int, s_per_transition: float, warmu
                           "run A's efficiency it would cost about the same, within what remains after run A",
             "A_plus_B_same_efficiency_h": 2 * run_a,
             "A_plus_B_fits": 2 * run_a <= min(rules["cap_production_h"], remaining_total)}
+
+
+def production_projection(release: dict, requirements: list, required: list[str], **kw) -> dict:
+    """The admission estimate, or UNAVAILABLE (without affordability flags) when the pilot evidence
+    is insufficient or invalid, transport screening outside U did not pass (unresolved transport is
+    never extrapolated), or any required output is missing (HD headlines and E-6 need --hd)."""
+    reasons = []
+    if not release.get("valid_inputs", False):
+        reasons.append(f"invalid diagnostics: {release.get('invalid')}")
+    if not release.get("sufficient_evidence", False):
+        reasons.append("insufficient pilot evidence")
+    if not release.get("transport_outside_U", False):
+        reasons.append("transport screening outside U did not pass")
+    have = {r.get("id") for r in requirements}
+    missing = [i for i in required if i not in have]
+    if missing:
+        reasons.append(f"required outputs missing: {missing}")
+    if reasons:
+        return {"status": "UNAVAILABLE", "reasons": reasons, "requirements": requirements}
+    return {**projection(requirements=requirements, **kw), "requirements": requirements}
 
 
 _W = {}
@@ -200,15 +271,16 @@ def report(run_id: str, hd: bool = False, workers: int = 8, run_dir=None) -> dic
                     "step_size_final": a["step_size"][-1].tolist() if "step_size" in a else None}}
     if N < 8:
         out["release"] = {"sufficient_evidence": False, "screening_pass": False, "failed": ["sufficient_evidence"]}
+        out["projection"] = {"status": "UNAVAILABLE", "reasons": ["insufficient pilot evidence"]}
         return out
     per = mixing(xs, names)
     excluded_params = {e["params"]["crn_pl"] for e in excl if e["type"] == "shelf"}
     items = transport(xs, names, "crn_pl", rel, excluded_params) if cfg["gamma_common"] is None else []
     hours = samp_s / 3600.0
-    out["mixing"] = {"rhat_max": max(v["rhat"] for v in per.values()),
-                     "ess_min_all": min(min(v["ess_bulk"], v["ess_tail"]) for v in per.values()),
-                     "targets": {t: {**per[t], "ess_per_sampling_gpu_h": min(per[t]["ess_bulk"], per[t]["ess_tail"]) / hours,
-                                     "ess_per_chain_transition": min(per[t]["ess_bulk"], per[t]["ess_tail"]) / (N * C)}
+    out["mixing"] = {"rhat_max": float(np.max([v["rhat"] for v in per.values()])),  # NaN propagates
+                     "ess_min_all": float(np.min([ess_min(v) for v in per.values()])),
+                     "targets": {t: {**per[t], "ess_per_sampling_gpu_h": ess_min(per[t]) / hours,
+                                     "ess_per_chain_transition": ess_min(per[t]) / (N * C)}
                                  for t in TARGETS if t in per},
                      "per_param": per}
     out["transport"] = {"counts_outside_U": {s: sum(i["status"] == s for i in items if not i["in_U"])
@@ -223,7 +295,7 @@ def report(run_id: str, hd: bool = False, workers: int = 8, run_dir=None) -> dic
     reqs = [{"id": "floor_all", "factor": RULES["production_floor_ess_all"] / out["mixing"]["ess_min_all"]}]
     for t in TARGETS:
         if t in per:
-            e = min(per[t]["ess_bulk"], per[t]["ess_tail"])
+            e = ess_min(per[t])
             reqs.append({"id": f"floor_target {t}", "factor": RULES["production_floor_ess_targets"] / e})
     lw = None
     if hd:
@@ -249,8 +321,9 @@ def report(run_id: str, hd: bool = False, workers: int = 8, run_dir=None) -> dic
                      "factor": (e6["mcse"] / RULES["e6_max_se"]) ** 2})
         out["hd_reweighting"] = {"khat": float(psis_khat(lw)), "lnB_D_mcse": e6["mcse"]}
     hd_cost = json.loads((RES / "projection.json").read_text())["hd_value_seconds_per_draw"]
-    out["projection"] = projection(N * C, C, s_tr, warm_s, reqs, hd_cost, led["seconds"] / 3600.0)
-    out["projection"]["requirements"] = reqs
+    out["projection"] = production_projection(out["release"], reqs, required_outputs(acc), n_post_chain_tr=N * C,
+                                              chains=C, s_per_transition=s_tr, warmup_s=warm_s, hd_s_per_draw=hd_cost,
+                                              pilot_used_h=led["seconds"] / 3600.0)
     out["projection"]["hd_included"] = bool(hd)
     return out
 

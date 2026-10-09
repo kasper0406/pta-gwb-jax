@@ -1012,6 +1012,29 @@ All other settings are unchanged.
 
    Unresolved transport is never extrapolated.
 
+**Review of the preparation (REQUEST_CHANGES, 4 MAJORs; `review_pilot2_prep.out`): fixed.**
+1. **Sampler state.** The in-run check now covers the actual sampler state: unconstrained z,
+   potential energy, gradient, energy and momentum, plus the adaptation state (step size, which
+   must be positive; the metric and its factors). It also covers positions, log-likelihoods and t0,
+   checked at init and after every chunk. Any non-finite value stops the run. The reviewer's repro
+   (z = inf with finite x and lnL) is a test on a real NumPyro state.
+2. **Fail-closed screening and projection.**
+   * Screening and the projection require every input to be finite and valid. ESS minima propagate
+     NaN; the builtin `min(500, NaN) = 500` is no longer used.
+   * A NaN, inf, None, bool or negative diagnostic, count or factor gives `valid_inputs` false and
+     fails screening, or makes the projection UNAVAILABLE.
+3. **Projection gating.** The production projection is **UNAVAILABLE**, with no affordability
+   flags, when:
+   * the evidence is insufficient or invalid;
+   * transport screening outside U did not pass;
+   * any required output is missing. Required: the ESS floors, every headline quantity including
+     the HD ones, and E-6, so `--hd` is mandatory.
+4. **Parameter-file hash.** The generator verifies the actual `pars.txt` sha256 against the
+   manifest before mapping columns. The chain hash is verified by the loader. Tests cover a wrong
+   expected hash, reordered names under the real hash, and `build` with a wrong manifest hash.
+
+All changes are in the control or run plane, so the scheme-3 gate bindings are unchanged.
+
 **Binding scheme 3 and gate refresh.**
 * Scheme 3 also excludes the sampler-run plane from the gate evidence: the generator, the pilot
   report, and `configs/m3b/{run_configs,metrics,proposals}/`. A strict test checks that no bound

@@ -251,4 +251,140 @@ def test_projection_arithmetic():
     assert p["run_A_breakdown"]["sampling_x2_h"] == pytest.approx(2 * 900 * 8.0 / 3600)
     assert p["run_A_gpu_h"] == pytest.approx(4.0 + 0.5 + 3600 * 0.0069 / 3600)
     assert p["remaining_total_h"] == pytest.approx(12 - 0.21 - 0.483) and p["run_A_fits"]
-    assert not P.projection(1200, 4, 8.0, 1800.0, [{"id": "x", "factor": float("inf")}], 0.0, 0.5)["run_A_fits"]
+    assert p["status"] == "AVAILABLE"
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), -1.0, 0.0, None, True])
+def test_projection_fails_closed_on_invalid_factors(bad):
+    p = P.projection(1200, 4, 8.0, 1800.0, [{"id": "ok", "factor": 2.0}, {"id": "x", "factor": bad}], 0.0069, 0.5)
+    assert p["status"] == "UNAVAILABLE" and "run_A_fits" not in p and "A_plus_B_fits" not in p
+
+
+@pytest.mark.parametrize("kw", [{"s_per_transition": float("nan")}, {"warmup_s": float("inf")},
+                                {"n_post_chain_tr": 0}, {"hd_s_per_draw": -1.0}, {"pilot_used_h": float("nan")}])
+def test_projection_fails_closed_on_invalid_inputs(kw):
+    args = {"n_post_chain_tr": 1200, "chains": 4, "s_per_transition": 8.0, "warmup_s": 1800.0,
+            "requirements": [{"id": "ok", "factor": 2.0}], "hd_s_per_draw": 0.0069, "pilot_used_h": 0.5, **kw}
+    p = P.projection(**args)
+    assert p["status"] == "UNAVAILABLE" and "run_A_fits" not in p
+
+
+@pytest.mark.parametrize("field,value", [("ess_tail", float("nan")), ("ess_bulk", float("nan")), ("rhat", float("nan")),
+                                         ("ess_tail", None), ("rhat", float("inf")), ("ess_bulk", -1.0),
+                                         ("rhat", True)])
+def test_release_fails_closed_on_invalid_diagnostics(field, value):
+    items = [{"param": "x", "in_U": False, "status": "PASS"}]
+    for name in ("a", "gw_crn_gamma"):
+        per = _per()
+        per[name][field] = value
+        r = P.evaluate_release(450, 0, per, P.TARGETS, items)
+        assert not r["screening_pass"] and not r["valid_inputs"] and r["invalid"], (name, field, value)
+
+
+@pytest.mark.parametrize("args", [(float("nan"), 0), (450, float("nan")), (450, -1), (None, 0)])
+def test_release_fails_closed_on_invalid_counts(args):
+    r = P.evaluate_release(*args, _per(), P.TARGETS, [{"param": "x", "in_U": False, "status": "PASS"}])
+    assert not r["screening_pass"] and not r["valid_inputs"]
+
+
+def test_release_rejects_unknown_transport_status_and_missing_targets():
+    r = P.evaluate_release(450, 0, _per(), P.TARGETS, [{"param": "x", "in_U": False, "status": "pass"}])
+    assert not r["screening_pass"] and not r["valid_inputs"]
+    r = P.evaluate_release(450, 0, _per(names=("a", "gw_crn_gamma")), P.TARGETS,
+                           [{"param": "x", "in_U": False, "status": "PASS"}])
+    assert not r["screening_pass"] and "ess_targets" in r["failed"]
+
+
+def _acc():
+    return json.loads((REPO_ROOT / "configs" / "m3b" / "acceptance_epta.json").read_text())
+
+
+def _full_reqs():
+    return [{"id": i, "factor": 2.0} for i in P.required_outputs(_acc())]
+
+
+KW = {"n_post_chain_tr": 1200, "chains": 4, "s_per_transition": 8.0, "warmup_s": 1800.0, "hd_s_per_draw": 0.0069,
+      "pilot_used_h": 0.5}
+
+
+def test_production_projection_requires_screened_transport_and_every_output():
+    items = [{"param": "x", "in_U": False, "status": "PASS"}]
+    ok = P.evaluate_release(450, 0, _per(), P.TARGETS, items)
+    req = P.required_outputs(_acc())
+    assert "E-6 ln B_D" in req and any(r.startswith("E-1") for r in req) and any(r.startswith("E-2") for r in req)
+    p = P.production_projection(ok, _full_reqs(), req, **KW)
+    assert p["status"] == "AVAILABLE" and "run_A_fits" in p
+    # transport screening failed -> no extrapolation
+    bad = P.evaluate_release(450, 0, _per(), P.TARGETS, [{"param": "x", "in_U": False, "status": "INCONCLUSIVE"}])
+    p = P.production_projection(bad, _full_reqs(), req, **KW)
+    assert p["status"] == "UNAVAILABLE" and "run_A_fits" not in p and "A_plus_B_fits" not in p
+    # without --hd: HD headlines and E-6 missing
+    no_hd = [r for r in _full_reqs() if not (r["id"].startswith(("E-1", "E-2", "E-6")))]
+    p = P.production_projection(ok, no_hd, req, **KW)
+    assert p["status"] == "UNAVAILABLE" and "run_A_fits" not in p
+    assert any("E-6 ln B_D" in why for why in p["reasons"])
+    # insufficient evidence or invalid inputs
+    for rel in (P.evaluate_release(299, 0, _per(), P.TARGETS, items),
+                P.evaluate_release(450, 0, _per(et=float("nan")), P.TARGETS, items)):
+        assert P.production_projection(rel, _full_reqs(), req, **KW)["status"] == "UNAVAILABLE"
+    # a NaN required factor is UNAVAILABLE even when everything else passes
+    reqs = _full_reqs()
+    reqs[-1]["factor"] = float("nan")
+    assert P.production_projection(ok, reqs, req, **KW)["status"] == "UNAVAILABLE"
+
+
+def _hmc_state():
+    import jax
+    import jax.numpy as jnp
+    from numpyro.infer.hmc import hmc
+
+    init_k, sample_k = hmc(potential_fn=lambda z: 0.5 * jnp.sum(z ** 2), algo="NUTS")
+    st = init_k(jnp.ones(3), num_warmup=10, dense_mass=True, rng_key=jax.random.PRNGKey(0))
+    return sample_k(st)
+
+
+def test_nonfinite_state_checks_the_actual_sampler_state():
+    import jax.numpy as jnp
+
+    st = _hmc_state()
+    assert R.nonfinite_state(st, {"x": np.ones(3), "logL": np.ones(2)}) == []
+    ad = st.adapt_state
+    cases = {
+        "z": st._replace(z=jnp.array([jnp.inf, 0.0, 0.0])),  # the reviewer's repro: physical x/lnL stay finite
+        "potential_energy": st._replace(potential_energy=jnp.nan),
+        "z_grad": st._replace(z_grad=jnp.array([0.0, jnp.nan, 0.0])),
+        "energy": st._replace(energy=jnp.inf),
+        "adapt_state.step_size": st._replace(adapt_state=ad._replace(step_size=jnp.inf)),
+        "adapt_state.inverse_mass_matrix": st._replace(
+            adapt_state=ad._replace(inverse_mass_matrix=ad.inverse_mass_matrix.at[0, 1].set(jnp.nan))),
+        "adapt_state.mass_matrix_sqrt": st._replace(
+            adapt_state=ad._replace(mass_matrix_sqrt=ad.mass_matrix_sqrt * jnp.inf)),
+    }
+    for name, bad in cases.items():
+        assert name in R.nonfinite_state(bad, {"x": np.ones(3), "logL": np.ones(2)}), name
+    assert "adapt_state.step_size: not positive" in R.nonfinite_state(st._replace(adapt_state=ad._replace(step_size=0.0)))
+    assert R.nonfinite_state(st, {"logL": np.array([1.0, np.nan])}) == ["logL"]
+    assert "z: missing" in R.nonfinite_state(st._replace(z=None))
+    assert "adapt_state: missing" in R.nonfinite_state(st._replace(adapt_state=None))
+
+
+def test_generator_verifies_the_parameter_file(tmp_path):
+    from ptagwb import epta
+
+    man = epta.load_manifest()
+    real = epta.extract_reference("crn_pl") / "pars.txt"
+    good = man["reference_chains"]["crn_pl"]["pars_sha256"]
+    names = G.verified_names(real, good)
+    assert len(names) == 67
+    with pytest.raises(ValueError, match="sha256"):
+        G.verified_names(real, "0" * 64)  # wrong expected hash
+    swapped = names.copy()
+    swapped[0], swapped[1] = swapped[1], swapped[0]
+    f = tmp_path / "pars.txt"
+    f.write_text("\n".join(swapped) + "\n")
+    with pytest.raises(ValueError, match="sha256"):
+        G.verified_names(f, good)  # reordered names, real expected hash
+    bad = copy.deepcopy(man)
+    bad["reference_chains"]["crn_pl"]["pars_sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="sha256"):
+        G.build(bad)
