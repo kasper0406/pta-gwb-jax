@@ -781,28 +781,22 @@ The D3 benchmark (0.21 GPU-h, revision 1) is not in the ledger. It remains timin
 
 ## 9. Strict suite
 
-The suite was run with `PTAGWB_REQUIRE_ORACLES=1` on the CPU, at revision 2 (2026-10-09), in
-46 min. `data/processed/m3a` and `runs/` are linked to the main checkout.
+**Revision 3** (2026-10-09): `PTAGWB_REQUIRE_ORACLES=1`, CPU, run at 1cc3654 (code 39cf5e6).
+**498 passed, 2 xfailed** (the open M3a gates E7 and E8, `xfail(strict=True)`), **0 failed, 0
+skipped**, in 47 min. The GPU check passed in revision 1.
 
-* **486 passed, 2 xfailed, 0 failed, 0 skipped.** The 2 xfails are the open M3a gates E7 and E8,
-  marked `xfail(strict=True)`.
-* The GPU check passed in revision 1 and was not rerun.
-* The revision-1 note still holds: the first full run's 19 M3a failures were environmental. The
-  pinned M3a clock directory was missing in the worktree.
-* **M3b tests** (`tests/test_m3b_*.py`):
-  * reweighting and acceptance, including the revised D9: common domain, conditional-quantile
-    coverage, fail-closed inventories and NaN rejection;
-  * the N13 toy, its negative control and the complete kernel with block moves;
-  * the budget: ledger, refusals, crash accounting, watchdog kill inside a block, run-config
-    validation;
-  * T1 and fingerprint helpers; the fingerprint verdict aggregation; the binding's
-    stale/missing/failed/unbound negatives;
-  * the real-data gates, rerun fresh: manifest and prior volume, T1, fingerprint, G5-PTA on all 24
-    points, bucket exactness, and the frozen acceptance file v2.
-* **Gate results** (`data/processed/m3b/epta/results/`) are bound to the committed configuration.
-  `scripts/m3b_run_epta.py ... --dry-run` passes every precondition (2d24a00). The driver's
-  sampling path was checked by tracing it (`jax.eval_shape`; CPU, both pilot configs, 33 blocks),
-  not by executing it.
+New in revision 3:
+* budget: concurrent admission, crash charging, heartbeat-failure kill, reconcile, GPU lock;
+* conditional reweighting: ln B_D coverage, paired shift MCSE, `accept_reweighting` on a domain;
+* v2+ rows and the E-6 classifier;
+* the **end-to-end conditional acceptance test on the frozen acceptance file**;
+* validator negatives: inventories, empty or incomplete alternatives, NaN or unordered boundaries;
+* runtime-pin verification (changed or added files detected; the installed runtime matches);
+* `fastcond` equals `EPTAModel.logL`, including the dip and the HD one-pulsar swap.
+
+All gate results (T1, prior volume, fingerprint, G5-PTA, t0 conditional, runtime sensitivity, T2,
+conditional occupancy) were regenerated at 39cf5e6 and are bound to it. The driver's dry-run
+passes.
 
 ## 10. Open issues
 
