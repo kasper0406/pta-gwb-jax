@@ -16,25 +16,24 @@ from ptagwb.acceptance import (
     PASS,
     RESOLVED,
     UNRESOLVED,
-    D9Sample,
     Occupancy,
     aggregate,
-    bf_sensitivity,
     classify,
     classify_e6,
     classify_from_frozen,
     d9_eligibility,
-    d9_excluded_regions,
-    d9_quantity_survives,
+    bf_domain_correction,
+    conditional_quantile,
+    d9_exclusions,
+    descriptive_envelope,
+    domain_indicator,
     decidable,
     envelope_quantile_bounds,
-    epsilon_m,
     event_interval_gate,
     event_interval_indicators,
     event_intervals,
     max_our_mcse,
     occupancy,
-    p_star,
     shelf_peak_indicators,
     shelf_peak_regions,
     support_class,
@@ -120,15 +119,18 @@ def test_frozen_entry_fails_closed():
         "EQUIVALENT"
     with pytest.raises(GateInputError):
         classify_from_frozen({"q_ref": 1.0, "m": 0.1}, 1.0, 0.01)
-    good = {"name": "S_J0437", "model": "CURN", "boundaries": [-20, -19],
-            "reference_file": "chain_1.txt", "sha256": "ab", "burn_in": 0.25}
-    assert d9_excluded_regions({"d9": {"excluded_regions": [good]}}) == [good]
-    bad = dict(good)
-    del bad["sha256"]
+    good = {"name": "S_J0437", "type": "shelf", "boundaries": [-18, -17],
+            "params": {"crn_pl": "J0437_red_noise_log10_A", "hd_pl": "J0437_red_noise_log10_A"},
+            "reference_cases": {"crn_pl": "zero-visit", "hd_pl": "few-event"}}
+    acc_file = {"d9": {"exclusions": [good], "models": ["crn_pl", "hd_pl"], "reference": {}}}
+    assert d9_exclusions(acc_file) == [good]
+    bad = dict(good, params={"crn_pl": "x"})  # a model missing from the parameter mapping
     with pytest.raises(GateInputError):
-        d9_excluded_regions({"d9": {"excluded_regions": [bad]}})
+        d9_exclusions({"d9": {**acc_file["d9"], "exclusions": [bad]}})
     with pytest.raises(GateInputError):
-        d9_excluded_regions({})
+        d9_exclusions({"d9": {**acc_file["d9"], "exclusions": [dict(good, type="box")]}})
+    with pytest.raises(GateInputError):
+        d9_exclusions({})
 
 
 # ---------------------------------------------------------------- Sec. 5.3 occupancy
@@ -299,107 +301,97 @@ def test_envelope_bounds_normal():
     assert hi == pytest.approx(0.5 + stats.norm.ppf(0.5 / 0.95), abs=0.02)
 
 
-def test_survives_and_p_star():
-    x = _normal_sample(20001)
-    m = 0.3
-    s = D9Sample(x, -10.0, 10.0, mcse=0.0)
-    r0 = d9_quantity_survives(s.bounds(0.5, 0.0), s.bounds(0.5, 0.0), 0.0, m)
-    assert r0["survives"] and r0["interval"][1] == pytest.approx(0.0, abs=1e-3)
-    ps = p_star(s, s, 0.5, 0.0, m)
-    # analytic: 2 Phi^-1(0.5 / (1 - p)) = m  ->  p* = 1 - 0.5 / Phi(m / 2)
-    assert ps["p_star"] == pytest.approx(1 - 0.5 / stats.norm.cdf(m / 2), abs=1e-3)
-    assert ps["p_star_lo90"] == pytest.approx(ps["p_star"], abs=1e-6)  # zero MCSE
-    # monotone: larger margin -> larger p*; MCSE -> lower bound below p*
-    prev = 0.0
-    for mm in (0.1, 0.2, 0.3, 0.5):
-        cur = p_star(s, s, 0.5, 0.0, mm)["p_star"]
-        assert cur > prev
-        prev = cur
-    sm = D9Sample(x, -10.0, 10.0, mcse=0.01)
-    r = p_star(sm, sm, 0.5, 0.02, m)
-    assert r["p_star_lo90"] < r["p_star"] < ps["p_star"]
-    grid = r["survival_on_grid"]
-    vals = [grid[p] for p in sorted(grid)]
-    assert vals == sorted(vals, reverse=True)  # survival non-increasing in p
-    # not equivalent at p = 0 -> p* = 0; survives at p_max -> capped
-    assert p_star(s, D9Sample(x + 1.0, -10, 10), 0.5, 0.0, m)["p_star"] == 0.0
-    assert p_star(s, s, 0.5, 0.0, 100.0)["capped"]
+def test_domain_indicator_and_conditional_quantile():
+    rng = np.random.default_rng(11)
+    a = [rng.uniform(-18, -10, 3000) for _ in range(3)]
+    g = [rng.normal(57510, 3, 3000) for _ in range(3)]
+    ex = [{"name": "A:S", "type": "shelf", "boundaries": [-18, -17], "params": {"crn": "a", "hd": "a_hd"}},
+          {"name": "t0:rest", "type": "outside", "boundaries": [57507.0, 57514.0], "params": {"crn": "t", "hd": "t_hd"}}]
+    cols = {"a": a, "t": g, "a_hd": a, "t_hd": g}
+    for model in ("crn", "hd"):  # one common domain under the parameter mapping
+        ind = domain_indicator(lambda n: cols[n], ex, model)
+        for i in range(3):
+            exp = ~((a[i] >= -18) & (a[i] <= -17)) & (g[i] >= 57507.0) & (g[i] < 57514.0)
+            assert np.array_equal(ind[i], exp)
+    ind = domain_indicator(lambda n: cols[n], ex, "crn")
+    r = conditional_quantile(a, ind, 0.5)
+    sub = np.concatenate([x[m] for x, m in zip(a, ind)])
+    assert r["q"] == pytest.approx(np.quantile(sub, 0.5), abs=0.01) and np.isfinite(r["mcse"])
+    assert r["q"] == pytest.approx(-13.5, abs=0.1)  # shelf excluded: median of U(-17, -10) (t0 indep.)
+    with pytest.raises(ValueError):
+        conditional_quantile(a, [np.zeros(3000, bool)] * 3, 0.5)
 
 
-def test_epsilon_m():
-    assert epsilon_m([0.07, 0.2]) == 0.05
-    assert epsilon_m([0.6]) == 0.10
-    assert epsilon_m([0.001]) == 0.001
-    assert epsilon_m([0.0009, 0.5]) is None
-    assert epsilon_m([]) is None
+def test_conditional_quantile_mcse_coverage_with_correlated_domain():
+    """Ordered-chain MCSE of a conditional quantile: AR(1) draws, a domain indicator correlated with
+    the draws (an excluded shelf of the chain's own values); coverage of the true conditional
+    median over replicate chains."""
+    rng = np.random.default_rng(12)
+    rho, n, reps = 0.9, 4000, 150
+    hits = 0
+    truth = stats.norm.ppf((stats.norm.cdf(-1.5) + 1) / 2)  # median of N(0,1) restricted to x > -1.5
+    for _ in range(reps):
+        chains = []
+        for _c in range(2):
+            e = rng.normal(size=n) * np.sqrt(1 - rho**2)
+            x = np.empty(n)
+            x[0] = rng.normal()
+            for i in range(1, n):
+                x[i] = rho * x[i - 1] + e[i]
+            chains.append(x)
+        ind = [c > -1.5 for c in chains]
+        r = conditional_quantile(chains, ind, 0.5)
+        hits += abs(r["q"] - truth) <= 1.96 * r["mcse"]
+    assert 0.85 <= hits / reps <= 0.99
 
 
-def test_bf_sensitivity():
-    t = np.log(60.0)
-    r = bf_sensitivity(t, 0.05, 0.30, t, 0.01, 0.01)
-    assert r["table"][(0.1, 0.0)] == pytest.approx(np.log(0.9))
-    assert r["table"][(0.0, 0.1)] == pytest.approx(-np.log(0.9))
-    assert r["table"][(0.05, 0.05)] == 0.0
-    assert len(r["table"]) == 25
-    lo, hi = r["interval"]
-    assert lo == pytest.approx(t - Z90 * 0.05 + np.log(0.99))
-    assert hi == pytest.approx(t + Z90 * 0.05 - np.log(0.99))
-    assert r["qualifies"]
-    assert not bf_sensitivity(t + 0.1, 0.08, 0.30, t, 0.10, 0.10)["qualifies"]
-    assert bf_sensitivity(t + 0.1, 0.08, 0.30, t, 0.001, 0.001)["qualifies"]
-    assert not bf_sensitivity(t, 0.11, 0.30, t, 0.001, 0.001)["qualifies"]  # E-6 SE cap
-    assert not bf_sensitivity(t, 0.05, 0.30, t, None, 0.01)["qualifies"]
+def test_descriptive_envelope_and_bf_correction():
+    x = _normal_sample()
+    env = descriptive_envelope(x, x, 0.5, -10.0, 10.0)
+    assert env["label"].startswith("descriptive")
+    lo, hi = env["intervals"][0.05]
+    assert lo < 0 < hi and hi - lo == pytest.approx(2 * (stats.norm.ppf(0.5 / 0.95) - stats.norm.ppf(0.45 / 0.95)), abs=0.01)
+    assert bf_domain_correction(0.0, 0.0) == 0.0
+    assert bf_domain_correction(0.01, 0.0) == pytest.approx(np.log(0.99))
+    for bad in (np.nan, -0.1, 1.0):
+        with pytest.raises(GateInputError):
+            bf_domain_correction(bad, 0.0)
 
 
 def test_d9_eligibility():
-    zero = occupancy([np.zeros(1000, bool)] * 4)
-    few = occupancy([np.r_[np.zeros(990, bool), np.ones(10, bool)]] * 2)
-    visited = occupancy(markov_chains(np.random.default_rng(5), 4, 4000, 0.05, 0.05))
-    gate = {"rhat_ess": PASS, "k_hat": PASS}
-    head = {"E-1 q50": ("EQUIVALENT", True), "E-1 q05": (INCONCLUSIVE, False)}
-    eps = {"CURN": 0.01, "HD": 0.001}
-    inv = {"required_models": ("CURN", "HD"), "required_checks": ("rhat_ess", "k_hat")}
-    ok = d9_eligibility({"S1": (zero, zero), "S2": (zero, zero)}, gate, head, eps, **inv)
-    assert ok.eligible and ok.available and ok.claim == D9_CLASS
+    gate = {"model_identity": PASS, "convergence_D": PASS}
+    head = {"E-1 q50": "EQUIVALENT", "E-3 q50": "EQUIVALENT"}
+    inv = {"required_checks": ("model_identity", "convergence_D"), "required_headline": ("E-1 q50", "E-3 q50"),
+           "required_models": ("crn_pl", "hd_pl")}
+    ex = {"crn_pl": {"reference": 38, "ours": 5}, "hd_pl": {"reference": 78, "ours": 0}}
+    ok = d9_eligibility(gate, head, excluded_draws=ex, **inv)
+    assert ok.eligible and ok.claim == D9_CLASS and ok.excluded_draws == ex
     assert ok.unconditional_verdict == INCONCLUSIVE and ok.template == D9_TEMPLATE
     assert "REPRODUCED" not in (ok.claim or "")
     with pytest.raises((TypeError, ValueError)):
         dataclasses.replace(ok, unconditional_verdict=PASS)
     with pytest.raises(dataclasses.FrozenInstanceError):
         ok.unconditional_verdict = PASS
-    asym = d9_eligibility({"S1": (zero, visited)}, gate, head, eps, **inv)
-    assert not asym.eligible and asym.claim is None and asym.separate_review == ("S1",)
-    asym2 = d9_eligibility({"S1": (visited, zero)}, gate, head, eps, **inv)
-    assert not asym2.eligible and "S1" in asym2.separate_review
-    fe = d9_eligibility({"S1": (zero, few)}, gate, head, eps, **inv)
-    assert not fe.eligible and "few-event" in fe.reasons[0]
-    both = d9_eligibility({"S1": (visited, visited)}, gate, head, eps, **inv)
-    assert not both.eligible and not both.separate_review
-    g = d9_eligibility({"S1": (zero, zero)}, {**gate, "transport_gamma": FAIL}, head, eps, **inv)
-    assert not g.eligible
-    h = d9_eligibility({"S1": (zero, zero)}, gate, {"E-1 q50": (INCONCLUSIVE, True)}, eps, **inv)
-    assert not h.eligible
-    e = d9_eligibility({"S1": (zero, zero)}, gate, head, {"CURN": 0.01, "HD": None}, **inv)
-    assert e.eligible and not e.available and e.claim is None
-    assert e.unconditional_verdict == INCONCLUSIVE
-    with pytest.raises(GateInputError):
-        d9_eligibility({}, gate, head, eps, **inv)
+    bad = d9_eligibility({**gate, "convergence_D": INCONCLUSIVE}, head, excluded_draws=ex, **inv)
+    assert not bad.eligible and bad.claim is None
+    bad = d9_eligibility(gate, {**head, "E-3 q50": INCONCLUSIVE}, excluded_draws=ex, **inv)
+    assert not bad.eligible
 
 
 def test_d9_eligibility_fails_closed_on_bad_inventories():
-    zero = occupancy([np.zeros(1000, bool)] * 4)
-    gate = {"rhat_ess": PASS, "k_hat": PASS}
-    head = {"E-1 q50": ("EQUIVALENT", True)}
-    inv = {"required_models": ("CURN", "HD"), "required_checks": ("rhat_ess", "k_hat")}
-    regs = {"S1": (zero, zero)}
-    for bad in (np.nan, float("inf"), -np.inf):  # NaN / non-finite epsilon (review of 2ee1bb7)
-        with pytest.raises(GateInputError):
-            d9_eligibility(regs, gate, head, {"CURN": 0.01, "HD": bad}, **inv)
-    with pytest.raises(GateInputError):  # a model missing from the inventory
-        d9_eligibility(regs, gate, head, {"HD": 0.01}, **inv)
+    gate = {"model_identity": PASS, "convergence_D": PASS}
+    head = {"E-1 q50": "EQUIVALENT"}
+    inv = {"required_checks": ("model_identity", "convergence_D"), "required_headline": ("E-1 q50",),
+           "required_models": ("crn_pl", "hd_pl")}
+    ex = {"crn_pl": {"reference": 38, "ours": 5}, "hd_pl": {"reference": 78, "ours": 0}}
     with pytest.raises(GateInputError):  # an omitted check
-        d9_eligibility(regs, {"rhat_ess": PASS}, head, {"CURN": 0.01, "HD": 0.01}, **inv)
+        d9_eligibility({"model_identity": PASS}, head, excluded_draws=ex, **inv)
+    with pytest.raises(GateInputError):  # an omitted headline quantity
+        d9_eligibility(gate, {}, excluded_draws=ex, **inv)
+    with pytest.raises(GateInputError):  # a model missing
+        d9_eligibility(gate, head, excluded_draws={"crn_pl": ex["crn_pl"]}, **inv)
+    for v in (np.nan, -1, 2.5, None, True):  # NaN / invalid excluded-draw counts
+        with pytest.raises(GateInputError):
+            d9_eligibility(gate, head, excluded_draws={**ex, "hd_pl": {"reference": v, "ours": 0}}, **inv)
     with pytest.raises(GateInputError):  # no inventories
-        d9_eligibility(regs, gate, head, {"CURN": 0.01, "HD": 0.01}, required_models=(), required_checks=())
-    with pytest.raises(GateInputError):
-        epsilon_m([0.05, np.nan])
+        d9_eligibility(gate, head, excluded_draws=ex, required_checks=(), required_headline=(), required_models=())

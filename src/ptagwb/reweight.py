@@ -300,7 +300,7 @@ def weighted_kde_density(x: np.ndarray, w: np.ndarray, at: float) -> tuple[float
     return float(np.sum(w * stats.norm.pdf((at - x) / h)) / h), h
 
 
-def weighted_quantile_mcse(x, log_w, p: float) -> dict:
+def weighted_quantile_mcse(x, log_w, p: float, mask=None) -> dict:
     """Weighted p-quantile with raw normalised weights and its ratio-estimator MCSE (Sec. 5.4).
 
     R(q) = sum w 1[x <= q] / sum w. Linearisation (delta method on the pair (w 1[x <= q_p], w)):
@@ -308,12 +308,21 @@ def weighted_quantile_mcse(x, log_w, p: float) -> dict:
     with b_c = batch_length(max(tau(Z_c), tau(w_c)), n_c); pooled
     Var = sum_c (n_c / N)^2 Var(mean Z_c). MCSE in quantile units = sqrt(Var(R)) / f_w(q_p) with
     f_w the weighted Gaussian KDE (Silverman bandwidth, returned). Chains of x and log_w must
-    match in number and length.
+    match in number and length. ``mask`` (optional, per-chain booleans): domain indicator; the
+    weights become w_i 1[x_i in D] (a conditional quantile; draws outside D stay in the ordered
+    chains, so serial dependence of the indicator enters the MCSE).
     """
     xs, lws = as_chains(x), as_chains(log_w)
     if len(xs) != len(lws) or any(a.size != b.size for a, b in zip(xs, lws)):
         raise ValueError("x and log_w chains differ in number or length")
     w = _normalised_weights(lws)
+    if mask is not None:
+        ms = [np.asarray(m, bool).ravel() for m in (mask if not (isinstance(mask, np.ndarray) and mask.ndim == 1) else [mask])]
+        if len(ms) != len(w) or any(a.size != b.size for a, b in zip(ms, w)):
+            raise ValueError("mask chains differ from x in number or length")
+        w = [c * m for c, m in zip(w, ms)]
+        if not any(c.any() for c in ms):
+            raise ValueError("domain mask selects no draw")
     xa, wa = np.concatenate(xs), np.concatenate(w)
     q = weighted_quantile(xa, p, wa)
     wbar = float(wa.mean())

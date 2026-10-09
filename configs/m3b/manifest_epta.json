@@ -66,7 +66,7 @@
    "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
    "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
    "upstream_base": "v2.4.0",
-   "identified_by": "chain parameter names J1713+0747_J1713+0747_dmexp_1_* (renamed by d3248419, 2023-03-23) and the script's orf_bins keyword (added by 23c63a17, 2023-03-14); equivalent on this path to EPTADR2-v1.1 (7619622a: rename + unused pseed only)"
+   "status": "pinned, source-audited configuration reproducing the chain-generating model; representative of the historical equivalence class {23c63a15, 051173f4} (both after the script's orf_bins keyword, added by 23c63a15 on 2023-03-14, and before the dip-parameter rename d3248419 of 2023-03-23 that the chain names predate; 051173f4 only edits the unused binned ORF); EPTADR2-v1.1 (7619622a) differs on this path only by the rename and an unused pseed"
   },
   "PTMCMCSampler": "not recoverable; proposals only (does not enter likelihood or prior)",
   "tempo2": {
@@ -80,7 +80,7 @@
     "gps2utc.clk": "gps2utc.clk",
     "ncyobs2obspm.clk": "ncyobs2obspm.clk"
    },
-   "identified_by": "chain fingerprint (docs/M3B0_VALIDATION.md Sec. 3)"
+   "status": "pinned runtime reproducing the stored likelihoods (chain fingerprint, docs/M3B0_VALIDATION.md Sec. 3); not a unique identification of every historically installed file"
   },
   "ephemeris": "DE440 (Pulsar(ephem='DE440')); clock: par CLK TT(BIPM2021)"
  },
@@ -1207,7 +1207,7 @@
    "hd_orf",
    "tspan_common"
   ],
-  "modes_identified_by": "script CLI not released; freq_bins/freqs_dr2new.txt lists k/T_array; chain fingerprint discriminates (Sec. 3)"
+  "modes_evidence": "script CLI not released; freq_bins/freqs_dr2new.txt lists k/T_array; the chain fingerprint discriminates 9 from 8 and 10 (Sec. 6.1)"
  },
  "dip": {
   "pulsar": "J1713+0747",

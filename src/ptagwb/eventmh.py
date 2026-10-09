@@ -12,8 +12,10 @@ Kernel (Metropolis-within-Gibbs), one iteration:
    parameter except t0), with the potential U(z; t0) = -[logL(x(z), t0) + log|dx/dz|] at the
    current t0 (passed as a model argument, so no recompilation);
 2. ``n_mh`` exact MH updates of t0 | x with the proposal of ``T0Proposal``;
-3. NUTS's cached potential energy and gradient are recomputed at (z, t0_new) (as in
-   ``ptagwb.hybrid``).
+3. one exact MH independence update per block (``BlockProposal``: the shelf-prone (log10_A,
+   gamma) pairs and the joint dip block; plan Sec. 5.1), in a fixed order;
+4. NUTS's state (z only if a block move changed a continuous coordinate), cached potential energy
+   and gradient are recomputed at the final point (as in ``ptagwb.hybrid``).
 
 Each step leaves the joint posterior invariant (NUTS: the conditional of z given t0; MH: the
 conditional of t0 given z), hence so does the composition.
@@ -123,6 +125,59 @@ def mh_t0(key, x, ll, logL_x, i0: int, prop: T0Proposal, hastings: bool = True):
     return jnp.where(ok, x2, x), jnp.where(ok, ll2, ll), ok
 
 
+@dataclass(frozen=True)
+class BlockProposal:
+    """Independence proposal for one block of coordinates ``idx`` (physical values): mixture of
+    the uniform prior on the block's box (weight ``w_prior``) and, if ``edges`` is given, a product
+    of per-coordinate equal-mass histograms (frozen from pilot draws). Exact density; the MH
+    ratio uses it in full."""
+
+    idx: tuple
+    lo: tuple
+    hi: tuple
+    w_prior: float = 1.0
+    edges: tuple | None = None  # per coordinate: array of K+1 edges spanning [lo, hi]
+
+    def __post_init__(self):
+        if not (len(self.idx) == len(self.lo) == len(self.hi) and 0 < self.w_prior <= 1):
+            raise ValueError("invalid BlockProposal")
+        if self.w_prior < 1 and (self.edges is None or len(self.edges) != len(self.idx)):
+            raise ValueError("histogram component needs edges for every coordinate")
+
+
+def block_log_q(bp: BlockProposal, y):
+    lo, hi = jnp.asarray(bp.lo), jnp.asarray(bp.hi)
+    inside = jnp.all((y >= lo) & (y <= hi))
+    lu = jnp.where(inside, -jnp.sum(jnp.log(hi - lo)), -jnp.inf)
+    if bp.w_prior >= 1.0:
+        return lu
+    lh = sum(_hist_logpdf(y[j], e) for j, e in enumerate(bp.edges))
+    return jnp.logaddexp(jnp.log(bp.w_prior) + lu, jnp.log1p(-bp.w_prior) + lh)
+
+
+def block_sample(bp: BlockProposal, key):
+    k1, k2, k3 = jax.random.split(key, 3)
+    lo, hi = jnp.asarray(bp.lo), jnp.asarray(bp.hi)
+    yu = lo + (hi - lo) * jax.random.uniform(k2, (len(bp.idx),))
+    if bp.w_prior >= 1.0:
+        return yu
+    ks = jax.random.split(k3, len(bp.idx))
+    yh = jnp.stack([_hist_sample(ks[j], e) for j, e in enumerate(bp.edges)])
+    return jnp.where(jax.random.uniform(k1) < bp.w_prior, yu, yh)
+
+
+def block_mh(key, x, ll, logL_x, bp: BlockProposal):
+    """Exact MH independence update of the block (uniform prior inside the box)."""
+    k1, k2 = jax.random.split(key)
+    idx = jnp.asarray(bp.idx)
+    y = block_sample(bp, k1)
+    x2 = x.at[idx].set(y)
+    ll2 = logL_x(x2)
+    la = ll2 - ll + block_log_q(bp, x[idx]) - block_log_q(bp, y)
+    ok = jnp.log(jax.random.uniform(k2, minval=1e-300)) < jnp.where(jnp.isfinite(la), la, -jnp.inf)
+    return jnp.where(ok, x2, x), jnp.where(ok, ll2, ll), ok
+
+
 class EventMHNUTS:
     """NUTS on all coordinates but ``i0`` composed with MH on ``i0`` (module docstring).
 
@@ -130,8 +185,10 @@ class EventMHNUTS:
     the full vector; ``i0``: index of the event epoch."""
 
     def __init__(self, logL_x, lo, hi, i0: int, prop: T0Proposal, *, n_mh: int = 1, hastings: bool = True,
-                 max_tree_depth: int = 10, dense_mass: bool = True, target_accept_prob: float = 0.8):
+                 max_tree_depth: int = 10, dense_mass: bool = True, target_accept_prob: float = 0.8,
+                 blocks: tuple = ()):
         self.logL_x, self.i0, self.prop, self.n_mh, self.hastings = logL_x, i0, prop, n_mh, hastings
+        self.blocks = tuple(blocks)  # BlockProposal per block, swept in order after the t0 updates
         self.lo, self.hi = np.asarray(lo, np.float64), np.asarray(hi, np.float64)
         D = len(self.lo)
         self.cont = np.array([i for i in range(D) if i != i0])
@@ -168,8 +225,8 @@ class EventMHNUTS:
         return st, t0
 
     def step(self, key, st, t0):
-        """One iteration: (state, t0) -> (state, t0, info) with info = (n_accept_mh, NUTS diverging,
-        accept_prob, num_steps)."""
+        """One iteration: (state, t0) -> (state, t0, info) with info = (n_accept_t0_mh, NUTS
+        diverging, accept_prob, num_steps, block accepts (n_blocks,))."""
         st = self._sample_k(st, model_args=(t0,))
         x = self._full_x(st.z, t0)
         ll = self.logL_x(x)
@@ -178,10 +235,21 @@ class EventMHNUTS:
         for k in range(self.n_mh):
             x, ll, ok = mh_t0(keys[k], x, ll, self.logL_x, self.i0, self.prop, self.hastings)
             acc = acc + ok.astype(jnp.int32)
+        bacc = []
+        if self.blocks:
+            kb = jax.random.split(jax.random.fold_in(key, 7), len(self.blocks))
+            for b, bp in enumerate(self.blocks):
+                x, ll, ok = block_mh(kb[b], x, ll, self.logL_x, bp)
+                bacc.append(ok)
         t0n = x[self.i0]
-        pe, g = jax.value_and_grad(self._pot_gen(t0n))(st.z)
-        st = st._replace(potential_energy=pe, z_grad=g)
-        return st, t0n, (acc, st.diverging, st.accept_prob, st.num_steps)
+        cont = jnp.asarray(self.cont)
+        lo_c, hi_c = jnp.asarray(self.lo[self.cont]), jnp.asarray(self.hi[self.cont])
+        u = (x[cont] - lo_c) / (hi_c - lo_c)
+        z = jnp.where(jnp.all(x[cont] == self._full_x(st.z, t0)[cont]), st.z, jnp.log(u) - jnp.log1p(-u))
+        pe, g = jax.value_and_grad(self._pot_gen(t0n))(z)
+        st = st._replace(z=z, potential_energy=pe, z_grad=g)
+        bacc = jnp.stack(bacc).astype(jnp.int32) if bacc else jnp.zeros(0, jnp.int32)
+        return st, t0n, (acc, st.diverging, st.accept_prob, st.num_steps, bacc)
 
     def physical(self, st, t0):
         return self._full_x(st.z, t0)

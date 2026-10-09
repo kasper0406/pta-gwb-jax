@@ -1,19 +1,20 @@
 #!/usr/bin/env bash
 # Build the EPTA DR2 "fork oracle" environment (docs/M3B_PLAN.md Sec. 4.5, decision D6) WITHOUT root.
 #
-# It contains EPTA's modified enterprise and enterprise_extensions at the chain-producing
-# versions identified by the fork audit (docs/M3B0_VALIDATION.md Sec. 2), on top of the D1
+# It contains EPTA's modified enterprise and enterprise_extensions at pinned, source-audited
+# revisions reproducing the chain-generating model (fork audit, docs/M3B0_VALIDATION.md Sec. 2), on top of the D1
 # evaluator profile `published-tempo2-v1` (tempo2 2026.04.1, libstempo 2.5.1 rebuilt against it):
 #
 #   enterprise             gitlab.in2p3.fr/epta/enterprise            tag EPTADR2-v1.1 = 607c2853
 #   enterprise_extensions  gitlab.in2p3.fr/epta/enterprise_extensions 051173f4 (2023-03-14)
-#       (the last commit before d3248419, which renamed the J1713 dip parameters; the released
-#        chains carry the pre-rename names `J1713+0747_J1713+0747_dmexp_1_*`. EPTADR2-v1.1 =
+#       (representative of the equivalence class {23c63a15, 051173f4}: after the orf_bins keyword,
+#        before d3248419, which renamed the J1713 dip parameters; the released chains carry the
+#        pre-rename names `J1713+0747_J1713+0747_dmexp_1_*`. EPTADR2-v1.1 =
 #        7619622a differs from 051173f4 on the DR2new CRN/HD path only by that rename and an
 #        unused pseed pass-through; see the audit)
 #   PTMCMCSampler 2.1.1, numpy 1.26 (the forks predate numpy 2), scipy 1.11, scikit-sparse 0.4.12.
 #
-# It also creates the two runtime-source envs of the identified chain-producing tempo2 runtime
+# It also creates the two runtime-source envs of the pinned tempo2 runtime reproducing the stored likelihoods
 # (docs/M3B0_VALIDATION.md Sec. 3): conda-forge tempo2 2023.05.1 (build hcb8dc1c_5; its T2runtime
 # is the base) and 2022.05.1 (build h1c8e422_2; only its clock/gps2utc.clk is used). Only their
 # data files are used, never their binaries; scripts/m3b_epta_prepare.py assembles the runtime.

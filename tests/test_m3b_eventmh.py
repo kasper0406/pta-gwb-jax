@@ -81,8 +81,8 @@ def grid_quantile(g, pm, q):
     return float(np.interp(q, c / c[-1], g))
 
 
-def run_kernel(logL, prop, hastings, n_chains=4, warmup=600, samples=3000, seed=0):
-    k = EventMHNUTS(logL, LO, HI, 2, prop, n_mh=2, hastings=hastings, max_tree_depth=6)
+def run_kernel(logL, prop, hastings, n_chains=4, warmup=600, samples=3000, seed=0, blocks=()):
+    k = EventMHNUTS(logL, LO, HI, 2, prop, n_mh=2, hastings=hastings, max_tree_depth=6, blocks=blocks)
     rng = np.random.default_rng(seed)
     keys = jax.random.split(jax.random.PRNGKey(seed), n_chains)
     x0s = [np.array([-5.9 + 0.2 * rng.standard_normal(), 1.3 + 0.2 * rng.standard_normal(),
@@ -157,3 +157,19 @@ def test_event_mh_negative_control_fails(toy):
     _, z_bad, _ = compare(Xb, t, ref)
     assert z_ok < 3.5
     assert z_bad > 3.5
+
+
+@pytest.mark.slow
+def test_event_mh_kernel_with_block_moves_matches_quadrature(toy):
+    """The complete kernel: NUTS + t0 MH + independence block MH on (log10_Amp, log10_tau) and the
+    joint (t0, log10_tau, log10_Amp) block (prior proposals, as in the pilot config) still targets
+    the reference posterior."""
+    from ptagwb.eventmh import BlockProposal
+
+    t, logL, ref = toy
+    prop = T0Proposal(WIN[0], WIN[1], w_uniform=0.2, rw_scale=2.0)
+    blocks = (BlockProposal(idx=(0, 1), lo=tuple(LO[:2]), hi=tuple(HI[:2])),
+              BlockProposal(idx=(2, 1, 0), lo=(LO[2], LO[1], LO[0]), hi=(HI[2], HI[1], HI[0])))
+    X, accs, divs = run_kernel(logL, prop, hastings=True, blocks=blocks, seed=3)
+    rows, zmax, _ = compare(X, t, ref)
+    assert zmax < 3.5, rows

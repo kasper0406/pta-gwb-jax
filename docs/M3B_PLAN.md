@@ -115,6 +115,47 @@ Sec. 8 records each decision; the binding wording is:
   mixture-envelope sensitivity for p in {0.001, 0.01, 0.05, 0.1}, BF sensitivity, and the
   unconditional verdict stays INCONCLUSIVE. Template and conditions: Sec. 6.6.
 
+**User decisions, 2026-10-09 (second set, after the review of M3b-0E at 2ee1bb7).** The user
+accepted the reviewer's three recommendations (`review_m3b0.out`). They revise D9, D2's headline
+set and D4:
+* **D9 revised: common-domain conditional comparison.** The claim class of Sec. 6.6 is replaced by
+  an explicit comparison of CURN/HD posteriors *conditional on one common domain* D = U^c, where U
+  is the union of predeclared exclusions: every amplitude shelf with **zero or few** retained
+  reference visits in either model (CURN or HD), mapped onto both models under the CURN<->HD
+  parameter mapping (gw_crn_* <-> gw_hd_*), plus the dip-epoch "rest" region. The excluded
+  reference draws are kept and reported; conditional summaries use explicit domain indicators on
+  the ordered chains (chain order preserved for every uncertainty). The conditional reference
+  quantities are recomputed, and the revised claim and its exact wording are frozen before any
+  production run (Sec. 6.6, revised). It is not presented as satisfying the original zero-visit
+  wording. The unconditional verdict stays INCONCLUSIVE. The p* / epsilon_m missing-mass machinery
+  is retired from the claim (no uncalibrated coverage statement remains); the analytic
+  mixture envelope is kept as a **descriptive** sensitivity only.
+* **D2 headline rule (uniform, prospective).** A quantity is a headline quantity only if
+  1.645 MCSE_ref <= m/2. Applied to all quantities: E-2 q95 becomes reported-only (its estimate and
+  classification are still reported); 8 marginal headline quantities plus E-6 remain.
+* **D4: hard cap of 12 additional GPU-h for EPTA**: <= 2 GPU-h pilot, <= 8 GPU-h production and
+  reweighting, <= 2 GPU-h contingency. Production is released only if the complete pilot kernel
+  (amplitude-block MH and dip-epoch MH included) shows adequate mixing and projects the revised
+  precision targets within the cap. Priority: free-gamma CURN/HD and E-6; fixed-gamma E-5 is
+  budgeted separately within the cap. Stop with INCONCLUSIVE if the transport, reweighting or
+  precision gates are not met. The cap is enforced mechanically by the run driver (stop rules
+  fixed in advance, a cumulative GPU-time ledger, the cap checked inside blocks, not only between
+  them), with no deviation from committed configs: if the pilot suggests a config change, work
+  stops and is reported.
+
+**Proposed deferral (M3b-0E, 2026-10-09; for review, not yet approved).** Two M3b-0E items of
+Sec. 7 were not completed in M3b-0E (review of 2ee1bb7, item 7):
+* **EPTA T2** (engine sensitivity: conditional posteriors with fixed released noise on grids, tempo2
+  vs PINT evaluator for every leg that loads in PINT, the E8-named legs swapped one at a time);
+* **conditional-occupancy (Rao-Blackwellised) diagnostics** on the reference chains (Sec. 5.3,
+  supporting only; they never classify support).
+
+Proposal: move both to M3b-EPTA, to be completed and reported **before the pilot**. Rationale: T2
+is a reported sensitivity that does not gate the reproduction (Sec. 4.1), and the occupancy
+diagnostic is supporting only; neither affects the exact-model checks (T1, manifest, fingerprint,
+G5-PTA) on which D3/D4 rest. Its cost (a one-pulsar 2-D quadrature per amplitude and draw) is
+CPU-only. If the reviewer rejects the deferral, both are completed in M3b-0E before D4 is released.
+
 Notation follows M3_PLAN: **leg** = one PTA's par + tim of one pulsar; **K_a** = sampled GP columns
 of pulsar a; **N_c** = number of common-process frequencies; **[UNCERTAIN]** = not pinned down from
 papers or released files. "Reference chain" = the PTA's released posterior samples.
@@ -901,7 +942,7 @@ Reference MCSEs from Appendix A. "Decidable" = 1.645 MCSE_ref < m.
 | E-1 | q95 | -13.702 | 0.0038 | 0.046 | 0.006 | yes | headline |
 | E-2 | HD gamma q05 | 1.978 | 0.0127 | 0.131 | 0.021 | yes | headline |
 | E-2 | q50 | 2.710 | 0.0121 | 0.079 | 0.020 | yes | headline |
-| E-2 | q95 | 3.894 | 0.0704 | 0.131 | 0.116 | yes (narrowly) | headline |
+| E-2 | q95 | 3.894 | 0.0704 | 0.131 | 0.116 | yes (narrowly) | headline; **reported-only from 2026-10-09 (revised D2 rule: 1.645 MCSE_ref = 0.116 > m/2 = 0.066)** |
 | E-3 | CURN log10 A q05 | -14.766 | 0.0581 | 0.064 | 0.096 | **no** | reported |
 | E-3 | q50 | -13.997 | 0.0067 | 0.038 | 0.011 | yes | headline |
 | E-3 | q95 | -13.718 | 0.0040 | 0.064 | 0.007 | yes | headline |
@@ -974,7 +1015,34 @@ Outcomes: CONSISTENT / TENSION / UNAVAILABLE. They never gate anything.
 
 The gate code fails closed without these files.
 
-### 6.6 D9 claim class: "CONDITIONALLY EQUIVALENT TO RELEASED RESULTS" (adopted 2026-10-09)
+### 6.6 D9 claim class (adopted 2026-10-09; revised the same day, second set)
+
+**Revised (user decision 2026-10-09, second set; supersedes the class described further below,
+which is kept for the record).** Class **"CONDITIONALLY EQUIVALENT ON THE COMMON DOMAIN D"**:
+* **Domain.** One common domain D for CURN and HD: the complement of the union U of the
+  predeclared exclusions, i.e. every amplitude shelf [lower, lower + 1 dex] whose retained reference
+  occupancy is zero-visit **or few-event** in either model (gw_crn_* <-> gw_hd_* mapped), plus the
+  dip-epoch rest region (t0 outside the reference interval). For EPTA: 24 exclusions; the union
+  holds 38 CURN and 78 HD retained reference draws. Frozen in `configs/m3b/acceptance_epta.json`
+  (`d9.exclusions`, version 2) before any production run.
+* **Quantities.** Every Sec. 6.1/6.2 quantity is computed conditional on D, for the reference and
+  our run, with explicit domain indicators on the ordered chains (ratio-estimator MCSE that keeps
+  chain order; HD from CURN with weights w 1[D]). The excluded draws are kept and their numbers
+  reported. E-6 uses ln B_D = ln[Z_HD(D)/Z_CURN(D)] (well defined because D is common); the
+  correction ln(1 - p_CURN) - ln(1 - p_HD) to the unrestricted BF is reported descriptively.
+* **Headline set.** The revised D2 rule (1.645 MCSE_ref <= m/2, on the conditional reference): 8
+  marginal quantities plus E-6.
+* **Eligibility.** All required checks pass (model identity, T1, G5-PTA, t0 conditional,
+  convergence within D, transport for every region outside U, reweighting on D, zero divergences,
+  no config drift), every headline quantity is EQUIVALENT conditional on D, and the excluded-draw
+  counts are reported for both sample sets.
+* **No coverage claim on missing mass.** The p* / epsilon_m machinery is retired; the mixture
+  envelope at p in {0.001, 0.01, 0.05, 0.10} is reported as descriptive only.
+* **Wording (frozen):** `ptagwb.acceptance.D9_TEMPLATE`, copied into the acceptance file. It is
+  not presented as the zero-visit claim below, it says nothing about the unconditional posterior,
+  and the unconditional verdict stays INCONCLUSIVE.
+
+**Original class (superseded):** "CONDITIONALLY EQUIVALENT TO RELEASED RESULTS".
 
 Adopted by the user as specified in the round-5 review (`review_m3b_r5.out`). The unconditional
 verdict of Sec. 6.1 is unchanged and stays INCONCLUSIVE; this class is reported next to it.
@@ -1069,17 +1137,17 @@ The reviewer's recommendations (review of 25436e9) are marked **[R]**. **On 2026
 accepted every recommendation (D1-D8 as marked, D9 as specified in review round 5)**; the last
 column records the decision (binding wording at the top of this document).
 
-| # | decision | when | default if no answer | reviewer recommendation | **user decision 2026-10-09** |
-|---|---|---|---|---|---|
-| D1 | tempo2/libstempo as primary evaluator of non-NG legs; E8 re-scoped, kept open | before M3b-0E | no non-NG reproduction claim | **[R]** adopt tempo2, with expanded T1 and complete-roster acceptance | adopted: tempo2/libstempo evaluator, expanded T1, complete roster; E8 open |
-| D2 | Confirm the decision rule (Sec. 6.1) and the provisional margins | before any sampling | not run | **[R]** revise the statistical rules before approval (done in revision 2); margins can stay provisional | adopted: rule confirmed, margins provisional |
-| D3 | First GPU use: benchmarks (<= 0.5 GPU-h each in M3b-0E and M3b-0P) | after the exact models are established | not run | **[R]** support the capped benchmark after exact models are established | adopted: one benchmark, <= 1 GPU-h, only after exact-model, T1 and G5-PTA pass |
-| D4 | EPTA production allocation from the pilot | after the pilot | stop after the pilot | **[R]** allocate from measured cost-to-precision for all required EPTA runs | adopted: allocation after the benchmark from measured cost; stop and report before any production run |
-| D5 | PPTA: conditional-only, or a separately reviewed sampler experiment (Gibbs or capped NUTS) | after M3b-PPTA-C | conditional-only | **[R]** default to conditional-only; Gibbs as a separately reviewed experiment | adopted: conditional-only |
-| D6 | Fetch and audit EPTA's modified enterprise + enterprise_extensions (EPTADR2-v1.1) | M3b-0E | **no full-reproduction claim for EPTA** (downgrade) | **[R]** mandatory for full reproduction; no inferred-prior fallback | adopted: mandatory (enterprise and enterprise_extensions) |
-| D7 | MPTA clock for the published-target comparison | M3b-0X | par BIPM2020 default, BIPM2022 variant | **[R]** prefer paper BIPM2022; keep native-par clocks as a sensitivity | adopted: BIPM2022 for the published comparison; native-par clocks as sensitivity |
-| D8 | Any evidence ladder or HD run beyond the envelope | if Sec. 5.4 fails | INCONCLUSIVE | **[R]** keep the cap and the INCONCLUSIVE fallback; validate the evidence-path endpoints first | adopted: capped, INCONCLUSIVE fallback |
-| D9 | Whether to define a separately labelled claim class for results that are EQUIVALENT on all headline quantities but INCONCLUSIVE only because of unvisited regions (Sec. 5.3); needs reviewer agreement | before EPTA results are reported | no such class: verdict INCONCLUSIVE | review round 5: adopt, with the template and conditions of Sec. 6.6 | adopted: Sec. 6.6 (frozen union U, zero visits in both, mixture envelope p in {0.001, 0.01, 0.05, 0.1}, BF sensitivity; unconditional verdict INCONCLUSIVE) |
+| # | decision | when | default if no answer | reviewer recommendation | **user decision 2026-10-09** | **second set, 2026-10-09** |
+|---|---|---|---|---|---|---|
+| D1 | tempo2/libstempo as primary evaluator of non-NG legs; E8 re-scoped, kept open | before M3b-0E | no non-NG reproduction claim | **[R]** adopt tempo2, with expanded T1 and complete-roster acceptance | adopted: tempo2/libstempo evaluator, expanded T1, complete roster; E8 open |  |
+| D2 | Confirm the decision rule (Sec. 6.1) and the provisional margins | before any sampling | not run | **[R]** revise the statistical rules before approval (done in revision 2); margins can stay provisional | adopted: rule confirmed, margins provisional | **revised 2026-10-09 (second set): headline iff 1.645 MCSE_ref <= m/2; E-2 q95 reported-only** |
+| D3 | First GPU use: benchmarks (<= 0.5 GPU-h each in M3b-0E and M3b-0P) | after the exact models are established | not run | **[R]** support the capped benchmark after exact models are established | adopted: one benchmark, <= 1 GPU-h, only after exact-model, T1 and G5-PTA pass |  |
+| D4 | EPTA production allocation from the pilot | after the pilot | stop after the pilot | **[R]** allocate from measured cost-to-precision for all required EPTA runs | adopted: allocation after the benchmark from measured cost; stop and report before any production run | **revised 2026-10-09 (second set): hard cap 12 GPU-h (pilot <= 2, production <= 8, contingency <= 2), enforced by the run driver** |
+| D5 | PPTA: conditional-only, or a separately reviewed sampler experiment (Gibbs or capped NUTS) | after M3b-PPTA-C | conditional-only | **[R]** default to conditional-only; Gibbs as a separately reviewed experiment | adopted: conditional-only |  |
+| D6 | Fetch and audit EPTA's modified enterprise + enterprise_extensions (EPTADR2-v1.1) | M3b-0E | **no full-reproduction claim for EPTA** (downgrade) | **[R]** mandatory for full reproduction; no inferred-prior fallback | adopted: mandatory (enterprise and enterprise_extensions) |  |
+| D7 | MPTA clock for the published-target comparison | M3b-0X | par BIPM2020 default, BIPM2022 variant | **[R]** prefer paper BIPM2022; keep native-par clocks as a sensitivity | adopted: BIPM2022 for the published comparison; native-par clocks as sensitivity |  |
+| D8 | Any evidence ladder or HD run beyond the envelope | if Sec. 5.4 fails | INCONCLUSIVE | **[R]** keep the cap and the INCONCLUSIVE fallback; validate the evidence-path endpoints first | adopted: capped, INCONCLUSIVE fallback |  |
+| D9 | Whether to define a separately labelled claim class for results that are EQUIVALENT on all headline quantities but INCONCLUSIVE only because of unvisited regions (Sec. 5.3); needs reviewer agreement | before EPTA results are reported | no such class: verdict INCONCLUSIVE | review round 5: adopt, with the template and conditions of Sec. 6.6 | adopted: Sec. 6.6 (frozen union U, zero visits in both, mixture envelope p in {0.001, 0.01, 0.05, 0.1}, BF sensitivity; unconditional verdict INCONCLUSIVE) | **revised 2026-10-09 (second set): common-domain conditional comparison (Sec. 6.6)** |
 
 ---
 

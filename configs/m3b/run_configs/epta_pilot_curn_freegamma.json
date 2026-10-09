@@ -1,0 +1,22 @@
+{
+ "comment": "EPTA DR2new pilot, CURN free gamma, complete kernel (NUTS on 66 continuous coordinates + 2 exact t0 MH + prior-independence block MH for every (log10_A, gamma) pair and the (t0, log10_tau, log10_Amp) dip block). D4 (2026-10-09): pilot phase <= 2 GPU-h in total. NOT STARTED: awaits the review of M3b-0E and the coordinator's confirmation.",
+ "run_id": "epta_pilot_curn_freegamma_v1",
+ "phase": "pilot",
+ "model": "crn",
+ "gamma_common": null,
+ "chains": 4,
+ "num_warmup": 300,
+ "max_transitions": 1200,
+ "chunk_transitions": 10,
+ "max_tree_depth": 10,
+ "step_size_init": 0.05,
+ "dense_mass": true,
+ "adapt_mass_matrix": true,
+ "seed": 20261010,
+ "init": "prior_central",
+ "t0_proposal": {"w_uniform": 0.2, "rw_scale_days": 2.0},
+ "n_t0_mh": 2,
+ "blocks": {"proposals": "prior"},
+ "max_gpu_hours": 1.5,
+ "watchdog_grace_s": 60.0
+}

@@ -7,7 +7,7 @@ the evaluator profile ``published-tempo2-v1`` (docs/M3B_PLAN.md Sec. 4.1, 4.2).
   without the duplicate list) + the published clock profile, written in tempo2's spelling
   (``CLOCK`` -> ``CLK``; listed rule ``t2-clock-keyword``). The flat tim drops the tempo2 flag
   artefacts ``-.cal`` (M3a rule; flags only).
-* tempo2 runtime ``epta-dr2-chain-runtime-v1`` (identified by the chain fingerprint,
+* tempo2 runtime ``epta-dr2-chain-runtime-v1`` (reproduces the stored likelihoods; chain fingerprint,
   docs/M3B0_VALIDATION.md Sec. 3): the T2runtime of conda-forge tempo2 2023.05.1 (build
   hcb8dc1c_5) with two clock files laid over its clock directory: the release's corrected Nancay
   file ``ncyobs2obspm.clk`` (profile ``epta-dr2-published-v1``) and ``gps2utc.clk`` of conda-forge

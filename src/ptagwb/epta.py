@@ -144,7 +144,7 @@ class EPTAModel:
     """Marginalised EPTA DR2new likelihood (CURN or HD) on the chain's parameter vector."""
 
     def __init__(self, psrs: list[Pulsar], man: dict, orf: str = "crn", *, reduce: str = "prod",
-                 tri_inv: str = "recursive", buckets: tuple | None = None):
+                 tri_inv: str = "recursive", buckets: tuple | None = None, gamma_common: float | None = None):
         if [p.name for p in psrs] != list(man["pulsars"]):
             raise ValueError("pulsars must be the manifest roster in its order")
         if orf not in ("crn", "hd"):
@@ -161,9 +161,14 @@ class EPTAModel:
         self.like = _C.GeneralPTALikelihood(self.terms, orf="curn" if orf == "crn" else "hd", common="powerlaw",
                                             convention="chain", reduce=reduce, tri_inv=tri_inv, buckets=buckets)
         # ---- parameter layout (chain column order)
-        self.param_names = [q["name"] for q in man["parameters"] if orf in q["models"]]
-        self.lo = np.array([q["bounds"][0] for q in man["parameters"] if orf in q["models"]])
-        self.hi = np.array([q["bounds"][1] for q in man["parameters"] if orf in q["models"]])
+        # gamma_common: fixed common spectral index (the E-5 runs, gamma = 13/3); the parameter is
+        # then not sampled (enterprise gamma_common -> parameter.Constant)
+        self.gamma_common = gamma_common
+        keep = [q for q in man["parameters"] if orf in q["models"]
+                and not (gamma_common is not None and q["name"] == f"gw_{orf}_gamma")]
+        self.param_names = [q["name"] for q in keep]
+        self.lo = np.array([q["bounds"][0] for q in keep])
+        self.hi = np.array([q["bounds"][1] for q in keep])
         ix = {n: i for i, n in enumerate(self.param_names)}
         self._proc_idx = {}
         for nm in PROCESSES:
@@ -173,7 +178,7 @@ class EPTAModel:
             self._proc_idx[nm] = (np.array([ix[f"{q}_{nm}_log10_A"] for q in ps]),
                                   np.array([ix[f"{q}_{nm}_gamma"] for q in ps]))
         gw = f"gw_{orf}"
-        self._gw = (ix[f"{gw}_log10_A"], ix[f"{gw}_gamma"])
+        self._gw = (ix[f"{gw}_log10_A"], ix[f"{gw}_gamma"] if gamma_common is None else None)
         pre = dip["param_prefix"]
         self._dip_idx = (ix[f"{pre}_log10_Amp"], ix[f"{pre}_log10_tau"], ix[f"{pre}_t0"])
         self.t0_index = self._dip_idx[2]
@@ -195,7 +200,8 @@ class EPTAModel:
         for nm, (ia, ig) in self._proc_idx.items():
             out[f"{nm}_log10_A"] = x[ia]
             out[f"{nm}_gamma"] = x[ig]
-        out["log10_A"], out["gamma"] = x[self._gw[0]], x[self._gw[1]]
+        out["log10_A"] = x[self._gw[0]]
+        out["gamma"] = x[self._gw[1]] if self._gw[1] is not None else jnp.asarray(float(self.gamma_common))
         return out
 
     def dip_delay(self, x):

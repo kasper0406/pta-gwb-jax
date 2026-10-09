@@ -6,9 +6,11 @@ Contents
 * Sec. 5.3 transport gate: region occupancy intervals (``occupancy``), support classes,
   the per-(parameter, region pair) ``transport_gate`` with the UNRESOLVED precedence rule, shelf /
   peak regions, event-epoch intervals, and ``aggregate``.
-* Sec. 6.6 D9 class "CONDITIONALLY EQUIVALENT TO RELEASED RESULTS": mixture-envelope quantile
-  bounds, survival, p*, epsilon_m, the BF sensitivity table and eligibility. The unconditional
-  verdict stays INCONCLUSIVE, always.
+* Sec. 6.6 D9, as revised by the user on 2026-10-09: the common-domain conditional comparison
+  (frozen exclusions, domain indicators, conditional quantiles with ordered-chain MCSE,
+  eligibility). The earlier p* / epsilon_m machinery is retired (no uncalibrated coverage claim);
+  the mixture envelope and the BF domain correction remain as descriptive reports only. The
+  unconditional verdict stays INCONCLUSIVE, always.
 
 Statuses are the strings "PASS" / "FAIL" / "INCONCLUSIVE" (gate) and "EQUIVALENT" /
 "INCOMPATIBLE" / "INCONCLUSIVE" (quantities). Functions consuming frozen acceptance-file entries
@@ -17,7 +19,7 @@ raise ``ptagwb.diagnostics.GateInputError`` when a required field is missing.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence  # noqa: F401
 from dataclasses import dataclass, field
 from typing import Final
 
@@ -39,18 +41,21 @@ SOJOURN_MAX = 0.5
 OCC_MCSE_MAX = 0.01        # amplitude pairs
 EVENT_OCC_MCSE_MAX = 0.02  # extra Sec. 5.3(b) rule for material t0 intervals
 E6_MAX_SE = 0.10
-D9_P_GRID: Final = (0.001, 0.01, 0.05, 0.10)
-D9_BF_GRID: Final = (0.0, 0.001, 0.01, 0.05, 0.10)
-D9_CLASS: Final = "CONDITIONALLY EQUIVALENT TO RELEASED RESULTS"
+D9_ENVELOPE_GRID: Final = (0.001, 0.01, 0.05, 0.10)  # descriptive envelope only
+D9_CLASS: Final = "CONDITIONALLY EQUIVALENT ON THE COMMON DOMAIN D"
 
+# Revised D9 (user decision 2026-10-09, review of 2ee1bb7); frozen with the acceptance file.
 D9_TEMPLATE: Final = (
-    "**CONDITIONALLY EQUIVALENT TO RELEASED RESULTS.** All predeclared decidable headline "
-    "quantities meet the equivalence criteria conditional on excluding the explicitly listed "
-    "regions U. Both retained sample sets contain zero visits to U; its posterior mass remains "
-    "unresolved. Extension to the unrestricted posterior assumes P_m(U) <= epsilon_m for each "
-    "relevant model, with numerical thresholds and sensitivity results reported below. These mass "
-    "assumptions have not been established by the chains. This claim is weaker than REPRODUCED; "
-    "the unconditional verdict remains INCONCLUSIVE."
+    "**CONDITIONALLY EQUIVALENT ON THE COMMON DOMAIN D.** Every predeclared headline quantity, "
+    "computed for the CURN and HD posteriors conditional on the frozen common domain D (the "
+    "complement of the union U of the predeclared zero- and few-event exclusions listed below, "
+    "identical for both models under the CURN<->HD parameter mapping), meets the equivalence "
+    "criteria against the released chains conditioned on the same D. The retained draws in U are "
+    "kept and reported for both sample sets (reference: {n_ref_curn} CURN, {n_ref_hd} HD; ours: "
+    "{n_ours_curn} CURN, {n_ours_hd} HD). The posterior mass of U is not established by either "
+    "sample set, and nothing is claimed about the unconditional posterior; the missing-mass "
+    "envelope reported below is descriptive. This is not the zero-visit claim of the original "
+    "Sec. 6.6, and it is weaker than REPRODUCED; the unconditional verdict remains INCONCLUSIVE."
 )
 
 
@@ -440,17 +445,80 @@ def event_interval_indicators(t0_chains, intervals: Sequence[tuple[float, float]
 
 
 # ----------------------------------------------------------------------------------------------
-# Sec. 6.6 D9
+# Sec. 6.6 D9, revised by the user on 2026-10-09: common-domain conditional comparison
 # ----------------------------------------------------------------------------------------------
+
+
+def _region_excludes(x: np.ndarray, ex: Mapping) -> np.ndarray:
+    """True where x lies in the excluded region of one exclusion entry:
+    ``type="shelf"``: lo <= x <= hi (closed, the 1-dex shelf); ``type="outside"``: x not in the
+    kept half-open interval [lo, hi) (the dip-epoch "rest" region)."""
+    lo, hi = (float(v) for v in ex["boundaries"])
+    if ex["type"] == "shelf":
+        return (x >= lo) & (x <= hi)
+    if ex["type"] == "outside":
+        return ~((x >= lo) & (x < hi))
+    raise GateInputError(f"unknown exclusion type {ex['type']!r}")
+
+
+def d9_exclusions(acceptance: Mapping) -> list[Mapping]:
+    """The frozen common-domain exclusion list of an acceptance file, validated (GateInputError on a
+    missing field): each entry has name, type, boundaries, params (model -> parameter name, for
+    every model of the comparison), reference_cases (model -> case) and the reference identity
+    (file, sha256, burn-in)."""
+    require_fields(acceptance, ("d9",), "acceptance file")
+    require_fields(acceptance["d9"], ("exclusions", "models", "reference"), "acceptance file d9")
+    regs = acceptance["d9"]["exclusions"]
+    models = list(acceptance["d9"]["models"])
+    if not isinstance(regs, list) or not regs or not models:
+        raise GateInputError("d9.exclusions and d9.models must be non-empty")
+    for i, r in enumerate(regs):
+        require_fields(r, ("name", "type", "boundaries", "params", "reference_cases"), f"d9.exclusions[{i}]")
+        require_fields(r["params"], models, f"d9.exclusions[{i}].params")
+        if r["type"] not in ("shelf", "outside") or len(r["boundaries"]) != 2:
+            raise GateInputError(f"d9.exclusions[{i}]: bad type/boundaries")
+    return regs
+
+
+def domain_indicator(column, exclusions: Sequence[Mapping], model: str) -> list[np.ndarray]:
+    """Per-chain boolean indicator of the common domain D = complement of the union of the
+    exclusions. ``column(name)`` returns the per-chain draws (list of 1-D arrays, chain order
+    preserved) of parameter ``name`` of ``model``; each exclusion maps to its parameter through
+    ``params[model]`` (the CURN<->HD mapping)."""
+    ind = None
+    for ex in exclusions:
+        chains = _float_chains(column(ex["params"][model]))
+        out = [~_region_excludes(c, ex) for c in chains]
+        ind = out if ind is None else [a & b for a, b in zip(ind, out, strict=True)]
+    if ind is None:
+        raise GateInputError("no exclusions")
+    return ind
+
+
+def conditional_quantile(x, in_domain, p: float, log_w=None) -> dict:
+    """Quantile of the posterior conditional on D and its ratio-estimator MCSE: weights
+    w_i 1[x_i in D] (w = 1, or raw importance weights exp(log_w) for HD from CURN), on the ordered
+    chains, so the MCSE keeps the serial dependence of both the draws and the domain indicator
+    (``reweight.weighted_quantile_mcse`` with ``mask``)."""
+    from ptagwb.reweight import weighted_quantile_mcse
+
+    xs = _float_chains(x)
+    lw = [np.zeros_like(c) for c in xs] if log_w is None else _float_chains(log_w)
+    return weighted_quantile_mcse(xs, lw, p, mask=[np.asarray(m, bool) for m in _as_list(in_domain)])
+
+
+def _as_list(x):
+    if isinstance(x, np.ndarray) and x.ndim == 1:
+        return [x]
+    return list(x)
 
 
 def envelope_quantile_bounds(x, alpha: float, p: float, lower_bound: float, upper_bound: float,
                              weights=None) -> tuple[float, float]:
-    """Worst-case alpha-quantile bounds under F_p = (1 - p) F_0 + p G (Sec. 6.6 item 3):
-    q_lo = F_0^-1((alpha - p) / (1 - p)) (prior lower bound if alpha <= p),
-    q_hi = F_0^-1(alpha / (1 - p)) (prior upper bound if alpha / (1 - p) >= 1).
-    F_0^-1 is the weighted empirical inverse CDF (``reweight.weighted_quantile``; pass support
-    weights for HD-reweighted samples)."""
+    """DESCRIPTIVE missing-mass envelope (no coverage claim): with F_p = (1 - p) F_0 + p G,
+    q_lo = F_0^-1((alpha - p) / (1 - p)) (prior lower bound if alpha <= p) and
+    q_hi = F_0^-1(alpha / (1 - p)) (prior upper bound if alpha / (1 - p) >= 1), F_0^-1 the
+    weighted empirical inverse CDF. Reported only; never used to qualify a claim."""
     if not 0.0 <= p < 1.0:
         raise ValueError(f"p={p} outside [0, 1)")
     q_lo = lower_bound if alpha <= p else weighted_quantile(x, (alpha - p) / (1 - p), weights)
@@ -459,198 +527,67 @@ def envelope_quantile_bounds(x, alpha: float, p: float, lower_bound: float, uppe
     return float(q_lo), float(q_hi)
 
 
-def d9_quantity_survives(bounds_ours: tuple[float, float], bounds_ref: tuple[float, float],
-                         se_d: float, m: float) -> dict:
-    """Worst-case difference interval [q_lo,ours - q_hi,ref, q_hi,ours - q_lo,ref] widened by
-    +- 1.645 SE_D; the conclusion survives iff it lies within [-m, m]."""
-    lo = bounds_ours[0] - bounds_ref[1] - Z90 * se_d
-    hi = bounds_ours[1] - bounds_ref[0] + Z90 * se_d
-    return {"interval": (float(lo), float(hi)), "survives": bool(lo >= -m and hi <= m)}
+def descriptive_envelope(x_ours, x_ref, alpha: float, lower_bound: float, upper_bound: float,
+                         w_ours=None, w_ref=None, grid: Sequence[float] = D9_ENVELOPE_GRID) -> dict:
+    """Descriptive table: worst-case difference interval [q_lo,ours - q_hi,ref, q_hi,ours - q_lo,ref]
+    of the alpha-quantile if a mass p outside D (each sample set separately) were placed adversely,
+    for p in the grid. No Monte Carlo uncertainty is attached and no conclusion is drawn from it."""
+    out = {}
+    for p in grid:
+        bo = envelope_quantile_bounds(x_ours, alpha, p, lower_bound, upper_bound, w_ours)
+        br = envelope_quantile_bounds(x_ref, alpha, p, lower_bound, upper_bound, w_ref)
+        out[p] = (bo[0] - br[1], bo[1] - br[0])
+    return {"label": "descriptive (no coverage claim)", "alpha": alpha, "intervals": out}
 
 
-@dataclass(frozen=True)
-class D9Sample:
-    """One sample set for a D9 quantity: draws x (pooled), optional weights, the quantile MCSE at
-    alpha, and the prior box [lower_bound, upper_bound]."""
-
-    x: np.ndarray
-    lower_bound: float
-    upper_bound: float
-    mcse: float = 0.0
-    weights: np.ndarray | None = None
-
-    def bounds(self, alpha: float, p: float, shift: float = 0.0) -> tuple[float, float]:
-        lo, hi = envelope_quantile_bounds(self.x, alpha, p, self.lower_bound, self.upper_bound,
-                                          self.weights)
-        return lo + shift, hi + shift
-
-
-def _survives_at(ours: D9Sample, ref: D9Sample, alpha: float, p: float, se_d: float, m: float,
-                 s_ours: float = 0.0, s_ref: float = 0.0) -> bool:
-    return d9_quantity_survives(ours.bounds(alpha, p, s_ours), ref.bounds(alpha, p, s_ref),
-                                se_d, m)["survives"]
-
-
-def _bisect_pstar(fn, p_max: float, tol: float) -> float:
-    if not fn(0.0):
-        return 0.0
-    if fn(p_max):
-        return p_max
-    lo, hi = 0.0, p_max
-    while hi - lo > tol:
-        mid = 0.5 * (lo + hi)
-        lo, hi = (mid, hi) if fn(mid) else (lo, mid)
-    return hi
-
-
-def p_star(ours: D9Sample, ref: D9Sample, alpha: float, se_d: float, m: float,
-           p_max: float = 0.5, tol: float = 1e-6) -> dict:
-    """p* = smallest missing mass at which the D9 equivalence conclusion can change (Sec. 6.6).
-
-    Survival is monotone non-increasing in p (q_lo decreases and q_hi increases with p), so
-    bisection on [0, p_max] applies; p* = 0 if it fails already at p = 0, and p* = p_max (flagged
-    ``capped``) if it survives at p_max. Monte Carlo uncertainty (chosen method): p* is recomputed
-    with both quantile functions shifted by 1.645 x their own quantile MCSE in the adverse
-    direction, i.e. ours by +d_o and ref by -d_r (pushing D up) and ours by -d_o and ref by +d_r
-    (pushing D down); ``p_star_lo90`` = the smaller of the two (a conservative lower 90 % bound;
-    the shift is constant in alpha, using the MCSE at alpha).
-    """
-    d_o, d_r = Z90 * ours.mcse, Z90 * ref.mcse
-
-    def run(so: float, sr: float) -> float:
-        return _bisect_pstar(lambda p: _survives_at(ours, ref, alpha, p, se_d, m, so, sr),
-                             p_max, tol)
-
-    ps = run(0.0, 0.0)
-    lo90 = min(run(d_o, -d_r), run(-d_o, d_r))
-    return {"p_star": ps, "p_star_lo90": lo90, "capped": ps >= p_max, "p_max": p_max,
-            "survival_on_grid": {p: _survives_at(ours, ref, alpha, p, se_d, m) for p in D9_P_GRID}}
-
-
-def epsilon_m(p_star_lo90: Iterable[float], grid: Sequence[float] = D9_P_GRID) -> float | None:
-    """Largest grid value <= min over the model's headline quantities of the lower 90 % bound of
-    p*; None (class unavailable) if that minimum is below the smallest grid value (0.001) or no
-    quantities are given."""
-    vals = [float(v) for v in p_star_lo90]
-    if not all(np.isfinite(v) for v in vals):
-        raise GateInputError(f"epsilon_m: non-finite p* bound in {vals}")
-    if not vals:
-        return None
-    lim = min(vals)
-    ok = [g for g in grid if g <= lim]
-    return max(ok) if ok else None
-
-
-def bf_sensitivity(lnb0: float, se: float, m: float, target: float, eps_curn: float | None,
-                   eps_hd: float | None, grid: Sequence[float] = D9_BF_GRID,
-                   max_se: float = E6_MAX_SE) -> dict:
-    """Sec. 6.6 item 4. Table of ln B_full - ln B_0 = ln(1 - p_CURN) - ln(1 - p_HD) over the grid,
-    keyed (p_CURN, p_HD), and the E-6 qualification: [ln B_0 - 1.645 SE + ln(1 - eps_CURN),
-    ln B_0 + 1.645 SE - ln(1 - eps_HD)] within [target - m, target + m]. Also requires the E-6
-    SE cap (SE <= 0.10, Sec. 6.2) and both epsilons available (not None)."""
-    table = {(pc, ph): float(np.log1p(-pc) - np.log1p(-ph)) for pc in grid for ph in grid}
-    if eps_curn is None or eps_hd is None:
-        return {"table": table, "interval": None, "qualifies": False,
-                "reason": "epsilon unavailable"}
-    lo = lnb0 - Z90 * se + float(np.log1p(-eps_curn))
-    hi = lnb0 + Z90 * se - float(np.log1p(-eps_hd))
-    se_ok = bool(np.isfinite(se) and se <= max_se)
-    q = bool(se_ok and lo >= target - m and hi <= target + m)
-    return {"table": table, "interval": (lo, hi), "qualifies": q,
-            "reason": None if q else ("SE above E-6 cap" if not se_ok else "outside E-6 margin")}
-
-
-def d9_excluded_regions(acceptance: Mapping) -> list[Mapping]:
-    """The frozen ``d9.excluded_regions`` list of an acceptance file, validated: each entry needs
-    name, model, boundaries, reference_file, sha256, burn_in (GateInputError otherwise)."""
-    require_fields(acceptance, ("d9",), "acceptance file")
-    require_fields(acceptance["d9"], ("excluded_regions",), "acceptance file d9")
-    regs = acceptance["d9"]["excluded_regions"]
-    if not isinstance(regs, list) or not regs:
-        raise GateInputError("d9.excluded_regions must be a non-empty list")
-    for i, r in enumerate(regs):
-        require_fields(r, ("name", "model", "boundaries", "reference_file", "sha256", "burn_in"),
-                       f"d9.excluded_regions[{i}]")
-    return regs
+def bf_domain_correction(p_curn: float, p_hd: float) -> float:
+    """Descriptive: ln B_full - ln B_D = ln(1 - p_CURN) - ln(1 - p_HD) for posterior masses p_m of
+    U (identity for a common domain with shared priors; review r5 item 4). No coverage claim."""
+    for v in (p_curn, p_hd):
+        if not (np.isfinite(v) and 0.0 <= v < 1.0):
+            raise GateInputError(f"bf_domain_correction: mass {v!r} outside [0, 1)")
+    return float(np.log1p(-p_curn) - np.log1p(-p_hd))
 
 
 @dataclass(frozen=True)
 class D9Result:
-    """D9 outcome. ``unconditional_verdict`` is always INCONCLUSIVE; ``claim`` is the class name
-    only when ``available`` (eligible and every epsilon_m >= 0.001), else None. Never REPRODUCED.
-    """
+    """Outcome of the revised D9 class. ``unconditional_verdict`` is always INCONCLUSIVE; ``claim``
+    is the class name only when ``eligible``. Never REPRODUCED."""
 
     eligible: bool
-    available: bool
     reasons: tuple[str, ...]
-    separate_review: tuple[str, ...]
-    epsilon: Mapping[str, float | None]
+    excluded_draws: Mapping[str, Mapping[str, int]]
     claim: str | None
     unconditional_verdict: str = field(default=INCONCLUSIVE, init=False)
     template: str = field(default=D9_TEMPLATE, init=False)
 
 
-def d9_eligibility(regions: Mapping[str, tuple[Occupancy, Occupancy]],
-                   other_gate_items: Mapping[str, str],
-                   headline: Mapping[str, tuple[str, bool]],
-                   epsilon_by_model: Mapping[str, float | None], *,
-                   required_models: Sequence[str],
-                   required_checks: Sequence[str]) -> D9Result:
-    """D9 eligibility (Sec. 6.6 items 2-3).
-
-    regions: every listed region of U -> (reference occupancy, our occupancy) of retained draws.
-      Eligible only if both are "zero-visit"; few-event or asymmetric visitation (visited by one
-      set, not the other) -> not eligible, listed for separate review; visited by both -> not
-      eligible (not a zero-visit region).
-    other_gate_items: every other applicable check -> status; all must be PASS.
-    headline: quantity -> (Sec. 6.1 status, decidable); every decidable one must be EQUIVALENT.
-    epsilon_by_model: model -> epsilon_m (None = unavailable); availability needs all >= 0.001.
-    required_models / required_checks: the complete inventories; a missing model or check, or a
-    non-finite epsilon, raises GateInputError (fail closed).
-    """
-    if not regions:
-        raise GateInputError("d9_eligibility: U lists no regions")
-    if not required_models or not required_checks:
-        raise GateInputError("d9_eligibility: the required model and check inventories must be given")
-    if set(epsilon_by_model) != set(required_models):
-        raise GateInputError(f"d9_eligibility: epsilon_m given for {sorted(epsilon_by_model)}, "
+def d9_eligibility(other_gate_items: Mapping[str, str], headline: Mapping[str, str], *,
+                   required_checks: Sequence[str], required_headline: Sequence[str],
+                   excluded_draws: Mapping[str, Mapping[str, int]], required_models: Sequence[str]) -> D9Result:
+    """Revised D9 (common domain): eligible iff every required check is reported and PASS (model
+    identity, numerical validation, convergence within D, reweighting diagnostics on D), every
+    frozen headline quantity is reported and EQUIVALENT (conditional on D), and the number of
+    retained draws in U is reported for the reference and our run of every required model (kept
+    and reported, any value). Missing inventories, a missing check or headline quantity, or a
+    non-integer / negative count raise GateInputError (fail closed)."""
+    if not required_checks or not required_headline or not required_models:
+        raise GateInputError("d9_eligibility: required check, headline and model inventories must be given")
+    miss = sorted(set(required_checks) - set(other_gate_items))
+    if miss:
+        raise GateInputError(f"d9_eligibility: required checks not reported: {miss}")
+    miss = sorted(set(required_headline) - set(headline))
+    if miss:
+        raise GateInputError(f"d9_eligibility: headline quantities not reported: {miss}")
+    if set(excluded_draws) != set(required_models):
+        raise GateInputError(f"d9_eligibility: excluded-draw counts for {sorted(excluded_draws)}, "
                              f"required {sorted(required_models)}")
-    for mdl, e in epsilon_by_model.items():
-        if e is not None and not (isinstance(e, (int, float, np.floating)) and np.isfinite(e)):
-            raise GateInputError(f"d9_eligibility: epsilon_m[{mdl}] = {e!r} is not finite")
-    missing = sorted(set(required_checks) - set(other_gate_items))
-    if missing:
-        raise GateInputError(f"d9_eligibility: required checks not reported: {missing}")
-    reasons, review = [], []
-    for name, (r, o) in regions.items():
-        rz, oz = r.case == "zero-visit", o.case == "zero-visit"
-        if rz and oz:
-            continue
-        if "few-event" in (r.case, o.case):
-            review.append(name)
-            reasons.append(f"{name}: few-event case (separate review)")
-        elif rz != oz:
-            review.append(name)
-            reasons.append(f"{name}: asymmetric visitation (reference {r.case}, ours {o.case}; "
-                           "separate review)")
-        else:
-            reasons.append(f"{name}: visited in both sample sets ({r.case}/{o.case}); not a "
-                           "zero-visit region")
-    for name, st in other_gate_items.items():
-        if st != PASS:
-            reasons.append(f"gate item {name}: {st}")
-    n_dec = 0
-    for name, (st, dec) in headline.items():
-        if dec:
-            n_dec += 1
-            if st != EQUIVALENT:
-                reasons.append(f"headline {name}: {st}")
-    if n_dec == 0:
-        reasons.append("no decidable headline quantities")
-    eligible = not reasons
-    unavailable = [mdl for mdl, e in epsilon_by_model.items() if e is None or e < D9_P_GRID[0]]
-    if unavailable:
-        reasons.append(f"epsilon_m < {D9_P_GRID[0]} for {unavailable}")
-    available = eligible and not unavailable
-    return D9Result(eligible, available, tuple(reasons), tuple(review), dict(epsilon_by_model),
-                    D9_CLASS if available else None)
+    for mdl, d in excluded_draws.items():
+        for who in ("reference", "ours"):
+            v = d.get(who) if isinstance(d, Mapping) else None
+            if not isinstance(v, (int, np.integer)) or isinstance(v, bool) or v < 0:
+                raise GateInputError(f"d9_eligibility: excluded_draws[{mdl}][{who}] = {v!r}")
+    reasons = [f"gate item {k}: {other_gate_items[k]}" for k in required_checks if other_gate_items[k] != PASS]
+    reasons += [f"headline {k}: {headline[k]}" for k in required_headline if headline[k] != EQUIVALENT]
+    ok = not reasons
+    return D9Result(ok, tuple(reasons), {k: dict(v) for k, v in excluded_draws.items()}, D9_CLASS if ok else None)

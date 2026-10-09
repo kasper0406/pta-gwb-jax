@@ -177,20 +177,23 @@ def test_acceptance_files_frozen(epta_data):
     from ptagwb import acceptance as acc
 
     a = json.loads((REPO_ROOT / "configs" / "m3b" / "acceptance_epta.json").read_text())
-    assert a["frozen_before_any_production_run"]
-    regs = acc.d9_excluded_regions(a)  # validates every field (fail closed)
-    assert {r["model"] for r in regs} == {"crn_pl", "hd_pl"}
-    assert all(r["reference_case"] == "zero-visit" for r in regs)
+    assert a["frozen_before_any_production_run"] and a["version"] == 2
+    ex = acc.d9_exclusions(a)  # validates every field (fail closed)
+    assert len(ex) == 24 and a["d9"]["reference_draws_in_U"] == {"crn_pl": 38, "hd_pl": 78}
+    assert all(set(e["params"]) == {"crn_pl", "hd_pl"} for e in ex)  # one common domain
+    assert all(set(e["reference_cases"].values()) & {"zero-visit", "few-event"} for e in ex)
     assert a["d9"]["unconditional_verdict"] == "INCONCLUSIVE" and a["d9"]["template"] == acc.D9_TEMPLATE
-    dec = {(r["id"], r["quantile"]): r["decidable"] for r in a["quantities"]}
-    assert not dec[("E-1", 0.05)] and not dec[("E-3", 0.05)] and not dec[("E-4", 0.95)]
-    assert sum(dec.values()) == 9
+    assert "epsilon" not in json.dumps(a["d9"]).replace("no epsilon_m", "")
+    head = {(r["id"], r["quantile"]): r["headline"] for r in a["quantities"]}
+    assert sum(head.values()) == 8 and not head[("E-2", 0.95)]
+    for r in a["quantities"]:  # the uniform rule
+        assert r["headline"] == (1.645 * r["mcse_ref_D"] <= r["m"] / 2 + 1e-15)
+    assert a["headline"][-1] == "E-6" and len(a["headline"]) == 9
     import m3b_freeze_acceptance as fa
 
     acc_new, rel_new = fa.build()
     assert json.loads(json.dumps(acc_new)) == a, "acceptance file differs from a fresh generation"
     assert json.loads(json.dumps(rel_new)) == json.loads(fa.REL.read_text())
-
 
 @pytest.mark.slow
 def test_buckets_and_hh_reducer_are_exact(epta_data):
@@ -209,3 +212,32 @@ def test_buckets_and_hh_reducer_are_exact(epta_data):
             assert abs(float(v1 - v0)) < 1e-8
             g0, g1 = np.asarray(g0), np.asarray(g1)
             assert np.max(np.abs(g1 - g0) / np.maximum(1.0, np.abs(g0))) < 1e-11
+
+
+# ---------------------------------------------------------------------- fail-closed negatives
+
+
+def test_fingerprint_overall_pass_requires_every_predicate():
+    good = {"pass": True, "t0_margin_ok": True, "discrimination": {"resolved": True}}
+    assert fp.overall_pass({"crn_pl": good, "hd_pl": good}, True)
+    assert not fp.overall_pass({"crn_pl": good, "hd_pl": {**good, "discrimination": {"resolved": False}}}, True)
+    assert not fp.overall_pass({"crn_pl": good, "hd_pl": {**good, "discrimination": {}}}, True)
+    assert not fp.overall_pass({"crn_pl": good}, False)
+    assert not fp.overall_pass({"crn_pl": good}, None)
+    assert not fp.overall_pass({"crn_pl": {**good, "t0_margin_ok": None}}, True)
+    assert not fp.overall_pass({}, True)
+
+
+def test_binding_rejects_stale_missing_and_failed_results(tmp_path):
+    from ptagwb.binding import StaleEvidenceError, require_bound
+
+    cur = {"source": "a", "scripts": "b", "configs": "c", "runtime": "d", "exports": "e", "n_exports": 25}
+    (tmp_path / "ok.json").write_text(json.dumps({"pass": True, "binding": cur}))
+    assert require_bound({"ok.json": "pass"}, tmp_path, cur)
+    (tmp_path / "stale.json").write_text(json.dumps({"pass": True, "binding": {**cur, "source": "old"}}))
+    (tmp_path / "failed.json").write_text(json.dumps({"pass": False, "binding": cur}))
+    (tmp_path / "unbound.json").write_text(json.dumps({"pass": True}))
+    (tmp_path / "nonbool.json").write_text(json.dumps({"pass": "yes", "binding": cur}))
+    for f in ("stale.json", "failed.json", "unbound.json", "nonbool.json", "absent.json"):
+        with pytest.raises(StaleEvidenceError):
+            require_bound({"ok.json": "pass", f: "pass"}, tmp_path, cur)
