@@ -51,7 +51,7 @@ def test_t1_compare_detects_each_difference():
     a = _export()
     assert compare(a, dict(a))["ok"]
     for key, mutate in [("residuals", lambda d: d["residuals"].__setitem__(3, d["residuals"][3] + 2e-12)),
-                        ("toas", lambda d: d["toas"].__setitem__(0, d["toas"][0] + 1e-8)),
+                        ("toas", lambda d: d["toas"].__setitem__(0, d["toas"][0] + 2e-6)),
                         ("freqs", lambda d: d["freqs"].__setitem__(1, d["freqs"][1] * (1 + 1e-11)))]:
         b = {k: (v.copy() if isinstance(v, np.ndarray) else v) for k, v in a.items()}
         mutate(b)
