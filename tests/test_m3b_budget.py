@@ -9,7 +9,8 @@ import time
 
 import pytest
 
-from ptagwb.budget import CAPS_H, BudgetExceeded, Deadline, GpuLock, Ledger, Watchdog
+from ptagwb.budget import (CAPS_H, BudgetExceeded, Deadline, GpuLock, HardDeadline, Ledger, SupervisorRecord,
+                           Watchdog, conservative_charge_s, supervise)
 from ptagwb.config import REPO_ROOT
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
@@ -79,63 +80,120 @@ def test_concurrent_admission_reserves_allocations(tmp_path):
 
 
 def test_crash_between_heartbeats_is_charged_in_full(tmp_path):
+    """Review round 3 repro: 2 GPU-h allocation, last heartbeat 7,080 s, death at 7,139 s. Process
+    death alone never lowers the charge; a supervisor record does, conservatively."""
     L = Ledger(tmp_path / "ledger.json")
-    L.open("crash", "pilot", 1.98, {})
-    L.heartbeat("crash", 7080.0)  # last heartbeat, then the process dies at 7,139 s
-    assert json.loads((tmp_path / "ledger.json").read_text())[0]["status"] == "running"
-    assert L.remaining_h("pilot") == pytest.approx(0.02)  # the full 1.98 h stay charged
-    with pytest.raises(BudgetExceeded):  # the reviewer's case: 120 s must not be available
+    L.open("crash", "pilot", 2.0, {})
+    L.heartbeat("crash", 7080.0)
+    e = json.loads((tmp_path / "ledger.json").read_text())
+    e[0]["pid"] = 2**22 + 12345  # the (dead) worker
+    (tmp_path / "ledger.json").write_text(json.dumps(e))
+    assert L.remaining_h("pilot") == pytest.approx(0.0)
+    with pytest.raises(BudgetExceeded):  # no supervisor record: refused, full charge kept
+        L.reconcile("crash", tmp_path / "absent.json", operator_note="process gone")
+    rec = tmp_path / "supervisor.json"
+    SupervisorRecord.write(rec, {"run_id": "crash", "start_unix": 1000.0})  # supervisor died: no end
+    with pytest.raises(BudgetExceeded):
+        L.reconcile("crash", rec, operator_note="no reaped end")
+    assert L.used_h("pilot") == pytest.approx(2.0)
+    SupervisorRecord.write(rec, {"run_id": "crash", "start_unix": 1000.0, "end_unix": 1000.0 + 7139.0})
+    charge = L.reconcile("crash", rec, operator_note="reaped by the supervisor")
+    assert charge == 7200.0  # ceil(7139 / 60) + 1 minutes, capped at the allocation
+    with pytest.raises(BudgetExceeded):  # the reviewer's 120 s are not admitted
         L.open("next", "pilot", 120 / 3600, {})
-    assert Ledger(tmp_path / "ledger.json").used_h() == pytest.approx(1.98)
+    assert conservative_charge_s(0.0, 59.0, 2.0) == 120.0 and conservative_charge_s(0.0, 7100.0, 2.0) == 7200.0
 
 
-def test_watchdog_kills_on_deadline_and_on_heartbeat_failure(tmp_path):
-    d = Deadline(time.monotonic(), limit_s=0.2, grace_s=0.1)
-    assert d.allows(0.1) and not d.allows(1.0)
-    killed = {}
+def _hold_lock(path, hold_s, ready):
+    import fcntl
+
+    with open(path, "a+") as f:
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+        ready.set()
+        time.sleep(hold_s)
+        fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+
+
+def test_hard_deadline_fires_while_the_ledger_lock_is_held(tmp_path):
+    """The ledger lock is held (by another thread) and the heartbeat blocks on it: the lock-free
+    hard deadline still fires on time."""
+    import threading
+
     L = Ledger(tmp_path / "ledger.json")
     L.open("r", "pilot", 1.0, {})
+    ready = threading.Event()
+    threading.Thread(target=_hold_lock, args=(L.lock_path, 2.0, ready), daemon=True).start()
+    ready.wait(5)
+    t0 = time.monotonic()
+    fired = {}
+    Watchdog(Deadline(t0, 100.0), on_beat=lambda el: L.heartbeat("r", el), beat_s=0.0, poll_s=0.01,
+             exit_fn=lambda c: fired.setdefault("watchdog", c)).start()  # blocks in flock
+    HardDeadline(t0 + 0.2, exit_fn=lambda c: fired.setdefault("hard", (c, time.monotonic() - t0))).start()
+    time.sleep(0.6)
+    assert fired["hard"][0] == 4 and 0.2 <= fired["hard"][1] <= 0.35
+    assert "watchdog" not in fired  # still blocked on the lock, which did not matter
 
-    def on_kill(el, reason):
-        L.close("r", el, "killed: " + reason)
-        killed["el"], killed["reason"] = el, reason
 
-    wd = Watchdog(d, on_kill, poll_s=0.02, exit_fn=lambda code: killed.setdefault("code", code),
-                  on_beat=lambda el: L.heartbeat("r", el), beat_s=0.05).start()
-    time.sleep(0.6)  # a "chunk" that overruns the deadline
-    wd.stop()
-    assert killed["code"] == 3 and killed["el"] > 0.3 and killed["reason"] == "deadline overrun"
-    e = L.entries()[0]
-    assert e["status"].startswith("killed") and e["seconds"] > 0.3
+def test_failing_heartbeat_ends_the_worker():
+    out = {}
 
-    # a failing heartbeat (ledger unwritable) must kill the run even though on_kill also fails
-    d2 = Deadline(time.monotonic(), limit_s=100.0, grace_s=1.0)
-    k2 = {}
-
-    def bad_beat(el):
+    def bad(el):
         raise OSError("disk full")
 
-    def bad_kill(el, reason):
-        k2["reason"] = reason
-        raise OSError("disk full")
-
-    wd2 = Watchdog(d2, bad_kill, poll_s=0.01, exit_fn=lambda code: k2.setdefault("code", code), on_beat=bad_beat,
-                   beat_s=0.0).start()
-    time.sleep(0.3)
-    wd2.stop()
-    assert k2["code"] == 3 and k2["reason"].startswith("heartbeat failed")
+    Watchdog(Deadline(time.monotonic(), 100.0), on_beat=bad, beat_s=0.0, poll_s=0.01,
+             exit_fn=lambda c: out.setdefault("code", c)).start()
+    time.sleep(0.2)
+    assert out["code"] == 3
 
 
-def test_reconcile_only_dead_processes(tmp_path):
+def test_supervisor_kills_on_time_with_ledger_lock_held_and_on_exit_blocked(tmp_path):
+    """The supervisor SIGKILLs the worker at the deadline while the ledger lock is held and its
+    terminal ledger write (on_exit) is blocked; the entry stays charged in full until the write
+    completes, then it is charged the conservative supervisor span."""
+    import os
+    import sys
+    import threading
+
     L = Ledger(tmp_path / "ledger.json")
-    L.open("live", "pilot", 1.0, {})  # pid = this (live) process
-    with pytest.raises(BudgetExceeded):
-        L.reconcile("live", operator_note="should refuse")
-    e = json.loads((tmp_path / "ledger.json").read_text())
-    e[0]["pid"] = 2**22 + 12345  # a pid that does not exist
-    (tmp_path / "ledger.json").write_text(json.dumps(e))
-    L.reconcile("live", operator_note="process gone, verified")
-    assert L.entries()[0]["status"] == "crashed_reconciled" and L.used_h("pilot") == 0.0
+    L.open("w", "pilot", 1.0, {})
+    ready = threading.Event()
+    threading.Thread(target=_hold_lock, args=(L.lock_path, 3.0, ready), daemon=True).start()
+    ready.wait(5)
+    res = {}
+
+    def on_exit(rec):
+        L.close("w", conservative_charge_s(rec["start_unix"], rec["end_unix"], 1.0), "killed_at_deadline")
+
+    th = threading.Thread(target=lambda: res.update(supervise(
+        [sys.executable, "-c", "import time; time.sleep(60)"], run_id="w", kill_after_s=0.5,
+        record_path=tmp_path / "supervisor.json", on_exit=on_exit)), daemon=True)
+    t0 = time.monotonic()
+    th.start()
+    time.sleep(1.2)  # deadline 0.5 s; the lock is still held, on_exit is blocked
+    rec = SupervisorRecord.read(tmp_path / "supervisor.json")
+    assert rec["killed_at_deadline"] and rec["elapsed_monotonic"] <= 0.5 + 0.3
+    with pytest.raises(ProcessLookupError):
+        os.kill(rec["worker_pid"], 0)  # the worker is gone (reaped), on time
+    assert th.is_alive()  # the supervisor is still blocked in the best-effort terminal write
+    th.join(10)
+    assert time.monotonic() - t0 >= 3.0 - 0.1
+    e = L.entries()[0]
+    assert e["status"] == "killed_at_deadline" and e["seconds"] == 120.0  # ceil(span / 60 s) + 1 min
+
+
+def test_supervisor_terminal_write_failure_keeps_full_charge(tmp_path):
+    import sys
+
+    L = Ledger(tmp_path / "ledger.json")
+    L.open("x", "pilot", 1.0, {})
+
+    def bad(rec):
+        raise OSError("ledger unwritable")
+
+    rec = supervise([sys.executable, "-c", "pass"], run_id="x", kill_after_s=10.0,
+                    record_path=tmp_path / "s.json", on_exit=bad)
+    assert rec["returncode"] == 0 and "on_exit_error" in rec
+    assert L.entries()[0]["status"] == "running" and L.remaining_h("pilot") == pytest.approx(1.0)
 
 
 def test_gpu_lock_is_exclusive(tmp_path):

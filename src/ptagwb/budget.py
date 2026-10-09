@@ -5,21 +5,25 @@ round 2 of M3b-0E).
   write (admission, heartbeat, close) holds an exclusive ``fcntl`` lock on ``ledger.json.lock``
   and writes through a unique temporary file in the same directory followed by an atomic rename.
 * **Charging (conservative):** a *closed* entry (``status`` not ``"running"``) is charged its
-  recorded elapsed time; an *open* entry (``"running"``: active, or crashed without
-  reconciliation) is charged its **full requested allocation**. Admission therefore reserves the
-  whole allocation of every active run, and a crash is charged in full until a human reconciles it
-  (``reconcile``, which can only lower the charge to the last recorded heartbeat if the process is
-  verifiably dead and the operator says so).
+  recorded time, which the supervisor sets from its own timestamps (``conservative_charge_s``),
+  never from the worker's heartbeats; an *open* entry (``"running"``: active, or crashed without
+  reconciliation) is charged its **full requested allocation**.
 * **Caps**: total 12 GPU-h; per phase pilot <= 2, production (incl. reweighting) <= 8,
   contingency <= 2. A run is admitted only if its allocation fits in what is left of its phase and
   of the total, under the charging rule above.
 * **Exclusive GPU lock**: ``GpuLock`` holds an ``fcntl`` lock on a per-device lock file for the
   whole run; a second run (of this project) cannot start while it is held. ``nvidia-smi`` must also
   show no other compute process (other users' processes do not take the lock).
-* **Inside blocks**: ``Deadline`` gives the run's monotonic deadline; the driver sizes its chunks so
-  that the predicted end of the next chunk stays before it; a ``Watchdog`` thread terminates the
-  process if a chunk overruns, and *also* if a heartbeat (ledger write) fails: termination never
-  depends on a successful ledger write.
+* **Deadlines, independent of the ledger** (review round 3): the run is a worker process started
+  by a supervisor (``supervise``), which SIGKILLs it at the hard deadline using only monotonic time,
+  ``waitpid`` and ``kill`` (no lock, no ledger, no file I/O on the kill path). Inside the worker, a
+  ``HardDeadline`` timer thread calls ``os._exit`` slightly earlier, also without I/O; the chunk
+  planner (``Deadline``) stops between chunks earlier still. Heartbeats (``Watchdog``) only write
+  the ledger; a failing heartbeat ends the worker. Every ledger write after admission is
+  best-effort: if the terminal write does not happen, the entry stays open and is charged in full.
+* **Reconciliation** of an open entry needs the supervisor's lock-free record (time before the
+  worker started, time after it was reaped): the charge is that span rounded up to whole minutes
+  plus one minute. Process death alone never reduces the charge.
 """
 
 from __future__ import annotations
@@ -144,23 +148,60 @@ class Ledger:
                     return
             raise BudgetExceeded(f"run {run_id!r} not in the ledger")
 
-    def reconcile(self, run_id: str, *, operator_note: str) -> None:
-        """Close a crashed (still open) entry at its last heartbeat. Only for a process that is
-        verifiably gone (its pid no longer exists); requires an operator note, recorded."""
+    def reconcile(self, run_id: str, record_path: Path | str, *, operator_note: str) -> float:
+        """Close a still-open entry from the **supervisor record** (``SupervisorRecord``) written by
+        the launching supervisor process, never from the worker's heartbeats: the record holds the
+        wall-clock time taken *before* the worker was started and the time *after* it was reaped
+        (``waitpid``), so end - start bounds the consumption from above. The charge is that span
+        rounded up to whole minutes, plus one minute, capped at the allocation. Without a complete
+        record (e.g. the supervisor itself died), nothing changes: the full allocation stays
+        charged. Returns the charged seconds."""
+        rec = SupervisorRecord.read(record_path)
+        if rec.get("run_id") != run_id or "start_unix" not in rec or "end_unix" not in rec:
+            raise BudgetExceeded(f"run {run_id!r}: no complete supervisor record (start and reaped end); "
+                                 "the full allocation stays charged")
         with self._locked():
             e = self._read()
             for x in e:
                 if x["run_id"] == run_id and x["status"] == OPEN:
-                    try:
-                        os.kill(int(x["pid"]), 0)
-                        raise BudgetExceeded(f"run {run_id!r}: process {x['pid']} still exists")
-                    except ProcessLookupError:
-                        pass
-                    x["status"] = "crashed_reconciled"
-                    x.setdefault("info", {})["reconcile_note"] = operator_note
+                    charge = conservative_charge_s(rec["start_unix"], rec["end_unix"], x["max_gpu_hours"])
+                    x["status"] = "reconciled_from_supervisor_record"
+                    x["seconds"] = charge
+                    x.setdefault("info", {})["reconcile"] = {"note": operator_note, "record": rec}
                     self._write(e)
-                    return
+                    return charge
             raise BudgetExceeded(f"no open entry {run_id!r}")
+
+
+def conservative_charge_s(start_unix: float, end_unix: float, max_gpu_hours: float) -> float:
+    """Upper bound of the consumption from supervisor timestamps: (end - start) rounded up to whole
+    minutes plus one minute, never more than the allocation."""
+    import math
+
+    if not (end_unix >= start_unix):
+        raise BudgetExceeded("supervisor record: end before start")
+    return float(min(60.0 * (math.ceil((end_unix - start_unix) / 60.0) + 1), max_gpu_hours * 3600.0))
+
+
+class SupervisorRecord:
+    """Lock-free record of a run, written only by its supervisor (atomic temp file + rename): the
+    wall-clock time before the worker was started, and after it was reaped."""
+
+    @staticmethod
+    def write(path: Path | str, rec: dict) -> None:
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=path.parent)
+        with os.fdopen(fd, "w") as f:
+            json.dump(rec, f, indent=1)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+
+    @staticmethod
+    def read(path: Path | str) -> dict:
+        p = Path(path)
+        return json.loads(p.read_text()) if p.exists() else {}
 
 
 class GpuLock:
@@ -207,40 +248,26 @@ class Deadline:
         return predicted_s <= self.left
 
 
-class Watchdog:
-    """Terminates the process (``exit_fn(3)``) if the deadline is overrun by more than
-    ``grace_s``, or if a heartbeat (``on_beat``) raises. ``on_kill`` (best-effort ledger close) is
-    attempted first; its failure does not prevent the exit."""
+class HardDeadline:
+    """Lock-free hard deadline inside the worker: a dedicated timer thread that does nothing but
+    sleep until ``deadline_monotonic`` and call ``exit_fn(4)`` (``os._exit``: no ledger, no file
+    I/O, no locks, no cleanup). It cannot be blocked by heartbeats or ledger writes. The
+    supervisor's SIGKILL (``supervise``) is the outer, independent line."""
 
-    def __init__(self, deadline: Deadline, on_kill, poll_s: float = 5.0, exit_fn=os._exit, on_beat=None,
-                 beat_s: float = 60.0):
-        self.d, self.on_kill, self.poll_s, self.exit_fn = deadline, on_kill, poll_s, exit_fn
-        self.on_beat, self.beat_s, self._last_beat = on_beat, beat_s, 0.0
-        self.reason = None
+    def __init__(self, deadline_monotonic: float, exit_fn=os._exit):
+        self.deadline, self.exit_fn = deadline_monotonic, exit_fn
+        self.fired = None
         self._stop = threading.Event()
         self.t = threading.Thread(target=self._run, daemon=True)
 
-    def _terminate(self, reason: str):
-        self.reason = reason
-        try:
-            self.on_kill(self.d.elapsed, reason)
-        except Exception:  # noqa: BLE001  termination must not depend on the ledger
-            pass
-        finally:
-            self.exit_fn(3)
-
     def _run(self):
-        while not self._stop.wait(self.poll_s):
-            try:
-                if self.on_beat is not None and self.d.elapsed - self._last_beat >= self.beat_s:
-                    self._last_beat = self.d.elapsed
-                    self.on_beat(self.d.elapsed)
-            except Exception as e:  # noqa: BLE001
-                self._terminate(f"heartbeat failed: {e!r}")
+        while not self._stop.is_set():
+            left = self.deadline - time.monotonic()
+            if left <= 0:
+                self.fired = time.monotonic()
+                self.exit_fn(4)
                 return
-            if self.d.elapsed > self.d.limit_s + self.d.grace_s:
-                self._terminate("deadline overrun")
-                return
+            self._stop.wait(min(left, 0.05))
 
     def start(self):
         self.t.start()
@@ -248,3 +275,83 @@ class Watchdog:
 
     def stop(self):
         self._stop.set()
+
+
+class Watchdog:
+    """Heartbeats only: calls ``on_beat(elapsed)`` every ``beat_s``; if it raises, ``exit_fn(3)``.
+    Deadline enforcement is NOT done here (a heartbeat may block on the ledger lock or the file
+    system): see ``HardDeadline`` and ``supervise``."""
+
+    def __init__(self, deadline: Deadline, on_beat, beat_s: float = 60.0, poll_s: float = 1.0, exit_fn=os._exit):
+        self.d, self.on_beat, self.beat_s, self.poll_s, self.exit_fn = deadline, on_beat, beat_s, poll_s, exit_fn
+        self._last = 0.0
+        self.reason = None
+        self._stop = threading.Event()
+        self.t = threading.Thread(target=self._run, daemon=True)
+
+    def _run(self):
+        while not self._stop.wait(self.poll_s):
+            if self.d.elapsed - self._last >= self.beat_s:
+                self._last = self.d.elapsed
+                try:
+                    self.on_beat(self.d.elapsed)
+                except Exception as e:  # noqa: BLE001
+                    self.reason = f"heartbeat failed: {e!r}"
+                    self.exit_fn(3)
+                    return
+
+    def start(self):
+        self.t.start()
+        return self
+
+    def stop(self):
+        self._stop.set()
+
+
+def supervise(cmd: list[str], *, run_id: str, kill_after_s: float, record_path: Path | str, env=None,
+              poll_s: float = 0.05, on_exit=None) -> dict:
+    """Run ``cmd`` as a worker and SIGKILL it ``kill_after_s`` seconds after starting it, whatever it
+    is doing. The kill path uses only ``time.monotonic``, ``waitpid`` and ``kill``: no locks, no
+    ledger. The supervisor record (start before ``Popen``; end after the reap) is written before
+    and after (lock-free, atomic); then ``on_exit(record)`` (e.g. the best-effort ledger close)
+    is called, and its failure leaves the allocation open (charged in full). The worker gets
+    PR_SET_PDEATHSIG = SIGKILL, so it dies with the supervisor."""
+    import signal
+    import subprocess
+
+    def _pdeathsig():
+        try:
+            import ctypes
+
+            ctypes.CDLL("libc.so.6").prctl(1, signal.SIGKILL)  # PR_SET_PDEATHSIG
+        except Exception:  # noqa: BLE001
+            pass
+
+    rec = {"run_id": run_id, "start_unix": time.time(), "kill_after_s": kill_after_s, "cmd": cmd}
+    SupervisorRecord.write(record_path, rec)
+    t0 = time.monotonic()
+    proc = subprocess.Popen(cmd, env=env, preexec_fn=_pdeathsig)
+    rec["worker_pid"] = proc.pid
+    killed = False
+    while True:
+        rc = proc.poll()
+        if rc is not None:
+            break
+        if time.monotonic() - t0 >= kill_after_s:
+            proc.kill()
+            killed = True
+            rc = proc.wait()
+            break
+        time.sleep(poll_s)
+    rec.update({"end_unix": time.time(), "elapsed_monotonic": time.monotonic() - t0, "returncode": rc,
+                "killed_at_deadline": killed})
+    try:
+        SupervisorRecord.write(record_path, rec)
+    except Exception as e:  # noqa: BLE001
+        rec["record_write_error"] = repr(e)
+    if on_exit is not None:
+        try:
+            on_exit(rec)
+        except Exception as e:  # noqa: BLE001
+            rec["on_exit_error"] = repr(e)
+    return rec

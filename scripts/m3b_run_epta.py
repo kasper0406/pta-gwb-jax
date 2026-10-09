@@ -13,10 +13,14 @@ Fail-closed rules, all checked before the GPU is touched:
   phase and the 12 GPU-h total, reserving it in full while the run is open; the exclusive GPU lock
   is held for the whole run and ``nvidia-smi`` shows no other compute process.
 
-During the run: chunks of ``chunk_transitions`` transitions; before each chunk the predicted chunk
-time (the previous chunk's) must fit before the deadline (= max_gpu_hours minus two watchdog grace
-periods); after each chunk the ledger is updated; a watchdog thread writes the ledger and kills
-the process if a chunk overruns the deadline. Stop rules (fixed in the config): the deadline, the
+During the run (review round 3: deadline enforcement independent of the ledger): this process is
+the **supervisor**; it admits the run, then starts the sampling **worker** (``--worker``) and
+SIGKILLs it at allocation - 2 grace, using only monotonic time, ``waitpid`` and ``kill``. Inside the
+worker a lock-free ``HardDeadline`` timer calls ``os._exit`` at allocation - 3 grace, and the chunk
+planner stops between chunks before allocation - 4 grace (the previous chunk's time must fit).
+Heartbeats are best-effort ledger writes. After the reap the supervisor writes its lock-free
+record (time before start, time after reap) and closes the ledger entry with that span rounded up
+(best-effort: if the write fails, the entry stays open and charged in full). Stop rules (fixed in the config): the deadline, the
 number of transitions, a non-finite log-likelihood. The driver never changes a setting; a pilot
 that suggests a change ends the work and is reported.
 
@@ -28,6 +32,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import time
@@ -123,12 +128,15 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("config")
     ap.add_argument("--dry-run", action="store_true", help="all checks, no ledger entry, no sampling")
+    ap.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     a = ap.parse_args()
+    if a.worker:
+        return worker(a.config)
     cfg_path = Path(a.config)
     cfg = validate_config(json.loads(cfg_path.read_text()))
     prov = committed_and_clean(cfg_path)
     from ptagwb.binding import evidence_binding, require_bound
-    from ptagwb.budget import Deadline, GpuLock, Ledger, Watchdog
+    from ptagwb.budget import GpuLock, Ledger, conservative_charge_s, supervise
 
     binding = evidence_binding()
     require_bound(PRECONDITIONS, RES, binding)
@@ -146,23 +154,41 @@ def main():
             raise ConfigError(f"{out} exists (runs are never resumed or repeated silently)")
         out.mkdir(parents=True)
         # admission reserves the full allocation; a crash stays charged in full until reconciled
+        # from the supervisor record
         ledger.open(cfg["run_id"], cfg["phase"], cfg["max_gpu_hours"], {**prov, "binding": binding, "gpu": smi})
+        alloc = cfg["max_gpu_hours"] * 3600.0
         grace = cfg["watchdog_grace_s"]
-        # the watchdog fires at the latest at limit + grace + poll = allocation - grace + grace/4
-        dl = Deadline(time.monotonic(), cfg["max_gpu_hours"] * 3600 - 2 * grace, grace)
-        status = {"value": "error"}
+        (out / "worker_env.json").write_text(json.dumps({"provenance": prov, "binding": binding}))
+        env = dict(os.environ, M3B_RUN_LIMIT_S=str(alloc - 4 * grace), M3B_HARD_EXIT_S=str(alloc - 3 * grace))
 
-        def on_kill(el, reason):
-            ledger.close(cfg["run_id"], el, "killed: " + reason)
+        def on_exit(rec):  # best-effort terminal write; on failure the entry stays open (charged)
+            charge = conservative_charge_s(rec["start_unix"], rec["end_unix"], cfg["max_gpu_hours"])
+            status = "killed_at_deadline" if rec["killed_at_deadline"] else (
+                "completed" if rec["returncode"] == 0 else f"worker_exit_{rec['returncode']}")
+            ledger.close(cfg["run_id"], charge, status, {"supervisor": rec})
 
-        wd = Watchdog(dl, on_kill, poll_s=grace / 4, on_beat=lambda el: ledger.heartbeat(cfg["run_id"], el),
-                      beat_s=grace).start()
-        try:
-            status["value"] = run(cfg, out, dl, ledger, prov, binding)
-        finally:
-            wd.stop()
-            ledger.close(cfg["run_id"], dl.elapsed, status["value"])
-        print(status["value"])
+        # the supervisor kills the worker at allocation - 2 grace, whatever it is doing (no ledger,
+        # no lock on the kill path); the worker's own hard exit fires one grace earlier
+        rec = supervise([sys.executable, str(Path(__file__).resolve()), str(cfg_path), "--worker"],
+                        run_id=cfg["run_id"], kill_after_s=alloc - 2 * grace, record_path=out / "supervisor.json",
+                        env=env, on_exit=on_exit)
+        print(json.dumps({k: rec[k] for k in ("returncode", "killed_at_deadline", "elapsed_monotonic")}))
+
+
+def worker(cfg_path: str) -> None:
+    """The sampling process (started only by the supervisor in ``main``)."""
+    from ptagwb.budget import Deadline, HardDeadline, Ledger, Watchdog
+
+    cfg = validate_config(json.loads(Path(cfg_path).read_text()))
+    out = RUNS / cfg["run_id"]
+    meta = json.loads((out / "worker_env.json").read_text())
+    t0 = time.monotonic()
+    HardDeadline(t0 + float(os.environ["M3B_HARD_EXIT_S"])).start()  # os._exit, lock-free
+    dl = Deadline(t0, float(os.environ["M3B_RUN_LIMIT_S"]), cfg["watchdog_grace_s"])
+    ledger = Ledger(LEDGER)
+    Watchdog(dl, on_beat=lambda el: ledger.heartbeat(cfg["run_id"], el), beat_s=cfg["watchdog_grace_s"]).start()
+    reason = run(cfg, out, dl, ledger, meta["provenance"], meta["binding"])
+    print(reason)
 
 
 def run(cfg, out, dl, ledger, prov, binding) -> str:
@@ -221,7 +247,10 @@ def run(cfg, out, dl, ledger, prov, binding) -> str:
         meta["chunks"].append({"n": n_chunk, "seconds": dt, "transitions_done": done, "elapsed_s": dl.elapsed,
                                "divergences": int(div.sum())})
         (out / "run_meta.json").write_text(json.dumps(meta, indent=1, default=str))
-        ledger.heartbeat(cfg["run_id"], dl.elapsed)
+        try:  # best-effort; accounting is the supervisor's
+            ledger.heartbeat(cfg["run_id"], dl.elapsed)
+        except Exception:  # noqa: BLE001
+            pass
         n_chunk += 1
         if not np.all(np.isfinite(ll)):
             reason = "stopped: non-finite log-likelihood"
