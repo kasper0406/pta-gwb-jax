@@ -1,0 +1,2904 @@
+{
+ "pta": "EPTA DR2new",
+ "version": 1,
+ "frozen_before_any_production_run": true,
+ "manifest": "epta-dr2new-v1",
+ "class_a": [
+  {
+   "model": "crn_pl",
+   "param": "J0030+0451_red_noise_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.25816920819810607,
+     "p_lo": 0.24978588198447188,
+     "p_hi": 0.26673385969151625,
+     "n_entries": 2793,
+     "n_exits": 2793,
+     "tau": 2.1959922948594333,
+     "n_eff": 10242.74996440267,
+     "mcse": 0.004324106320122961,
+     "support": "material"
+    },
+    "P": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.7418307918018939,
+     "p_lo": 0.7332661403084837,
+     "p_hi": 0.7502141180155282,
+     "n_entries": 2793,
+     "n_exits": 2793,
+     "tau": 2.1959922948594333,
+     "n_eff": 10242.74996440267,
+     "mcse": 0.004324106320122961,
+     "support": "material"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J0613-0200_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.13150758013604233,
+     "p_lo": 0.12408626698150024,
+     "p_hi": 0.1393021563407131,
+     "n_entries": 1531,
+     "n_exits": 1531,
+     "tau": 2.9670691074711173,
+     "n_eff": 7580.881733884237,
+     "mcse": 0.003881490688373463,
+     "support": "material"
+    },
+    "P": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.8684924198639576,
+     "p_lo": 0.8606978436592868,
+     "p_hi": 0.8759137330184997,
+     "n_entries": 1531,
+     "n_exits": 1531,
+     "tau": 2.9670691074711173,
+     "n_eff": 7580.881733884237,
+     "mcse": 0.0038814906883734633,
+     "support": "material"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J0751+1807_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J0900-3144_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J0900-3144_red_noise_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J1012+5307_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "few-event",
+     "status": "UNRESOLVED",
+     "p_hat": 4.445827590806029e-05,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 1,
+     "n_exits": 1,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "few-event",
+     "status": "UNRESOLVED",
+     "p_hat": 0.999955541724092,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 1,
+     "n_exits": 1,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J1012+5307_red_noise_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J1022+1001_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J1022+1001_red_noise_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.24487618370159606,
+     "p_lo": 0.23484624846969374,
+     "p_hi": 0.2551916161308582,
+     "n_entries": 2017,
+     "n_exits": 2017,
+     "tau": 3.2780465724916734,
+     "n_eff": 6861.708490890312,
+     "mcse": 0.005191181653146029,
+     "support": "material"
+    },
+    "P": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.755123816298404,
+     "p_lo": 0.7448083838691417,
+     "p_hi": 0.7651537515303062,
+     "n_entries": 2017,
+     "n_exits": 2017,
+     "tau": 3.2780465724916734,
+     "n_eff": 6861.708490890312,
+     "mcse": 0.005191181653146029,
+     "support": "material"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J1024-0719_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "few-event",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0003556662072644823,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 4,
+     "n_exits": 4,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "few-event",
+     "status": "UNRESOLVED",
+     "p_hat": 0.9996443337927355,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 4,
+     "n_exits": 4,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J1455-3330_red_noise_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.11683634908638243,
+     "p_lo": 0.10878157058315441,
+     "p_hi": 0.12540362476838732,
+     "n_entries": 1336,
+     "n_exits": 1336,
+     "tau": 3.918491620516267,
+     "n_eff": 5740.218986875494,
+     "mcse": 0.004239799813905348,
+     "support": "material"
+    },
+    "P": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.8831636509136176,
+     "p_lo": 0.8745963752316127,
+     "p_hi": 0.8912184294168456,
+     "n_entries": 1336,
+     "n_exits": 1336,
+     "tau": 3.9184916205162668,
+     "n_eff": 5740.218986875495,
+     "mcse": 0.0042397998139053475,
+     "support": "material"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J1600-3053_chrom_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J1600-3053_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J1640+2224_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "few-event",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0003556662072644823,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 4,
+     "n_exits": 4,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "few-event",
+     "status": "UNRESOLVED",
+     "p_hat": 0.9996443337927355,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 4,
+     "n_exits": 4,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J1713+0747_J1713+0747_dmexp_1_log10_Amp",
+   "regions": {
+    "S": [
+     -10.0,
+     -9.0
+    ],
+    "P": [
+     -9.0,
+     -2.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J1713+0747_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J1713+0747_red_noise_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.23353932334504068,
+     "p_lo": 0.2204551641405122,
+     "p_hi": 0.2471538305963511,
+     "n_entries": 1515,
+     "n_exits": 1515,
+     "tau": 5.832858829245854,
+     "n_eff": 3856.256538769717,
+     "mcse": 0.00681305647632131,
+     "support": "material"
+    },
+    "P": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.7664606766549593,
+     "p_lo": 0.752846169403649,
+     "p_hi": 0.7795448358594879,
+     "n_entries": 1515,
+     "n_exits": 1515,
+     "tau": 5.832858829245854,
+     "n_eff": 3856.256538769717,
+     "mcse": 0.00681305647632131,
+     "support": "material"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J1730-2304_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.02178455519494954,
+     "p_lo": 0.017736807718642635,
+     "p_hi": 0.02673090772813477,
+     "n_entries": 210,
+     "n_exits": 210,
+     "tau": 5.506487964384251,
+     "n_eff": 4084.8177904834893,
+     "mcse": 0.0022840481849627737,
+     "support": "material"
+    },
+    "P": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.9782154448050504,
+     "p_lo": 0.9732690922718652,
+     "p_hi": 0.9822631922813574,
+     "n_entries": 210,
+     "n_exits": 210,
+     "tau": 5.506487964384258,
+     "n_eff": 4084.817790483484,
+     "mcse": 0.002284048184962778,
+     "support": "material"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J1738+0333_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J1744-1134_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J1751-2857_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J1801-1417_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J1804-2717_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "few-event",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0003556662072644823,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 2,
+     "n_exits": 2,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "few-event",
+     "status": "UNRESOLVED",
+     "p_hat": 0.9996443337927355,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 2,
+     "n_exits": 2,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J1843-1113_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J1857+0943_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J1909-3744_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J1909-3744_red_noise_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.2600364557862446,
+     "p_lo": 0.24953570454678356,
+     "p_hi": 0.27081962844473734,
+     "n_entries": 2007,
+     "n_exits": 2006,
+     "tau": 3.4476979604692373,
+     "n_eff": 6524.0633773321215,
+     "mcse": 0.005430792322173734,
+     "support": "material"
+    },
+    "P": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.7399635442137554,
+     "p_lo": 0.7291803715552626,
+     "p_hi": 0.7504642954532165,
+     "n_entries": 2006,
+     "n_exits": 2007,
+     "tau": 3.4476979604692373,
+     "n_eff": 6524.0633773321215,
+     "mcse": 0.005430792322173734,
+     "support": "material"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J1910+1256_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J1911+1347_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.0017783310363224114,
+     "p_lo": 0.0008157861159493213,
+     "p_hi": 0.003872180142811075,
+     "n_entries": 16,
+     "n_exits": 16,
+     "tau": 6.655356754956876,
+     "n_eff": 3379.683588448858,
+     "mcse": 0.000724739244937798,
+     "support": "absent"
+    },
+    "P": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.9982216689636776,
+     "p_lo": 0.9961278198571889,
+     "p_hi": 0.9991842138840507,
+     "n_entries": 16,
+     "n_exits": 16,
+     "tau": 6.655356754956876,
+     "n_eff": 3379.683588448858,
+     "mcse": 0.000724739244937798,
+     "support": "material"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J1918-0642_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J2124-3358_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.026185924509847507,
+     "p_lo": 0.02109705270901017,
+     "p_hi": 0.032461590212444436,
+     "n_entries": 272,
+     "n_exits": 272,
+     "tau": 7.342311365271483,
+     "n_eff": 3063.4767283760266,
+     "mcse": 0.002885125350421885,
+     "support": "material"
+    },
+    "P": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.9738140754901525,
+     "p_lo": 0.9675384097875556,
+     "p_hi": 0.9789029472909899,
+     "n_entries": 272,
+     "n_exits": 272,
+     "tau": 7.342311365271483,
+     "n_eff": 3063.4767283760266,
+     "mcse": 0.002885125350421883,
+     "support": "material"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "J2322+2057_red_noise_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.2301604943760281,
+     "p_lo": 0.22235439704117543,
+     "p_hi": 0.2381567096027185,
+     "n_entries": 2638,
+     "n_exits": 2638,
+     "tau": 2.0634392294532287,
+     "n_eff": 10900.732950570204,
+     "mcse": 0.004031694699264172,
+     "support": "material"
+    },
+    "P": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.7698395056239719,
+     "p_lo": 0.7618432903972815,
+     "p_hi": 0.7776456029588245,
+     "n_entries": 2638,
+     "n_exits": 2638,
+     "tau": 2.063439229453228,
+     "n_eff": 10900.732950570206,
+     "mcse": 0.004031694699264172,
+     "support": "material"
+    }
+   }
+  },
+  {
+   "model": "crn_pl",
+   "param": "gw_crn_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "few-event",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0005779575868047837,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 7,
+     "n_exits": 7,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "few-event",
+     "status": "UNRESOLVED",
+     "p_hat": 0.9994220424131952,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 7,
+     "n_exits": 7,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J0030+0451_red_noise_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.26928377717512114,
+     "p_lo": 0.2603814708252828,
+     "p_hi": 0.27837589246248723,
+     "n_entries": 2762,
+     "n_exits": 2762,
+     "tau": 2.4095637073293243,
+     "n_eff": 9334.884955140053,
+     "mcse": 0.0045911870301223075,
+     "support": "material"
+    },
+    "P": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.7307162228248788,
+     "p_lo": 0.7216241075375128,
+     "p_hi": 0.7396185291747172,
+     "n_entries": 2762,
+     "n_exits": 2762,
+     "tau": 2.409563707329328,
+     "n_eff": 9334.88495514004,
+     "mcse": 0.004591187030122311,
+     "support": "material"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J0613-0200_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.12972924909971992,
+     "p_lo": 0.12255303306293892,
+     "p_hi": 0.1372599417074346,
+     "n_entries": 1484,
+     "n_exits": 1483,
+     "tau": 2.804124352066725,
+     "n_eff": 8021.39890244952,
+     "mcse": 0.003751639404872664,
+     "support": "material"
+    },
+    "P": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.87027075090028,
+     "p_lo": 0.8627400582925653,
+     "p_hi": 0.877446966937061,
+     "n_entries": 1483,
+     "n_exits": 1484,
+     "tau": 2.804124352066725,
+     "n_eff": 8021.39890244952,
+     "mcse": 0.0037516394048726642,
+     "support": "material"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J0751+1807_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J0900-3144_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J0900-3144_red_noise_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J1012+5307_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J1012+5307_red_noise_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J1022+1001_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J1022+1001_red_noise_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.24540968301249277,
+     "p_lo": 0.23546343948658624,
+     "p_hi": 0.2556355861287499,
+     "n_entries": 2030,
+     "n_exits": 2029,
+     "tau": 3.2177154511641506,
+     "n_eff": 6990.36330010541,
+     "mcse": 0.005146969415489332,
+     "support": "material"
+    },
+    "P": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.7545903169875072,
+     "p_lo": 0.7443644138712501,
+     "p_hi": 0.7645365605134137,
+     "n_entries": 2029,
+     "n_exits": 2030,
+     "tau": 3.2177154511641506,
+     "n_eff": 6990.36330010541,
+     "mcse": 0.005146969415489332,
+     "support": "material"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J1024-0719_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "few-event",
+     "status": "UNRESOLVED",
+     "p_hat": 0.00013337482772418085,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 1,
+     "n_exits": 1,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "few-event",
+     "status": "UNRESOLVED",
+     "p_hat": 0.9998666251722759,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 1,
+     "n_exits": 1,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J1455-3330_red_noise_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.09278442182012181,
+     "p_lo": 0.08567453390424216,
+     "p_hi": 0.10041953687024345,
+     "n_entries": 1064,
+     "n_exits": 1064,
+     "tau": 3.778541038353744,
+     "n_eff": 5952.826705251262,
+     "mcse": 0.00376037505028046,
+     "support": "material"
+    },
+    "P": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.9072155781798782,
+     "p_lo": 0.8995804631297565,
+     "p_hi": 0.9143254660957577,
+     "n_entries": 1064,
+     "n_exits": 1064,
+     "tau": 3.778541038353744,
+     "n_eff": 5952.826705251262,
+     "mcse": 0.00376037505028046,
+     "support": "material"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J1600-3053_chrom_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J1600-3053_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J1640+2224_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "few-event",
+     "status": "UNRESOLVED",
+     "p_hat": 8.891655181612058e-05,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 1,
+     "n_exits": 1,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "few-event",
+     "status": "UNRESOLVED",
+     "p_hat": 0.9999110834481839,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 1,
+     "n_exits": 1,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J1713+0747_J1713+0747_dmexp_1_log10_Amp",
+   "regions": {
+    "S": [
+     -10.0,
+     -9.0
+    ],
+    "P": [
+     -9.0,
+     -2.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J1713+0747_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J1713+0747_red_noise_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.2732405637309385,
+     "p_lo": 0.2612014364225079,
+     "p_hi": 0.2856200660796816,
+     "n_entries": 1759,
+     "n_exits": 1758,
+     "tau": 4.3978418913546395,
+     "n_eff": 5114.554037110148,
+     "mcse": 0.006231090232123208,
+     "support": "material"
+    },
+    "P": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.7267594362690615,
+     "p_lo": 0.7143799339203183,
+     "p_hi": 0.7387985635774921,
+     "n_entries": 1758,
+     "n_exits": 1759,
+     "tau": 4.3978418913546395,
+     "n_eff": 5114.554037110148,
+     "mcse": 0.006231090232123208,
+     "support": "material"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J1730-2304_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.009736362423865202,
+     "p_lo": 0.007099475273036644,
+     "p_hi": 0.013339484209301908,
+     "n_entries": 97,
+     "n_exits": 97,
+     "tau": 5.775669025237191,
+     "n_eff": 3894.440609687858,
+     "mcse": 0.0015734438135872634,
+     "support": "ambiguous"
+    },
+    "P": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.9902636375761348,
+     "p_lo": 0.986660515790698,
+     "p_hi": 0.9929005247269633,
+     "n_entries": 97,
+     "n_exits": 97,
+     "tau": 5.775669025237191,
+     "n_eff": 3894.440609687858,
+     "mcse": 0.0015734438135872647,
+     "support": "material"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J1738+0333_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J1744-1134_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J1751-2857_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J1801-1417_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J1804-2717_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.0028897879340239185,
+     "p_lo": 0.001533875872669997,
+     "p_hi": 0.005437768316510763,
+     "n_entries": 24,
+     "n_exits": 24,
+     "tau": 7.028953952144127,
+     "n_eff": 3200.0494174725227,
+     "mcse": 0.0009489126281054757,
+     "support": "absent"
+    },
+    "P": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.997110212065976,
+     "p_lo": 0.9945622316834891,
+     "p_hi": 0.9984661241273299,
+     "n_entries": 24,
+     "n_exits": 24,
+     "tau": 7.028953952144127,
+     "n_eff": 3200.0494174725227,
+     "mcse": 0.0009489126281054803,
+     "support": "material"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J1843-1113_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J1857+0943_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J1909-3744_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J1909-3744_red_noise_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.293513537545014,
+     "p_lo": 0.2824596579717957,
+     "p_hi": 0.30481623783630246,
+     "n_entries": 2136,
+     "n_exits": 2135,
+     "tau": 3.530026020839973,
+     "n_eff": 6371.9077047051815,
+     "mcse": 0.005704679531179281,
+     "support": "material"
+    },
+    "P": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.706486462454986,
+     "p_lo": 0.6951837621636977,
+     "p_hi": 0.7175403420282044,
+     "n_entries": 2135,
+     "n_exits": 2136,
+     "tau": 3.530026020839973,
+     "n_eff": 6371.9077047051815,
+     "mcse": 0.00570467953117928,
+     "support": "material"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J1910+1256_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J1911+1347_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.0027564131062997378,
+     "p_lo": 0.0014482958212580688,
+     "p_hi": 0.005239836945204324,
+     "n_entries": 22,
+     "n_exits": 22,
+     "tau": 6.928141275699851,
+     "n_eff": 3246.61393365248,
+     "mcse": 0.0009201475097055408,
+     "support": "absent"
+    },
+    "P": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.9972435868937003,
+     "p_lo": 0.9947601630547958,
+     "p_hi": 0.998551704178742,
+     "n_entries": 22,
+     "n_exits": 22,
+     "tau": 6.928141275699851,
+     "n_eff": 3246.61393365248,
+     "mcse": 0.0009201475097055351,
+     "support": "material"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J1918-0642_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "few-event",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0003556662072644823,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 5,
+     "n_exits": 5,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "few-event",
+     "status": "UNRESOLVED",
+     "p_hat": 0.9996443337927355,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 5,
+     "n_exits": 5,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J2124-3358_dm_gp_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.04414706797670386,
+     "p_lo": 0.03824678468846655,
+     "p_hi": 0.0509093985018571,
+     "n_entries": 467,
+     "n_exits": 467,
+     "tau": 5.541640529076389,
+     "n_eff": 4058.9063621109417,
+     "mcse": 0.0032243483431828256,
+     "support": "material"
+    },
+    "P": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.9558529320232961,
+     "p_lo": 0.9490906014981428,
+     "p_hi": 0.9617532153115333,
+     "n_entries": 467,
+     "n_exits": 467,
+     "tau": 5.541640529076389,
+     "n_eff": 4058.9063621109417,
+     "mcse": 0.0032243483431828256,
+     "support": "material"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "J2322+2057_red_noise_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.23896323300582403,
+     "p_lo": 0.23083500591789982,
+     "p_hi": 0.24728565622749624,
+     "n_entries": 2615,
+     "n_exits": 2615,
+     "tau": 2.1788216288601943,
+     "n_eff": 10323.470128101651,
+     "mcse": 0.004197159846015245,
+     "support": "material"
+    },
+    "P": {
+     "case": "estimable",
+     "status": "RESOLVED",
+     "p_hat": 0.761036766994176,
+     "p_lo": 0.7527143437725038,
+     "p_hi": 0.7691649940821003,
+     "n_entries": 2615,
+     "n_exits": 2615,
+     "tau": 2.1788216288601943,
+     "n_eff": 10323.470128101651,
+     "mcse": 0.004197159846015245,
+     "support": "material"
+    }
+   }
+  },
+  {
+   "model": "hd_pl",
+   "param": "gw_hd_log10_A",
+   "regions": {
+    "S": [
+     -18.0,
+     -17.0
+    ],
+    "P": [
+     -17.0,
+     -10.0
+    ]
+   },
+   "reference": {
+    "S": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "P": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  }
+ ],
+ "class_b": {
+  "crn_pl": {
+   "param": "J1713+0747_J1713+0747_dmexp_1_t0",
+   "window_mjd": [
+    57490.0,
+    57530.0
+   ],
+   "toa_time_scale": "BAT (TCB) MJD, enterprise psr.toas / 86400",
+   "n_toas_in_window": 40,
+   "intervals": [
+    [
+     57507.11314794429,
+     57514.10554332977
+    ]
+   ],
+   "reference": {
+    "I0": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "rest": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  },
+  "hd_pl": {
+   "param": "J1713+0747_J1713+0747_dmexp_1_t0",
+   "window_mjd": [
+    57490.0,
+    57530.0
+   ],
+   "toa_time_scale": "BAT (TCB) MJD, enterprise psr.toas / 86400",
+   "n_toas_in_window": 40,
+   "intervals": [
+    [
+     57507.11314794429,
+     57514.10554332977
+    ]
+   ],
+   "reference": {
+    "I0": {
+     "case": "all-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 1.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    },
+    "rest": {
+     "case": "zero-visit",
+     "status": "UNRESOLVED",
+     "p_hat": 0.0,
+     "p_lo": 0.0,
+     "p_hi": 1.0,
+     "n_entries": 0,
+     "n_exits": 0,
+     "tau": null,
+     "n_eff": null,
+     "mcse": null,
+     "support": "UNRESOLVED"
+    }
+   }
+  }
+ },
+ "class_c": [
+  "J0030+0451_red_noise_gamma",
+  "J0613-0200_dm_gp_gamma",
+  "J0751+1807_dm_gp_gamma",
+  "J0900-3144_dm_gp_gamma",
+  "J0900-3144_red_noise_gamma",
+  "J1012+5307_dm_gp_gamma",
+  "J1012+5307_red_noise_gamma",
+  "J1022+1001_dm_gp_gamma",
+  "J1022+1001_red_noise_gamma",
+  "J1024-0719_dm_gp_gamma",
+  "J1455-3330_red_noise_gamma",
+  "J1600-3053_chrom_gp_gamma",
+  "J1600-3053_dm_gp_gamma",
+  "J1640+2224_dm_gp_gamma",
+  "J1713+0747_J1713+0747_dmexp_1_log10_tau",
+  "J1713+0747_dm_gp_gamma",
+  "J1713+0747_red_noise_gamma",
+  "J1730-2304_dm_gp_gamma",
+  "J1738+0333_dm_gp_gamma",
+  "J1744-1134_dm_gp_gamma",
+  "J1751-2857_dm_gp_gamma",
+  "J1801-1417_dm_gp_gamma",
+  "J1804-2717_dm_gp_gamma",
+  "J1843-1113_dm_gp_gamma",
+  "J1857+0943_dm_gp_gamma",
+  "J1909-3744_dm_gp_gamma",
+  "J1909-3744_red_noise_gamma",
+  "J1910+1256_dm_gp_gamma",
+  "J1911+1347_dm_gp_gamma",
+  "J1918-0642_dm_gp_gamma",
+  "J2124-3358_dm_gp_gamma",
+  "J2322+2057_red_noise_gamma",
+  "gw_crn_gamma",
+  "gw_hd_gamma"
+ ]
+}

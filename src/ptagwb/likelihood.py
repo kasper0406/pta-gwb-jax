@@ -275,7 +275,21 @@ def _reduce(RA, c, s_perp, r):
 def _reduce_fwd(RA, c, s_perp, r):
     out = _reduce_fwd_impl(RA, c, s_perp, r)
     _, _, E, d = out
-    return out, (E, d, RA, c, s_perp)
+    return out, (E, d, RA, c, s_perp, r)
+
+
+def data_cotangents(E, d, RA, c, r, qb, db):
+    """Cotangents of the residual-dependent stage-1 data (c, s_perp) (M3b, N3: parameter-dependent
+    deterministic residuals). With b = R_F^T c, (I + A R)^-1 = I - E R and d = (I - E R) b:
+
+        dq/dc = 2 (c - R_F (r * d)),   dq/ds_perp = 1,   dld/dc = dE/dc = 0,
+        c_bar(d) = R_F (I + R A)^-1 d_bar = R_F (d_bar - r * (E d_bar)).
+
+    Only products with the accurately computed E and d appear (no A^-1)."""
+    cb = 2.0 * qb * (c - RA @ jax.lax.optimization_barrier(r * d))
+    if db is not None:
+        cb = cb + RA @ (db - r * jax.lax.optimization_barrier(E @ db))
+    return cb, qb
 
 
 def _reduce_bwd(res, cts):
@@ -286,9 +300,10 @@ def _reduce_bwd(res, cts):
 
     Differentiating through the QR (JAX's generic rule) instead loses up to ~1e-4 relative
     accuracy when R spans many decades (e.g. free spectrum at log10_rho -> -1 with IRN at the
-    prior corner). The data (R_F, c, s_perp) are constants: zero cotangents.
+    prior corner). R_F is a constant (zero cotangent); c and s_perp get their exact cotangents
+    (``data_cotangents``), needed when the residuals depend on parameters (the EPTA dip).
     """
-    E, d, RA, c, s_perp = res
+    E, d, RA, c, s_perp, r = res
     qb, ldb, Eb, db = cts
     Eb = 0.5 * (Eb + Eb.T)
     # optimization_barrier: XLA:CPU (jaxlib 0.11.2) miscompiles reduce(dot(E, broadcast(c)) * E)
@@ -298,7 +313,8 @@ def _reduce_bwd(res, cts):
     EEb = jax.lax.optimization_barrier(E @ Eb)
     Edb = jax.lax.optimization_barrier(E @ db)
     rb = -qb * d * d + ldb * jnp.diagonal(E) - jnp.sum(EEb * E, axis=1) - d * Edb
-    return jnp.zeros_like(RA), jnp.zeros_like(c), jnp.zeros_like(s_perp), rb
+    cb, sb = data_cotangents(E, d, RA, c, r, qb, db)
+    return jnp.zeros_like(RA), cb, sb * jnp.ones_like(s_perp), rb
 
 
 _reduce.defvjp(_reduce_fwd, _reduce_bwd)

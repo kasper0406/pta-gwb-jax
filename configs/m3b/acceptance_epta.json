@@ -1,0 +1,1167 @@
+{
+ "pta": "EPTA DR2new",
+ "version": 1,
+ "frozen_before_any_production_run": true,
+ "plan": "docs/M3B_PLAN.md (approved revision 6ef14c8; user decisions D1-D9 of 2026-10-09 recorded in 4ab41dd)",
+ "manifest": "epta-dr2new-v1",
+ "margins_status": "provisional (D2): changed only by a reviewed revision before the run it affects",
+ "decision_rule": {
+  "interval": "D +- 1.645 SE_D, SE_D = sqrt(MCSE_ours^2 + MCSE_ref^2)",
+  "EQUIVALENT": "inside [-m, m]",
+  "INCOMPATIBLE": "entirely outside",
+  "INCONCLUSIVE": "otherwise",
+  "reference_limited": "1.645 MCSE_ref >= m",
+  "max_our_mcse": "sqrt((m/1.645)^2/4 - MCSE_ref^2), floor 0.2 m/1.645"
+ },
+ "reference": {
+  "crn_pl": {
+   "file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz",
+   "tar_sha256": "05f9cfa7b55624506b88ef056adcfcecece7808a36e4ea9580d60110002b9b3d",
+   "chain_sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+   "burn_in_rows": 7497
+  },
+  "hd_pl": {
+   "file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz",
+   "tar_sha256": "f10ab49e6a2f530f9c2e798ce6e9eb3098e834ba2b8ad834850ea1ef9db175f8",
+   "chain_sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+   "burn_in_rows": 7497
+  }
+ },
+ "reference_summary": {
+  "crn_pl": {
+   "n_rows": 29990,
+   "burn_in_rows": 7497,
+   "n_retained": 22493,
+   "lnpost_minus_lnlike_mean": -135.4958658320437,
+   "lnlike_range": [
+    536662.338806,
+    536709.05269
+   ],
+   "params": {
+    "gw_crn_log10_A": {
+     "q": {
+      "0.05": -14.76568410272047,
+      "0.16": -14.323078639030152,
+      "0.5": -13.996617647027222,
+      "0.84": -13.814708780242423,
+      "0.95": -13.718466112155943
+     },
+     "ess_bulk": 983.7961285288814,
+     "ess_tail": 1107.702243823044,
+     "mcse": {
+      "0.05": 0.05812481540259373,
+      "0.16": 0.026291370289306393,
+      "0.5": 0.006663688422156255,
+      "0.84": 0.0040999197801596665,
+      "0.95": 0.003991123308040301
+     }
+    },
+    "gw_crn_gamma": {
+     "q": {
+      "0.05": 2.037704937254761,
+      "0.16": 2.3635113853814316,
+      "0.5": 2.9060006250033803,
+      "0.84": 3.7008775597755523,
+      "0.95": 4.626497962929144
+     },
+     "ess_bulk": 1139.2139858549563,
+     "ess_tail": 1256.6085516104984,
+     "mcse": {
+      "0.05": 0.018998255326216906,
+      "0.16": 0.014186525586573628,
+      "0.5": 0.01685139324194207,
+      "0.84": 0.05060563031362708,
+      "0.95": 0.10694518010708354
+     }
+    }
+   }
+  },
+  "hd_pl": {
+   "n_rows": 29990,
+   "burn_in_rows": 7497,
+   "n_retained": 22493,
+   "lnpost_minus_lnlike_mean": -135.49586583017646,
+   "lnlike_range": [
+    536658.637853,
+    536712.992818
+   ],
+   "params": {
+    "gw_hd_log10_A": {
+     "q": {
+      "0.05": -14.418402561793005,
+      "0.16": -14.149071864124636,
+      "0.5": -13.935281496555291,
+      "0.84": -13.783096527996369,
+      "0.95": -13.70238885296615
+     },
+     "ess_bulk": 1330.98599878212,
+     "ess_tail": 1120.379079522657,
+     "mcse": {
+      "0.05": 0.03679235074749698,
+      "0.16": 0.010285965669201147,
+      "0.5": 0.004626207801882387,
+      "0.84": 0.0038747636671470076,
+      "0.95": 0.0037545409150903097
+     }
+    },
+    "gw_hd_gamma": {
+     "q": {
+      "0.05": 1.97807169816815,
+      "0.16": 2.2507003168697337,
+      "0.5": 2.710311387957484,
+      "0.84": 3.2998914351948407,
+      "0.95": 3.893820015792073
+     },
+     "ess_bulk": 1555.7065618219904,
+     "ess_tail": 1212.844379952332,
+     "mcse": {
+      "0.05": 0.012684588406040809,
+      "0.16": 0.009758532612041071,
+      "0.5": 0.012108200312002548,
+      "0.84": 0.02585964050765166,
+      "0.95": 0.0703862023528925
+     }
+    }
+   }
+  }
+ },
+ "quantities": [
+  {
+   "id": "E-1",
+   "model": "hd_pl",
+   "param": "gw_hd_log10_A",
+   "quantile": 0.05,
+   "q_ref": -14.418402561793005,
+   "mcse_ref": 0.03679235074749698,
+   "sigma68_ref": 0.18298766806413358,
+   "m": 0.045746917016033395,
+   "decidable": false,
+   "max_our_mcse": 0.005562430147759653,
+   "role": "reported (reference-limited)"
+  },
+  {
+   "id": "E-1",
+   "model": "hd_pl",
+   "param": "gw_hd_log10_A",
+   "quantile": 0.5,
+   "q_ref": -13.935281496555291,
+   "mcse_ref": 0.004626207801882387,
+   "sigma68_ref": 0.18298766806413358,
+   "m": 0.027448150209620038,
+   "decidable": true,
+   "max_our_mcse": 0.0069436746005548,
+   "role": "headline"
+  },
+  {
+   "id": "E-1",
+   "model": "hd_pl",
+   "param": "gw_hd_log10_A",
+   "quantile": 0.95,
+   "q_ref": -13.70238885296615,
+   "mcse_ref": 0.0037545409150903097,
+   "sigma68_ref": 0.18298766806413358,
+   "m": 0.045746917016033395,
+   "decidable": true,
+   "max_our_mcse": 0.013389636092751813,
+   "role": "headline"
+  },
+  {
+   "id": "E-2",
+   "model": "hd_pl",
+   "param": "gw_hd_gamma",
+   "quantile": 0.05,
+   "q_ref": 1.97807169816815,
+   "mcse_ref": 0.012684588406040809,
+   "sigma68_ref": 0.5245955591625535,
+   "m": 0.13114888979063838,
+   "decidable": true,
+   "max_our_mcse": 0.03779462394673492,
+   "role": "headline"
+  },
+  {
+   "id": "E-2",
+   "model": "hd_pl",
+   "param": "gw_hd_gamma",
+   "quantile": 0.5,
+   "q_ref": 2.710311387957484,
+   "mcse_ref": 0.012108200312002548,
+   "sigma68_ref": 0.5245955591625535,
+   "m": 0.07868933387438302,
+   "decidable": true,
+   "max_our_mcse": 0.020628890974419823,
+   "role": "headline"
+  },
+  {
+   "id": "E-2",
+   "model": "hd_pl",
+   "param": "gw_hd_gamma",
+   "quantile": 0.95,
+   "q_ref": 3.893820015792073,
+   "mcse_ref": 0.0703862023528925,
+   "sigma68_ref": 0.5245955591625535,
+   "m": 0.13114888979063838,
+   "decidable": true,
+   "max_our_mcse": 0.015946572709172456,
+   "role": "headline"
+  },
+  {
+   "id": "E-3",
+   "model": "crn_pl",
+   "param": "gw_crn_log10_A",
+   "quantile": 0.05,
+   "q_ref": -14.76568410272047,
+   "mcse_ref": 0.05812481540259373,
+   "sigma68_ref": 0.2541849293938645,
+   "m": 0.06354623234846613,
+   "decidable": false,
+   "max_our_mcse": 0.007726673219700529,
+   "role": "reported (reference-limited)"
+  },
+  {
+   "id": "E-3",
+   "model": "crn_pl",
+   "param": "gw_crn_log10_A",
+   "quantile": 0.5,
+   "q_ref": -13.996617647027222,
+   "mcse_ref": 0.006663688422156255,
+   "sigma68_ref": 0.2541849293938645,
+   "m": 0.038127739409079674,
+   "decidable": true,
+   "max_our_mcse": 0.009482804672748707,
+   "role": "headline"
+  },
+  {
+   "id": "E-3",
+   "model": "crn_pl",
+   "param": "gw_crn_log10_A",
+   "quantile": 0.95,
+   "q_ref": -13.718466112155943,
+   "mcse_ref": 0.003991123308040301,
+   "sigma68_ref": 0.2541849293938645,
+   "m": 0.06354623234846613,
+   "decidable": true,
+   "max_our_mcse": 0.018899872453676792,
+   "role": "headline"
+  },
+  {
+   "id": "E-4",
+   "model": "crn_pl",
+   "param": "gw_crn_gamma",
+   "quantile": 0.05,
+   "q_ref": 2.037704937254761,
+   "mcse_ref": 0.018998255326216906,
+   "sigma68_ref": 0.6686830871970604,
+   "m": 0.1671707717992651,
+   "decidable": true,
+   "max_our_mcse": 0.04713134086013387,
+   "role": "headline"
+  },
+  {
+   "id": "E-4",
+   "model": "crn_pl",
+   "param": "gw_crn_gamma",
+   "quantile": 0.5,
+   "q_ref": 2.9060006250033803,
+   "mcse_ref": 0.01685139324194207,
+   "sigma68_ref": 0.6686830871970604,
+   "m": 0.10030246307955905,
+   "decidable": true,
+   "max_our_mcse": 0.025409790723706485,
+   "role": "headline"
+  },
+  {
+   "id": "E-4",
+   "model": "crn_pl",
+   "param": "gw_crn_gamma",
+   "quantile": 0.95,
+   "q_ref": 4.626497962929144,
+   "mcse_ref": 0.10694518010708354,
+   "sigma68_ref": 0.6686830871970604,
+   "m": 0.1671707717992651,
+   "decidable": false,
+   "max_our_mcse": 0.020326522562265307,
+   "role": "reported (reference-limited)"
+  }
+ ],
+ "E5": {
+  "role": "secondary",
+  "target": "HD log10_A at gamma = 13/3 (reweighted from a fixed-gamma CURN run)",
+  "q_ref_paper": {
+   "0.5": -14.61,
+   "0.05": -14.73,
+   "0.95": -14.5
+  },
+  "m": {
+   "0.5": 0.035,
+   "0.05": 0.03,
+   "0.95": 0.03
+  },
+  "reference_rounding_se": 0.005,
+  "label": "reference uncertainty incomplete"
+ },
+ "E6": {
+  "role": "headline",
+  "target_lnbf": 4.0943445622221,
+  "m": 0.3,
+  "max_se": 0.1,
+  "se": "MCSE(ln BF) (Sec. 5.4) and the spread of our estimators in quadrature",
+  "context": "EPTA re-estimates 56-66"
+ },
+ "reweighting": {
+  "estimator": "raw only",
+  "khat_max": 0.5,
+  "khat_scope": "pooled and every chain",
+  "max_mcse_lnbf": 0.1,
+  "stability_p_min": 0.01,
+  "max_chain_weight_share": 0.5
+ },
+ "convergence": {
+  "rhat_max": 1.01,
+  "ess_min_all": 400,
+  "ess_min_targets": 1000,
+  "divergences": 0,
+  "occupancy": "Sec. 5.3 rules, UNRESOLVED precedence (ptagwb.acceptance)",
+  "relevance_file": "configs/m3b/relevance/epta.json"
+ },
+ "d9": {
+  "claim_class": "CONDITIONALLY EQUIVALENT TO RELEASED RESULTS",
+  "template": "**CONDITIONALLY EQUIVALENT TO RELEASED RESULTS.** All predeclared decidable headline quantities meet the equivalence criteria conditional on excluding the explicitly listed regions U. Both retained sample sets contain zero visits to U; its posterior mass remains unresolved. Extension to the unrestricted posterior assumes P_m(U) <= epsilon_m for each relevant model, with numerical thresholds and sensitivity results reported below. These mass assumptions have not been established by the chains. This claim is weaker than REPRODUCED; the unconditional verdict remains INCONCLUSIVE.",
+  "excluded_regions": [
+   {
+    "name": "J0751+1807_dm_gp_log10_A:S",
+    "model": "crn_pl",
+    "param": "J0751+1807_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J0900-3144_dm_gp_log10_A:S",
+    "model": "crn_pl",
+    "param": "J0900-3144_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J0900-3144_red_noise_log10_A:S",
+    "model": "crn_pl",
+    "param": "J0900-3144_red_noise_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1012+5307_red_noise_log10_A:S",
+    "model": "crn_pl",
+    "param": "J1012+5307_red_noise_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1022+1001_dm_gp_log10_A:S",
+    "model": "crn_pl",
+    "param": "J1022+1001_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1600-3053_chrom_gp_log10_A:S",
+    "model": "crn_pl",
+    "param": "J1600-3053_chrom_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1600-3053_dm_gp_log10_A:S",
+    "model": "crn_pl",
+    "param": "J1600-3053_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1713+0747_J1713+0747_dmexp_1_log10_Amp:S",
+    "model": "crn_pl",
+    "param": "J1713+0747_J1713+0747_dmexp_1_log10_Amp",
+    "region": "S",
+    "boundaries": [
+     -10.0,
+     -9.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1713+0747_dm_gp_log10_A:S",
+    "model": "crn_pl",
+    "param": "J1713+0747_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1738+0333_dm_gp_log10_A:S",
+    "model": "crn_pl",
+    "param": "J1738+0333_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1744-1134_dm_gp_log10_A:S",
+    "model": "crn_pl",
+    "param": "J1744-1134_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1751-2857_dm_gp_log10_A:S",
+    "model": "crn_pl",
+    "param": "J1751-2857_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1801-1417_dm_gp_log10_A:S",
+    "model": "crn_pl",
+    "param": "J1801-1417_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1843-1113_dm_gp_log10_A:S",
+    "model": "crn_pl",
+    "param": "J1843-1113_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1857+0943_dm_gp_log10_A:S",
+    "model": "crn_pl",
+    "param": "J1857+0943_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1909-3744_dm_gp_log10_A:S",
+    "model": "crn_pl",
+    "param": "J1909-3744_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1910+1256_dm_gp_log10_A:S",
+    "model": "crn_pl",
+    "param": "J1910+1256_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1918-0642_dm_gp_log10_A:S",
+    "model": "crn_pl",
+    "param": "J1918-0642_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1713+0747_J1713+0747_dmexp_1_t0:rest",
+    "model": "crn_pl",
+    "param": "J1713+0747_J1713+0747_dmexp_1_t0",
+    "region": "rest",
+    "boundaries": "complement of the listed intervals within and outside the window",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J0751+1807_dm_gp_log10_A:S",
+    "model": "hd_pl",
+    "param": "J0751+1807_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz::hd_pl/chain_1.txt",
+    "sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J0900-3144_dm_gp_log10_A:S",
+    "model": "hd_pl",
+    "param": "J0900-3144_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz::hd_pl/chain_1.txt",
+    "sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J0900-3144_red_noise_log10_A:S",
+    "model": "hd_pl",
+    "param": "J0900-3144_red_noise_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz::hd_pl/chain_1.txt",
+    "sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1012+5307_dm_gp_log10_A:S",
+    "model": "hd_pl",
+    "param": "J1012+5307_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz::hd_pl/chain_1.txt",
+    "sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1012+5307_red_noise_log10_A:S",
+    "model": "hd_pl",
+    "param": "J1012+5307_red_noise_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz::hd_pl/chain_1.txt",
+    "sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1022+1001_dm_gp_log10_A:S",
+    "model": "hd_pl",
+    "param": "J1022+1001_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz::hd_pl/chain_1.txt",
+    "sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1600-3053_chrom_gp_log10_A:S",
+    "model": "hd_pl",
+    "param": "J1600-3053_chrom_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz::hd_pl/chain_1.txt",
+    "sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1600-3053_dm_gp_log10_A:S",
+    "model": "hd_pl",
+    "param": "J1600-3053_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz::hd_pl/chain_1.txt",
+    "sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1713+0747_J1713+0747_dmexp_1_log10_Amp:S",
+    "model": "hd_pl",
+    "param": "J1713+0747_J1713+0747_dmexp_1_log10_Amp",
+    "region": "S",
+    "boundaries": [
+     -10.0,
+     -9.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz::hd_pl/chain_1.txt",
+    "sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1713+0747_dm_gp_log10_A:S",
+    "model": "hd_pl",
+    "param": "J1713+0747_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz::hd_pl/chain_1.txt",
+    "sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1738+0333_dm_gp_log10_A:S",
+    "model": "hd_pl",
+    "param": "J1738+0333_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz::hd_pl/chain_1.txt",
+    "sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1744-1134_dm_gp_log10_A:S",
+    "model": "hd_pl",
+    "param": "J1744-1134_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz::hd_pl/chain_1.txt",
+    "sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1751-2857_dm_gp_log10_A:S",
+    "model": "hd_pl",
+    "param": "J1751-2857_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz::hd_pl/chain_1.txt",
+    "sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1801-1417_dm_gp_log10_A:S",
+    "model": "hd_pl",
+    "param": "J1801-1417_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz::hd_pl/chain_1.txt",
+    "sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1843-1113_dm_gp_log10_A:S",
+    "model": "hd_pl",
+    "param": "J1843-1113_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz::hd_pl/chain_1.txt",
+    "sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1857+0943_dm_gp_log10_A:S",
+    "model": "hd_pl",
+    "param": "J1857+0943_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz::hd_pl/chain_1.txt",
+    "sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1909-3744_dm_gp_log10_A:S",
+    "model": "hd_pl",
+    "param": "J1909-3744_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz::hd_pl/chain_1.txt",
+    "sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1910+1256_dm_gp_log10_A:S",
+    "model": "hd_pl",
+    "param": "J1910+1256_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz::hd_pl/chain_1.txt",
+    "sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "gw_hd_log10_A:S",
+    "model": "hd_pl",
+    "param": "gw_hd_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz::hd_pl/chain_1.txt",
+    "sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   },
+   {
+    "name": "J1713+0747_J1713+0747_dmexp_1_t0:rest",
+    "model": "hd_pl",
+    "param": "J1713+0747_J1713+0747_dmexp_1_t0",
+    "region": "rest",
+    "boundaries": "complement of the listed intervals within and outside the window",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz::hd_pl/chain_1.txt",
+    "sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+    "burn_in": 7497,
+    "reference_case": "zero-visit"
+   }
+  ],
+  "union_definition": "U_m = union of every listed region of model m (crn_pl: CURN; hd_pl: HD)",
+  "few_event_regions_not_eligible": [
+   {
+    "name": "J1012+5307_dm_gp_log10_A:S",
+    "model": "crn_pl",
+    "param": "J1012+5307_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "few-event"
+   },
+   {
+    "name": "J1012+5307_dm_gp_log10_A:P",
+    "model": "crn_pl",
+    "param": "J1012+5307_dm_gp_log10_A",
+    "region": "P",
+    "boundaries": [
+     -17.0,
+     -10.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "few-event"
+   },
+   {
+    "name": "J1024-0719_dm_gp_log10_A:S",
+    "model": "crn_pl",
+    "param": "J1024-0719_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "few-event"
+   },
+   {
+    "name": "J1024-0719_dm_gp_log10_A:P",
+    "model": "crn_pl",
+    "param": "J1024-0719_dm_gp_log10_A",
+    "region": "P",
+    "boundaries": [
+     -17.0,
+     -10.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "few-event"
+   },
+   {
+    "name": "J1640+2224_dm_gp_log10_A:S",
+    "model": "crn_pl",
+    "param": "J1640+2224_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "few-event"
+   },
+   {
+    "name": "J1640+2224_dm_gp_log10_A:P",
+    "model": "crn_pl",
+    "param": "J1640+2224_dm_gp_log10_A",
+    "region": "P",
+    "boundaries": [
+     -17.0,
+     -10.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "few-event"
+   },
+   {
+    "name": "J1804-2717_dm_gp_log10_A:S",
+    "model": "crn_pl",
+    "param": "J1804-2717_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "few-event"
+   },
+   {
+    "name": "J1804-2717_dm_gp_log10_A:P",
+    "model": "crn_pl",
+    "param": "J1804-2717_dm_gp_log10_A",
+    "region": "P",
+    "boundaries": [
+     -17.0,
+     -10.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "few-event"
+   },
+   {
+    "name": "gw_crn_log10_A:S",
+    "model": "crn_pl",
+    "param": "gw_crn_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "few-event"
+   },
+   {
+    "name": "gw_crn_log10_A:P",
+    "model": "crn_pl",
+    "param": "gw_crn_log10_A",
+    "region": "P",
+    "boundaries": [
+     -17.0,
+     -10.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz::crn_pl/chain_1.txt",
+    "sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+    "burn_in": 7497,
+    "reference_case": "few-event"
+   },
+   {
+    "name": "J1024-0719_dm_gp_log10_A:S",
+    "model": "hd_pl",
+    "param": "J1024-0719_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz::hd_pl/chain_1.txt",
+    "sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+    "burn_in": 7497,
+    "reference_case": "few-event"
+   },
+   {
+    "name": "J1024-0719_dm_gp_log10_A:P",
+    "model": "hd_pl",
+    "param": "J1024-0719_dm_gp_log10_A",
+    "region": "P",
+    "boundaries": [
+     -17.0,
+     -10.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz::hd_pl/chain_1.txt",
+    "sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+    "burn_in": 7497,
+    "reference_case": "few-event"
+   },
+   {
+    "name": "J1640+2224_dm_gp_log10_A:S",
+    "model": "hd_pl",
+    "param": "J1640+2224_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz::hd_pl/chain_1.txt",
+    "sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+    "burn_in": 7497,
+    "reference_case": "few-event"
+   },
+   {
+    "name": "J1640+2224_dm_gp_log10_A:P",
+    "model": "hd_pl",
+    "param": "J1640+2224_dm_gp_log10_A",
+    "region": "P",
+    "boundaries": [
+     -17.0,
+     -10.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz::hd_pl/chain_1.txt",
+    "sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+    "burn_in": 7497,
+    "reference_case": "few-event"
+   },
+   {
+    "name": "J1918-0642_dm_gp_log10_A:S",
+    "model": "hd_pl",
+    "param": "J1918-0642_dm_gp_log10_A",
+    "region": "S",
+    "boundaries": [
+     -18.0,
+     -17.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz::hd_pl/chain_1.txt",
+    "sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+    "burn_in": 7497,
+    "reference_case": "few-event"
+   },
+   {
+    "name": "J1918-0642_dm_gp_log10_A:P",
+    "model": "hd_pl",
+    "param": "J1918-0642_dm_gp_log10_A",
+    "region": "P",
+    "boundaries": [
+     -17.0,
+     -10.0
+    ],
+    "closed": "S: [lo, lo + 1]; P: (lo + 1, hi]",
+    "reference_file": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz::hd_pl/chain_1.txt",
+    "sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+    "burn_in": 7497,
+    "reference_case": "few-event"
+   }
+  ],
+  "p_grid": [
+   0.001,
+   0.01,
+   0.05,
+   0.1
+  ],
+  "bf_grid": [
+   0.0,
+   0.001,
+   0.01,
+   0.05,
+   0.1
+  ],
+  "epsilon_rule": "largest grid value <= min over the model's headline quantities of the lower 90 % MC bound of p*; class unavailable below 0.001",
+  "unconditional_verdict": "INCONCLUSIVE"
+ }
+}

@@ -127,7 +127,7 @@ def _reduce_bwd_sz(res, cts):
     nonzero constant -- triggers it): that is the XLA flag set by ``ptagwb/__init__`` plus the
     optimization barriers below (docs/PERF.md).
     """
-    E, d, RA, c, s_perp = res
+    E, d, RA, c, s_perp, r = res
     qb, ldb, Eb, db = cts
     rb = jnp.zeros_like(d)
     if not isinstance(qb, SymbolicZero):
@@ -143,7 +143,11 @@ def _reduce_bwd_sz(res, cts):
         rb = rb - jnp.sum(jax.lax.optimization_barrier(E @ Eb) * E, axis=1)
     if not isinstance(db, SymbolicZero):
         rb = rb - d * jax.lax.optimization_barrier(E @ db)
-    return jnp.zeros_like(RA), jnp.zeros_like(c), jnp.zeros_like(s_perp), rb
+    # cotangents of the residual-dependent data (c, s_perp): likelihood.data_cotangents
+    q = jnp.zeros_like(s_perp) if isinstance(qb, SymbolicZero) else qb
+    dbv = None if isinstance(db, SymbolicZero) else db
+    cb, sb = _L.data_cotangents(E, d, RA, c, r, q, dbv)
+    return jnp.zeros_like(RA), cb, sb * jnp.ones_like(s_perp), rb
 
 
 def _make_reduce(impl):
@@ -155,7 +159,7 @@ def _make_reduce(impl):
         RA, c, s_perp, r = RA.value, c.value, s_perp.value, r.value
         out = impl(RA, c, s_perp, r)
         _, _, E, d = out
-        return out, (E, d, RA, c, s_perp)
+        return out, (E, d, RA, c, s_perp, r)
 
     red.defvjp(fwd, _reduce_bwd_sz, symbolic_zeros=True)
     return red
