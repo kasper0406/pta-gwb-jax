@@ -5,10 +5,12 @@ T1, the manifest prior-volume check, the fingerprint and G5-PTA (results/*.json;
 Measured (GPU, float64; XLA_PYTHON_CLIENT_PREALLOCATE=false):
 * CURN value+gradient and value-only at B in {1, 4, 8} (vmapped chains), HD value-only (the
   reweighting cost) at B in {1, 8}; median of 30 calls after compilation; peak device memory;
+* the padded M1-reducer configuration at B = 1 for comparison (a first run in that configuration
+  was aborted after 3.5 GPU-min because its NUTS segment would have exceeded the budget);
 * the full update of the production kernel (``ptagwb.eventmh.EventMHNUTS``: one NUTS transition
   on the 66 continuous coordinates + 2 exact MH updates of t0 + cache refresh), 4 vectorised
-  chains, after a 100-step step-size adaptation, 50 timed transitions; steps per transition,
-  acceptance, divergences, t0 acceptance.
+  chains, after a 40-transition step-size adaptation, up to 50 timed transitions within a hard
+  25-min cap; steps per transition, acceptance, divergences, t0 acceptance.
 
 Benchmark expedients (NOT production settings, which the plan fixes from our own pilot): the dense
 metric is the covariance of the released CURN chain's retained draws in the unconstrained
@@ -83,9 +85,15 @@ def main():
     names, X, burn = epta.load_reference("crn_pl", man)
     R = X[burn:, :67]
     out = {"preconditions": pre, "device": str(dev), "nvidia_smi_before": smi, "timings": {}}
-    Mc = epta.EPTAModel(psrs, man, "crn")
-    Mh = epta.EPTAModel(psrs, man, "hd")
+    # production configuration: N8 size buckets + structured-Householder reducer (exact: equal to the
+    # padded M1 reducer to 0 nats / 1e-13 relative gradients, tests/test_m3b_epta.py)
+    Mc = epta.EPTAModel(psrs, man, "crn", reduce="hh", buckets=epta.BUCKETS)
+    Mh = epta.EPTAModel(psrs, man, "hd", reduce="hh", buckets=epta.BUCKETS)
+    Mp = epta.EPTAModel(psrs, man, "crn")  # padded to K_max = 416, M1 reducer (the first, aborted run)
     rng = np.random.default_rng(1)
+    x1 = jnp.asarray(R[:1])
+    out["timings"]["curn_value_grad_B1_padded_prod"] = timeit(jax.jit(jax.vmap(jax.value_and_grad(Mp._logL))), x1, n=10)
+    print("padded", out["timings"]["curn_value_grad_B1_padded_prod"], flush=True)
     for B in (1, 4, 8):
         xb = jnp.asarray(R[rng.choice(len(R), B, replace=False)])
         vg = jax.jit(jax.vmap(jax.value_and_grad(Mc._logL)))
@@ -108,7 +116,8 @@ def main():
     C = 4
     x0 = R[rng.choice(len(R), C, replace=False)]
     keys = jax.random.split(jax.random.PRNGKey(0), C)
-    n_warm, n_time = 100, 50
+    n_warm, n_time = 40, 50
+    budget_s = 25 * 60  # hard cap of the NUTS segment (D3: the whole benchmark <= 1 GPU-h)
     init = jax.jit(jax.vmap(lambda k, x: ker.init(k, x, n_warm, step_size=0.05, inverse_mass_matrix=jnp.asarray(imm),
                                                    adapt_mass_matrix=False)))
     st, t0 = init(keys, jnp.asarray(x0))
@@ -123,6 +132,8 @@ def main():
     steps, acc_p, divs, mh = [], [], [], []
     t = time.perf_counter()
     for i in range(n_time):
+        if time.perf_counter() - t + t_warm > budget_s:
+            break
         k, kk = jax.random.split(k)
         st, t0, info = step(jax.random.split(kk, C), st, t0)
         steps.append(np.asarray(info[3]))
@@ -132,6 +143,9 @@ def main():
     jax.block_until_ready(st.z)
     t_time = time.perf_counter() - t
     steps = np.array(steps)
+    if steps.size == 0:
+        sys.exit("NUTS segment exceeded the time cap during warmup")
+    n_time = len(steps)
     out["nuts"] = {"chains": C, "warmup_steps": n_warm, "timed_transitions": n_time, "warmup_seconds": t_warm,
                    "timed_seconds": t_time, "seconds_per_transition_all_chains": t_time / n_time,
                    "steps_per_transition_mean": float(steps.mean()), "steps_per_transition_max": int(steps.max()),

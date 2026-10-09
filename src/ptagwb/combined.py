@@ -289,6 +289,7 @@ class GeneralPTALikelihood:
         reduce: str = "prod",
         tri_inv: str = "recursive",
         grad_precision: str = "float64",
+        buckets: tuple | None = None,
     ):
         from . import perf_likelihood as _perf
 
@@ -368,6 +369,22 @@ class GeneralPTALikelihood:
         if reduce not in _perf.REDUCERS:
             raise ValueError(f"unknown reduce {reduce!r}")
         self._reducer = _perf.REDUCERS[reduce]
+        # N8 stage-2 size buckets: pulsars grouped by K_a; each group is reduced at its own size
+        # (bucket edge), padded only to that edge (the zero-column / unit-prior padding is exact)
+        self.buckets = None
+        if buckets is not None:
+            Ks = np.array([t.K for t in terms])
+            edges = sorted(int(e) for e in buckets)
+            if edges[-1] < K:
+                edges.append(K)
+            groups, lo = [], 0
+            for e in edges:
+                idx = np.flatnonzero((Ks > lo) & (Ks <= e))
+                if idx.size:
+                    groups.append((jnp.asarray(idx), int(min(e, K))))
+                lo = e
+            self.buckets = groups
+            self._bucket_order = jnp.asarray(np.argsort(np.concatenate([np.asarray(g[0]) for g in groups])))
         self.lam0 = 0.0
         self.Lgamma = None
         if Gm is not None:
@@ -426,6 +443,8 @@ class GeneralPTALikelihood:
         phic = self.phi_common(params) if self.common is not None else None
         phi = self._phi_flat(params, phic)
         red = jax.vmap(self._reducer)
+        if self.buckets is not None:
+            return self._logL_bucketed(red, phic, phi, c, s_perp)
         if self.Lgamma is None:
             q, ld, _, _ = red(self.RA, c, s_perp, phi)
             return -0.5 * (jnp.sum(q + ld) + self.const_total)
@@ -433,6 +452,26 @@ class GeneralPTALikelihood:
         ar = jnp.arange(self.P)[:, None, None]
         E = E[ar, self.G[:, :, None], self.G[:, None, :]]
         d = jnp.take_along_axis(d, self.G, axis=1)
+        return self._core(q, ld, E, d, phic)
+
+    def _logL_bucketed(self, red, phic, phi, c, s_perp):
+        qs, lds, Es, ds = [], [], [], []
+        for idx, kb in self.buckets:
+            q, ld, E, d = red(self.RA[idx, :kb, :kb], c[idx, :kb], s_perp[idx], phi[idx, :kb])
+            qs.append(q)
+            lds.append(ld)
+            if self.Lgamma is not None:
+                G = self.G[idx]
+                ar = jnp.arange(G.shape[0])[:, None, None]
+                Es.append(E[ar, G[:, :, None], G[:, None, :]])
+                ds.append(jnp.take_along_axis(d, G, axis=1))
+        q, ld = jnp.concatenate(qs), jnp.concatenate(lds)
+        if self.Lgamma is None:
+            return -0.5 * (jnp.sum(q + ld) + self.const_total)
+        o = self._bucket_order
+        return self._core(q, ld, jnp.concatenate(Es)[o], jnp.concatenate(ds)[o], phic)
+
+    def _core(self, q, ld, E, d, phic):
         sqc = jnp.sqrt(phic)
         Es = E * sqc[None, :, None] * sqc[None, None, :]
         dt = d * sqc[None, :]

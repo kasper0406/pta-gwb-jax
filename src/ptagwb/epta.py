@@ -53,6 +53,7 @@ MANIFEST_PATH = REPO_ROOT / "configs" / "m3b" / "manifest_epta.json"
 EXPORT_DIR = REPO_ROOT / "data" / "processed" / "m3b" / "epta" / "export" / "ours_canonical"
 DAY = 86400.0
 PROCESSES = ("red_noise", "dm_gp", "chrom_gp")
+BUCKETS = (64, 128, 192, 256, 320, 416)  # N8 stage-2 size buckets for the DR2new K_a (38-416)
 
 
 def load_manifest(path: Path | str = MANIFEST_PATH) -> dict:
@@ -143,7 +144,7 @@ class EPTAModel:
     """Marginalised EPTA DR2new likelihood (CURN or HD) on the chain's parameter vector."""
 
     def __init__(self, psrs: list[Pulsar], man: dict, orf: str = "crn", *, reduce: str = "prod",
-                 tri_inv: str = "recursive"):
+                 tri_inv: str = "recursive", buckets: tuple | None = None):
         if [p.name for p in psrs] != list(man["pulsars"]):
             raise ValueError("pulsars must be the manifest roster in its order")
         if orf not in ("crn", "hd"):
@@ -158,7 +159,7 @@ class EPTAModel:
             self.terms.append(_C.precompute_general(p, wn, pulsar_model(p, man, self.T_common), timing="svd",
                                                     projector=p.name == dip["pulsar"]))
         self.like = _C.GeneralPTALikelihood(self.terms, orf="curn" if orf == "crn" else "hd", common="powerlaw",
-                                            convention="chain", reduce=reduce, tri_inv=tri_inv)
+                                            convention="chain", reduce=reduce, tri_inv=tri_inv, buckets=buckets)
         # ---- parameter layout (chain column order)
         self.param_names = [q["name"] for q in man["parameters"] if orf in q["models"]]
         self.lo = np.array([q["bounds"][0] for q in man["parameters"] if orf in q["models"]])

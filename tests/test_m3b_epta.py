@@ -190,3 +190,22 @@ def test_acceptance_files_frozen(epta_data):
     acc_new, rel_new = fa.build()
     assert json.loads(json.dumps(acc_new)) == a, "acceptance file differs from a fresh generation"
     assert json.loads(json.dumps(rel_new)) == json.loads(fa.REL.read_text())
+
+
+@pytest.mark.slow
+def test_buckets_and_hh_reducer_are_exact(epta_data):
+    """N8 size buckets with the structured-Householder reducer (the benchmarked production
+    configuration) equal the padded M1 reducer: value to rounding, gradients to 1e-11 relative."""
+    from ptagwb import epta
+
+    man, psrs = epta_data
+    names, X, burn = epta.load_reference("crn_pl", man)
+    for orf in ("crn", "hd"):
+        base = epta.EPTAModel(psrs, man, orf)
+        fast = epta.EPTAModel(psrs, man, orf, reduce="hh", buckets=epta.BUCKETS)
+        for x in X[[burn, burn + 9000], :67]:
+            v0, g0 = base.value_and_grad(x)
+            v1, g1 = fast.value_and_grad(x)
+            assert abs(float(v1 - v0)) < 1e-8
+            g0, g1 = np.asarray(g0), np.asarray(g1)
+            assert np.max(np.abs(g1 - g0) / np.maximum(1.0, np.abs(g0))) < 1e-11
