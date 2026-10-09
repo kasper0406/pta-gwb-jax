@@ -9,6 +9,50 @@ and blocks nothing (plan Sec. 7).
 has been run.** The pilot waits for the independent review of this revision and the
 coordinator's confirmation.
 
+**Revision 5 (after review round 4 of 2f55e24, both round-3 items verified fixed; two more MAJOR
+cap leaks; `review_m3b0_r4.out`).**
+1. **Charges come only from a monotonic duration.** The supervisor measures the time from before
+   the worker starts to after it is reaped on `CLOCK_BOOTTIME`. That clock is monotonic, immune to
+   wall-clock steps, and keeps counting through a suspend. Wall-clock timestamps are recorded for
+   information only. If a record has no measured duration (no reap, wrong clock, invalid value,
+   another run), reconciliation closes the entry at its **full allocation**.
+2. **Parent-death registration is checked.**
+   * The supervisor PID is captured before spawning.
+   * The worker's pre-exec hook must set `PR_SET_PDEATHSIG` = SIGKILL successfully and read it back
+     with `PR_GET_PDEATHSIG`.
+   * The hook then verifies that its parent is still that PID.
+   * Any failure raises, and the worker is never executed.
+3. **Binding scheme 2.**
+   * The gate-evidence binding now excludes the **control plane**: `ptagwb.budget`, `ptagwb.binding`,
+     the run driver and the rebind script. None of these can change a gate's numbers, and a strict
+     test checks that no bound file imports them; bound files may import only the stamping and
+     checking names of `binding`.
+   * The driver binds the control plane separately: committed and clean, with its file hashes
+     recorded with the run.
+   * Gate results computed at 2f55e24 were re-stamped, not recomputed, by
+     `scripts/m3b_rebind_evidence.py`. It requires (i) that each recorded binding equals the
+     legacy binding rebuilt from 2f55e24's git tree with today's inputs, runtime, libraries and
+     oracle envs, and (ii) that every bound file is byte-identical to 2f55e24, so only control-plane
+     files changed.
+   * Each result records the migration, and a strict test re-verifies both conditions from git.
+
+**Revision 4 (after review round 3 of 2fcad62, REQUEST_CHANGES with two MAJOR cap defects;
+`review_m3b0_r3.out`; every other item confirmed resolved).**
+1. **Reconciliation** of an open ledger entry now needs the supervisor's lock-free record: the time
+   before the worker started and the time after it was reaped. The charge is that span rounded up
+   to whole minutes plus one minute, capped at the allocation. Process death alone, or a record
+   without a reaped end, never lowers the charge.
+2. **Deadline enforcement no longer depends on any ledger operation.**
+   * The driver is a supervisor. It SIGKILLs the sampling worker at the hard deadline using only
+     monotonic time, `waitpid` and `kill`.
+   * Inside the worker, a lock-free timer calls `os._exit` earlier still.
+   * Heartbeats only write.
+   * Every ledger write after admission, the terminal write included, is best-effort. If it does
+     not complete, the entry stays open and charged in full.
+
+The tests hold the real ledger `flock` and block the terminal write, and the kill still lands at
+the deadline (Sec. 8.4).
+
 **Revision 3 (after review round 2 of 50f8d68, REQUEST_CHANGES; `review_m3b0_r2.out`; the pilot
 may not start yet).** The reviewer confirmed G5 (all 24 points reproduce exactly), the common domain,
 the conditional quantiles, the headline rule, the projection and the provenance wording, and
@@ -746,34 +790,61 @@ complete kernel) shows adequate mixing and projects these targets within the cap
 **Superseded (revision 1).** The 41 / 81 / 199 GPU-h projection charged E-2 q95's free-gamma tail
 requirement (ESS 23,629) to both runs and omitted the block-MH cost.
 
-### 8.4 D4: mechanical cap and run driver (user decision 2026-10-09, second set; revision 3)
+### 8.4 D4: mechanical cap and run driver (user decision 2026-10-09, second set; revision 4)
 
 `ptagwb.budget` and `scripts/m3b_run_epta.py`:
 * **Locked ledger.** Every admission, heartbeat and close is a read-modify-write under an
   exclusive `fcntl` lock. Each write goes through a unique temporary file and an atomic rename.
-* **Charging.** An open entry (active, or crashed and not reconciled) is charged its **full
-  allocation**; a closed one is charged its recorded time. Admission therefore reserves every
-  active allocation in full. A crash stays charged in full until `reconcile`, which requires the
-  pid to be gone and an operator note.
+* **Charging.** An open entry is charged its **full allocation**: an active run, a crashed run,
+  and any run whose terminal write did not happen. A closed entry is charged the **supervisor's
+  measured duration** on `CLOCK_BOOTTIME`, from before the worker started to after it was reaped,
+  rounded up to whole minutes plus one minute and capped at the allocation (revision 5). The
+  worker's heartbeats and wall-clock timestamps are never used. Admission therefore reserves every
+  open allocation in full.
+* **Reconciliation** (`Ledger.reconcile`) of an open entry uses that duration only if the
+  supervisor record holds it (reaped, `CLOCK_BOOTTIME`, finite, non-negative, same run).
+  Otherwise the entry is closed at the full allocation.
 * **Caps.** Total 12, pilot 2, production 8, contingency 2 GPU-h. A run_id is never repeated or
   resumed.
-* **GPU lock.** An exclusive per-device lock is held for the whole run. `nvidia-smi` must also show
-  no other compute process.
-* **Deadline and watchdog.** The deadline is the allocation minus two grace periods. The previous
-  chunk's time must fit before every chunk. The watchdog (poll = grace/4) kills the process on a
-  deadline overrun **or a failed heartbeat write**. Its ledger close is best-effort and its failure
-  does not stop the exit, so the process ends before its allocation is used up.
-* **Fixed configuration.** The driver refuses an uncommitted config or work-tree change, unknown
-  keys, inits from the reference chain, and stale or failed evidence (bound hashes, now including
-  T2 and the occupancy diagnostics).
+* **Process structure and deadlines, independent of the ledger** (allocation A, grace g = 60 s):
+  * the **supervisor** (`main`) does the checks, admission and GPU lock;
+  * it writes its lock-free record (atomic temp file, no lock);
+  * it starts the **worker** (`--worker`). The worker's pre-exec hook sets `PR_SET_PDEATHSIG` =
+    SIGKILL and requires that to succeed, read back. It then checks that its parent is still the
+    supervisor PID captured before spawning; otherwise the worker is never executed (revision 5);
+  * it **SIGKILLs the worker at A - 2g**, using only `CLOCK_BOOTTIME`, `waitpid` and `kill`;
+  * inside the worker, a dedicated `HardDeadline` timer thread calls `os._exit` at **A - 3g**,
+    with no I/O and no lock;
+  * the chunk planner stops between chunks before **A - 4g** (the previous chunk's time must fit);
+  * heartbeats only write the ledger. A failing heartbeat ends the worker; a blocked one blocks
+    nothing else.
+  * After the reap, the supervisor records the measured duration and makes the best-effort
+    terminal ledger write.
 * **Tests.**
-  * 3 concurrent 1.5 GPU-h admissions against the 2 GPU-h pilot cap admit exactly 1 (spawned
-    processes);
-  * the reviewer's crash case is refused: 1.98 GPU-h allocated, last heartbeat at 7,080 s, death
-    at 7,139 s, then a 120-s request;
-  * a heartbeat that raises, with a ledger close that also fails, still exits;
-  * reconciliation of a live process is refused;
-  * the GPU lock is exclusive.
+  * 3 concurrent 1.5 GPU-h admissions against 2 GPU-h admit exactly 1.
+  * **Round-3 repro**: 2 GPU-h allocated, last heartbeat at 7,080 s, death at 7,139 s. Without
+    the supervisor's reaped duration, the full 7,200 s are charged and a further 120 s is refused.
+    Seven malformed records (wall clock only, no duration, wrong clock, not reaped, NaN, negative,
+    another run) are each charged in full.
+  * **Round-4 repro**: 7,000 s consumed, heartbeat at 6,000 s, wall clock stepped back 600 s.
+    The charge is 7,080 s (a wall-clock span would give 6,480 s), and the further 720 s are
+    refused. With a live supervisor whose wall clock steps back 600 s mid-run, the recorded wall
+    span is negative but the charged duration is the true one.
+  * **The supervisor dies before the worker registers** (killed while the child sleeps in its
+    pre-exec hook, before `prctl`). With the round-3 hook, the orphaned worker runs: this is the
+    control, showing the race is real. With the round-4 hook, it never executes. A failing or
+    ineffective `prctl`, or a wrong parent, raises. A worker dies with a live supervisor that is
+    SIGKILLed.
+  * **With the real ledger `flock` held by another thread** and the heartbeat blocked on it, the
+    hard deadline fires within 0.2-0.35 s for a 0.2 s deadline.
+  * **The supervisor kills the worker on time while the ledger lock is held and its terminal
+    write (`on_exit`) is blocked.** The worker is reaped within 0.8 s for a 0.5 s deadline. The
+    entry stays charged in full until the write completes, then gets the conservative span.
+  * A failing terminal write leaves the entry open and charged in full.
+  * A failing heartbeat ends the worker.
+* **Fixed configuration.** The driver refuses an uncommitted config or work-tree change, unknown
+  keys, inits from the reference chain, and stale or failed evidence (bound hashes, including T2
+  and the occupancy diagnostics). The GPU lock is exclusive.
 * **Pilot configs** (committed, **not started**): `epta_pilot_curn_freegamma.json` (1.5 GPU-h) and
   `epta_pilot_curn_g433.json` (0.5 GPU-h).
 
@@ -781,7 +852,35 @@ The D3 benchmark (0.21 GPU-h, revision 1) is not in the ledger. It remains timin
 
 ## 9. Strict suite
 
-**Revision 3** (2026-10-09): `PTAGWB_REQUIRE_ORACLES=1`, CPU, run at 1cc3654 (code 39cf5e6).
+**Revision 5** (2026-10-09): `PTAGWB_REQUIRE_ORACLES=1`, CPU, code 4477b5a, with the gate results
+re-stamped to binding scheme 2.
+**523 passed, 2 xfailed** (E7 and E8, `xfail(strict=True)`), **0 failed, 0 skipped**, in 46 min.
+
+New in revisions 4 and 5 (25 tests):
+* reconcile repros for rounds 3 and 4, and seven malformed records charged in full;
+* a live supervisor through a wall-clock step;
+* the hard deadline with the ledger lock held;
+* the supervisor kill with the ledger lock held and `on_exit` blocked;
+* terminal-write failure;
+* `prctl` failure or no effect, and a wrong parent;
+* the **supervisor dying before the worker registers** (round-3 control, round-4 fix);
+* the worker dying with its supervisor;
+* control-plane isolation (an AST import check of every bound file);
+* scheme-2 sensitivity: the control plane is ignored, numeric code, configs and oracles are not;
+* the legacy digest is reproduced;
+* the rebind refuses a changed bound file, a mismatched legacy binding or a scheme-2 mismatch;
+* the migrated results re-verify from git.
+
+**Gate results.** T1, prior volume, fingerprint, G5-PTA, t0 conditional, runtime sensitivity, T2
+and conditional occupancy were all recomputed at 2f55e24. T1, fingerprint and G5-PTA PASS. T2 is
+immaterial: shifts ≤0.003 σ68. Occupancy: every U region ≤3e-3.
+
+The occupancy job ran 2f55e24 from start to finish: the round-4 code was written in a separate
+worktree and merged only afterwards. All results were then re-stamped to scheme 2 by the verified
+rebind (revision-5 header, item 3); none was recomputed under 4477b5a. The driver's dry-run passes
+every precondition and records the control-plane hashes.
+
+**Revision 3** (superseded) (2026-10-09): `PTAGWB_REQUIRE_ORACLES=1`, CPU, run at 1cc3654 (code 39cf5e6).
 **498 passed, 2 xfailed** (the open M3a gates E7 and E8, `xfail(strict=True)`), **0 failed, 0
 skipped**, in 47 min. The GPU check passed in revision 1.
 
@@ -802,9 +901,9 @@ passes.
 
 Needed before the pilot:
 
-1. **Independent review of revision 3.** The pilot needs this review and the coordinator's
-   confirmation. The driver's dry-run passes every precondition, including T2 and the occupancy
-   diagnostics, all bound to 39cf5e6.
+1. **Independent review of revision 5.** The pilot needs this review and the coordinator's
+   confirmation. The driver's dry-run passes every precondition, all bound under scheme 2 at
+   4477b5a.
 
 Needed after the pilot, before production:
 
