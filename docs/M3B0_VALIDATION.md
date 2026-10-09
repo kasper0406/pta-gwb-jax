@@ -569,26 +569,28 @@ remain valid as timing evidence (review).
 
 ## 9. Strict suite
 
-`PTAGWB_REQUIRE_ORACLES=1`, CPU (2026-10-09), plus the GPU check with
-`XLA_PYTHON_CLIENT_PREALLOCATE=false`:
+The suite was run with `PTAGWB_REQUIRE_ORACLES=1` on the CPU, at revision 2 (2026-10-09), in
+46 min. `data/processed/m3a` and `runs/` are linked to the main checkout.
 
-* **477 passed, 2 xfailed, 0 failed, 0 skipped**, and the GPU check passed. The 2 xfails are the
-  open M3a gates (E7, E8), `xfail(strict=True)`.
-* The first full run (37 min) reported 8 failures and 11 errors, all in `test_m3a_ingestion.py`,
-  `test_m3a_multileg.py` and `test_m3a_tempo2_parity.py`: the worktree lacked the pinned M3a clock
-  directories (`data/processed/m3a`), so PINT fell back to downloaded clock files and the pinning
-  check failed closed. With `data/processed/m3a` linked to the main checkout (as `runs/` already
-  was), those three files pass (25 passed, 2 xfailed). Environmental; unrelated to the code
-  changes.
-* M3b tests (`tests/test_m3b_*.py`, 39 tests): reweighting (9) and acceptance (19) tooling on
-  synthetic targets; the N13 toy validation and negative control (2); T1 helpers and fingerprint
-  helpers; on the real data: manifest regeneration + prior volume, **T1 on the complete roster
-  (fresh exports)**, dip terms vs stage 1, **fingerprint**, **G5-PTA**, bucket/reducer exactness,
-  frozen acceptance files.
-* The reducer change (data cotangents) is covered by the M1/M2/M3a likelihood and G9 regression
-  tests, which pass unchanged.
-
----
+* **486 passed, 2 xfailed, 0 failed, 0 skipped.** The 2 xfails are the open M3a gates E7 and E8,
+  marked `xfail(strict=True)`.
+* The GPU check passed in revision 1 and was not rerun.
+* The revision-1 note still holds: the first full run's 19 M3a failures were environmental. The
+  pinned M3a clock directory was missing in the worktree.
+* **M3b tests** (`tests/test_m3b_*.py`):
+  * reweighting and acceptance, including the revised D9: common domain, conditional-quantile
+    coverage, fail-closed inventories and NaN rejection;
+  * the N13 toy, its negative control and the complete kernel with block moves;
+  * the budget: ledger, refusals, crash accounting, watchdog kill inside a block, run-config
+    validation;
+  * T1 and fingerprint helpers; the fingerprint verdict aggregation; the binding's
+    stale/missing/failed/unbound negatives;
+  * the real-data gates, rerun fresh: manifest and prior volume, T1, fingerprint, G5-PTA on all 24
+    points, bucket exactness, and the frozen acceptance file v2.
+* **Gate results** (`data/processed/m3b/epta/results/`) are bound to the committed configuration.
+  `scripts/m3b_run_epta.py ... --dry-run` passes every precondition (2d24a00). The driver's
+  sampling path was checked by tracing it (`jax.eval_shape`; CPU, both pilot configs, 33 blocks),
+  not by executing it.
 
 ## 10. Open issues
 
