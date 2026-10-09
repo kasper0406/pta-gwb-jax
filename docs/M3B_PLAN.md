@@ -692,6 +692,13 @@ epoch is smooth). **Validation** of the composed kernel:
 * Committed configs, recorded SHA and pre-set abort rules: stop at 1.5x the allocation.
 * Jump proposals: 20 % prior + 80 % equal-mass histogram, fitted from **our** pilot draws only,
   frozen with sha256 before production.
+* **PROPOSED revision (2026-10-09; pending the user's approval; review of pilot v1).**
+  * The EPTA pilot v2 would use a fixed dense metric and block proposals (20 % prior + 80 %
+    equal-mass histogram) **fitted from the released CURN chain**.
+  * These are disclosed efficiency aids: exact Hastings ratios, independent starts, and every
+    production gate retained (docs/M3B0_VALIDATION.md Sec. 9b).
+  * The computation would then no longer be reference-blind.
+  * Not in force until approved.
 
 ### 5.3 Pre-registered convergence gate (fail-closed)
 

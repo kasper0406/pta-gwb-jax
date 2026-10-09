@@ -931,6 +931,108 @@ purpose.
 `epta_pilot_curn_g433_v1` (0.5 GPU-h, 150 warmup transitions) has the same structure and was
 **not started**. No config was changed.
 
+## 9b. EPTA pilot v2: prepared, NOT run (draft pending the user's approval)
+
+Astra reviewed pilot v1 (`review_epta_pilot1.out`): the stop was correct. v1 sampled with an
+**identity inverse mass matrix**: NumPyro's first dense update comes after transition 100. The
+released chain's z-covariance has condition number about 9,900. The review recommends a v2 pilot
+with reference-derived tuning.
+
+**Protocol revision (pending the user's approval).** Plan Sec. 5.2 says jump proposals come from
+"our pilot draws only". v2 instead uses a dense metric and block-MH proposals **derived from the
+released CURN chain**. These are disclosed efficiency aids:
+* the target is unchanged (exact Hastings ratios, full prior support);
+* the starts are independent (`prior_central`, new seed), with independent random streams;
+* step-size adaptation is kept;
+* the artifacts are frozen before the run and never tuned against headline agreement;
+* every production gate is retained.
+
+The computation is then no longer reference-blind. Reference-based proposals cannot establish
+coverage of regions the reference missed.
+
+**Committed plumbing** (control plane, scheme 3):
+* **Driver config fields.** Optional `inverse_mass_matrix` (`file:configs/m3b/metrics/*.npz`, a
+  fixed dense metric; requires `dense_mass` true and `adapt_mass_matrix` false), `target_accept_prob`
+  (default 0.8) and `stop_rules`. `blocks.proposals` accepts `file:configs/m3b/proposals/*.json`.
+* **Fail-closed checks.** Referenced files must be committed, and their sha256 is recorded. The
+  metric's names and order must equal the sampler's continuous coordinates; it must be symmetric
+  and positive definite. The proposal file must match the driver's block layout exactly (32
+  amplitude pairs plus the dip block). Each block's box must equal the prior box, and its edges must
+  increase strictly from lo to hi.
+* **Absent fields reproduce v1 exactly.**
+* **Diagnostics.** Each chunk saves the adapted step sizes. The metric actually used is saved at
+  init and whenever it changes. Per-chunk timings include the slowest chain per transition. An
+  atomic sampler checkpoint (all state leaves, t0, key) is written after every chunk, for
+  diagnostics only: runs are never resumed without a reviewed decision.
+
+**Tuning artifacts** (`scripts/m3b_tuning_artifacts.py`; **staged** in
+`data/processed/m3b/epta/tuning_staging/`, not committed):
+* Built from all 22,493 released CURN rows after the frozen 7,497-row burn-in (chain sha256
+  `b7dee2a7...`), with parameters matched by name.
+* **Metric:** 0.95 Cov(z) + 0.05 diag(Cov(z)) + 1e-6 I, where z = log((x - lo)/(hi - x)), on the 66
+  continuous coordinates with t0 excluded. Eigenvalues range from 4.26e-4 to 3.66 (condition
+  number 8,583). It is a covariance, not its inverse.
+* **Proposals:** 33 blocks, w_prior 0.2, 20 equal-mass bins per coordinate spanning the prior box.
+* The provenance file records the hashes, column mapping, transform, recipe and code HEAD. A strict
+  test regenerates the artifacts and requires exact equality.
+
+**Draft config** (`tuning_staging/epta_pilot_curn_freegamma_v2.json`; validates). Changes from v1:
+* `run_id` v2, `num_warmup` 150, `max_transitions` 600, `max_tree_depth` 8;
+* `adapt_mass_matrix` false, the metric and proposal files above, `target_accept_prob` 0.9;
+* seed 20261011, max_gpu_hours 1.5 (the fixed-gamma pilot no longer fits the pilot phase).
+
+All other settings are unchanged.
+
+**Pre-registered rules (frozen before v2).**
+1. **In-run, enforced by the driver** (`stop_rules`):
+   * no retuning or warmup extension;
+   * stop on a non-finite state or log-likelihood;
+   * stop on any post-warmup divergence;
+   * at transition 150, stop if the elapsed time exceeds 2,400 s, or if the slowest of the last 3
+     chunk timings projects fewer than 300 post-warmup transitions per chain by 5,040 s;
+   * otherwise end at 600 transitions or the existing deadline. Hard kills stay at A - 3g / A - 2g.
+2. **Evidence.** Fewer than 300 post-warmup transitions per chain means **insufficient pilot
+   evidence**.
+3. **Release screening** (`scripts/m3b_pilot_report.py`, `evaluate_release`):
+   * zero post-warmup divergences;
+   * rank-normalised/folded split R-hat < 1.01 for every parameter;
+   * bulk and tail ESS >= 100 for every parameter and >= 200 for the targets;
+   * every Sec. 5.3 transport item outside U PASS. Actual region-indicator movement is required;
+     ESS and MH acceptance never substitute.
+
+   These are screening thresholds. Production keeps the frozen 400 / 1,000 requirements.
+4. **Projection** (`projection`). For each required output, the chain-transitions needed are the
+   pilot's, scaled by (measured MCSE / allowed MCSE)^2 or by (ESS floor / measured ESS). The outputs
+   are the headline quantities on D (HD by reweighting our draws, with log w = lnL_HD - lnL_CURN
+   from FastEPTA), E-6 (MCSE of ln B_D <= 0.10), and the floors of 400 / 1,000.
+   * The most demanding requirement sets the sampling time, which is **doubled**.
+   * Measured warmup and the HD-reweighting cost are added.
+   * The result is compared with min(8 GPU-h production, 12 - 0.21 - pilot).
+   * Run B (13/3) is unpiloted and is assessed against what remains after run A.
+
+   Unresolved transport is never extrapolated.
+
+**Binding scheme 3 and gate refresh.**
+* Scheme 3 also excludes the sampler-run plane from the gate evidence: the generator, the pilot
+  report, and `configs/m3b/{run_configs,metrics,proposals}/`. A strict test checks that no bound
+  file imports these modules or names these paths. The driver binds them instead: committed and
+  clean, with their hashes recorded.
+* `scripts/m3b_rebind_evidence.py` now migrates scheme k to 3, with the full migration history and a
+  strict re-verification from git.
+* **No gate needs rerunning.** All 8 gate results were rebound from 492e71f. Since then, only
+  control-plane and run-plane files changed.
+* At "go", committing the v2 config, metric and proposals changes no gate binding.
+
+**At "go":**
+1. copy the staged metric and proposals to `configs/m3b/metrics/` and `configs/m3b/proposals/`, and
+   the draft config to `configs/m3b/run_configs/`;
+2. commit;
+3. dry-run;
+4. check `nvidia-smi`;
+5. run through the driver;
+6. run `m3b_pilot_report.py RUN_ID --hd`;
+7. stop before any production.
+
 ## 10. Open issues
 
 Needed before the pilot:

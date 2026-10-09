@@ -3,8 +3,10 @@
 Every M3b gate result file records ``binding = evidence_binding()``: sha256 of the evaluated code
 (``src/ptagwb/*.py``, ``scripts/m3b_*.py``, the oracles ``tests/m3b_arbiter.py`` and
 ``tests/dense_oracle.py``; scheme 2 excludes the **control plane** ``CONTROL_PLANE``: the GPU-time
-budget and supervisor, this module, the run driver and the rebind script, none of which is imported
-by any gate computation, which a strict-suite test checks), the committed M3b configs, the exported input arrays our model
+budget and supervisor, this module, the run driver and the rebind script; scheme 3 adds the
+sampler-run plane: the tuning-artifact generator, the pilot report, and the run configs, metrics
+and proposals under ``RUN_CONFIG_PREFIXES``. None of these is imported or read by any gate
+computation, which a strict-suite test checks), the committed M3b configs, the exported input arrays our model
 consumes (immutable evidence), the installed tempo2 runtime verified file by file against the
 committed pin (runtime evidence), the numerical-library versions of the evaluating env and the
 package versions of the external oracle envs. A consumer of gate
@@ -25,12 +27,18 @@ EXPORTS = REPO_ROOT / "data" / "processed" / "m3b" / "epta" / "export" / "ours_c
 RUNTIME_DIR = REPO_ROOT / "data" / "processed" / "m3b" / "epta" / "t2runtime"
 RUNTIME_PIN = REPO_ROOT / "configs" / "m3b" / "t2runtime_epta.json"
 LIBRARIES = ("numpy", "scipy", "jax", "jaxlib", "numpyro")
-SCHEME = 2
+SCHEME = 3
 ORACLES = ("tests/m3b_arbiter.py", "tests/dense_oracle.py")
 # Files that never enter a gate computation (GPU-time accounting, supervision, evidence bookkeeping,
 # the run driver). Excluded from the gate-evidence binding; bound by the run driver instead.
-CONTROL_PLANE = ("src/ptagwb/budget.py", "src/ptagwb/binding.py", "scripts/m3b_run_epta.py",
-                 "scripts/m3b_rebind_evidence.py")
+CONTROL_PLANE_V2 = ("src/ptagwb/budget.py", "src/ptagwb/binding.py", "scripts/m3b_run_epta.py",
+                    "scripts/m3b_rebind_evidence.py")
+CONTROL_PLANE = CONTROL_PLANE_V2 + ("scripts/m3b_tuning_artifacts.py", "scripts/m3b_pilot_report.py")
+# driver inputs (run configs, frozen sampler metrics and proposals): bound by the driver (committed,
+# clean, sha256 recorded), never read by a gate computation
+RUN_CONFIG_PREFIXES = ("configs/m3b/run_configs/", "configs/m3b/metrics/", "configs/m3b/proposals/")
+# (excluded files, excluded prefixes) per scheme, so that older bindings can be recomputed exactly
+EXCLUSIONS = {1: ((), ()), 2: (CONTROL_PLANE_V2, ()), 3: (CONTROL_PLANE, RUN_CONFIG_PREFIXES)}
 
 
 class StaleEvidenceError(RuntimeError):
@@ -87,15 +95,16 @@ def _env_versions(env: Path) -> dict:
     return {"env": str(env), "packages": sorted(out)}
 
 
-def code_file_sets(listing, exclude=CONTROL_PLANE) -> dict[str, list[str]]:
+def code_file_sets(listing, scheme: int = SCHEME) -> dict[str, list[str]]:
     """Bound files from a list of repo-relative POSIX paths (the work tree or a git tree): the same
     selection as the globs ``src/ptagwb/*.py``, ``scripts/m3b_*.py``, ``configs/m3b/**/*.json`` plus the
-    oracles, minus ``exclude``."""
-    ex = set(exclude)
+    oracles, minus the exclusions of ``scheme``."""
+    files, prefixes = EXCLUSIONS[scheme]
+    ex = set(files)
     src, scripts, configs = [], [], []
     for r in listing:
         q = PurePosixPath(r)
-        if r in ex:
+        if r in ex or r.startswith(prefixes):
             continue
         if str(q.parent) == "src/ptagwb" and q.suffix == ".py":
             src.append(r)
@@ -123,8 +132,8 @@ def _group_read(rels, read, root: Path) -> str:
     return h.hexdigest()
 
 
-def code_binding(listing, read, root: Path = REPO_ROOT, exclude=CONTROL_PLANE) -> dict:
-    sets = code_file_sets(listing, exclude)
+def code_binding(listing, read, root: Path = REPO_ROOT, scheme: int = SCHEME) -> dict:
+    sets = code_file_sets(listing, scheme)
     return {"code": {k: _group_read(sets[k], read, root) for k in ("source", "scripts", "oracles")},
             "configs": _group_read(sets["configs"], read, root)}
 
@@ -147,8 +156,8 @@ def external_binding() -> dict:
 
 
 def evidence_binding(root: Path = REPO_ROOT) -> dict:
-    """The configuration a gate result was computed from (scheme 2). ``code`` and ``configs`` bind
-    the evaluated code (control plane excluded) and the committed configs; ``inputs`` binds the
+    """The configuration a gate result was computed from (scheme ``SCHEME``). ``code`` and ``configs`` bind
+    the evaluated code and configs (exclusions of the scheme removed); ``inputs`` binds the
     immutable exported arrays our model consumes; ``runtime`` records that the installed tempo2
     runtime's actual files equal the committed pin (needed by evidence that re-evaluates tempo2 /
     the fork oracle: T1, fingerprint, G5-PTA)."""
@@ -158,9 +167,14 @@ def evidence_binding(root: Path = REPO_ROOT) -> dict:
 
 
 def control_binding(root: Path = REPO_ROOT) -> dict:
-    """sha256 of each control-plane file (recorded by the run driver, which also requires them to
-    be committed and clean)."""
-    return {r: _sha(root / r) for r in CONTROL_PLANE if (root / r).exists()}
+    """sha256 of each control-plane file and of every run-config/metric/proposal file (recorded by
+    the run driver, which also requires them to be committed and clean)."""
+    out = {r: _sha(root / r) for r in CONTROL_PLANE if (root / r).exists()}
+    for pre in RUN_CONFIG_PREFIXES:
+        for f in sorted((root / pre).rglob("*")):
+            if f.is_file():
+                out[str(f.relative_to(root))] = _sha(f)
+    return out
 
 
 def require_bound(results: dict[str, str], directory: Path, binding: dict | None = None) -> dict:

@@ -1,19 +1,23 @@
-"""Verified migration of gate results to binding scheme 2 (review round 4), without recomputing them.
+"""Verified migration of gate results to the current binding scheme, without recomputing them
+(review rounds 4 and 5).
 
-Scheme 2 (``ptagwb.binding``) excludes the control plane (budget, supervisor, binding bookkeeping,
-the run driver, this script) from the gate-evidence binding. A result computed under the legacy
-scheme at commit ``C`` is re-stamped only if all of the following hold, otherwise it is left
-untouched (stale: recompute it):
+Binding schemes (``ptagwb.binding.EXCLUSIONS``): 1 binds all code; 2 excludes the control plane
+(budget, supervisor, binding bookkeeping, run driver, this script); 3 also excludes the sampler-run
+plane (tuning-artifact generator, pilot report, run configs, metrics, proposals). A result whose
+recorded binding has scheme ``k`` (no ``scheme`` key: 1) is re-stamped from commit ``C`` only if
+all of the following hold, otherwise it is left untouched (stale: recompute it):
 
-1. its recorded binding equals the **legacy** binding (all code, no exclusion) recomputed from the
-   git tree of ``C`` together with the current inputs, runtime, libraries and oracle envs; this
-   proves the result was produced from ``C``'s code and configs and from today's inputs;
-2. the scheme-2 binding of ``C``'s tree equals the scheme-2 binding of the current work tree, i.e.
-   every bound (non-control-plane) file is byte-identical to ``C``: only control-plane files differ.
+1. its recorded binding equals the scheme-``k`` binding recomputed from the git tree of ``C``
+   together with the current inputs, runtime, libraries and oracle envs; this proves the result was
+   produced from code and configs equal to ``C``'s (under scheme ``k``) and from today's inputs;
+2. the current-scheme binding of ``C``'s tree equals the current-scheme binding of the work tree:
+   every file bound now is byte-identical to ``C``, and every file that differs from ``C`` (in the
+   scheme-1 set) is excluded by the current scheme.
 
-The re-stamped file keeps its numbers, gets ``binding`` = the current scheme-2 binding and records
-the migration (``binding_migration``: commit, legacy binding, files that differ from ``C``, all in
-the control plane). Usage: PYTHONPATH=src python scripts/m3b_rebind_evidence.py COMMIT [--dry-run]
+The re-stamped file keeps its numbers, gets ``binding`` = the current binding and appends the
+migration to ``binding_migrations`` (commit, from/to scheme, from/to binding, files that differ from
+``C``). A legacy single ``binding_migration`` record is moved into that list first.
+Usage: PYTHONPATH=src python scripts/m3b_rebind_evidence.py COMMIT [--dry-run]
 """
 
 from __future__ import annotations
@@ -26,9 +30,10 @@ import tempfile
 from pathlib import Path
 
 from ptagwb.binding import (
-    CONTROL_PLANE,
+    EXCLUSIONS,
     SCHEME,
     code_binding,
+    code_file_sets,
     evidence_binding,
     external_binding,
     worktree_listing,
@@ -53,21 +58,22 @@ def tree_reader(commit: str):
     return listing, read
 
 
-def bindings_at(commit: str, external: dict) -> tuple[dict, dict]:
+def binding_at(commit: str, external: dict, scheme: int) -> dict:
+    """The scheme-``scheme`` binding of ``commit``'s tree with the given external part."""
     listing, read = tree_reader(commit)
-    legacy = {**code_binding(listing, read, REPO_ROOT, exclude=()), **external}
-    scheme2 = {"scheme": SCHEME, **code_binding(listing, read, REPO_ROOT), **external}
-    return legacy, scheme2
+    head = {} if scheme == 1 else {"scheme": scheme}
+    return {**head, **code_binding(listing, read, REPO_ROOT, scheme), **external}
+
+
+def bindings_at(commit: str, external: dict) -> tuple[dict, dict]:
+    """(scheme-1 binding, current-scheme binding) of ``commit`` (kept for the strict test)."""
+    return binding_at(commit, external, 1), binding_at(commit, external, SCHEME)
 
 
 def changed_since(commit: str) -> list[str]:
-    """Files (of the legacy bound set) whose work-tree content differs from ``commit``."""
-    from ptagwb.binding import code_file_sets
-
+    """Files of the scheme-1 bound set whose work-tree content differs from ``commit``."""
     listing, read = tree_reader(commit)
-    now = set(worktree_listing())
-    then = set(listing)
-    sets_now, sets_then = code_file_sets(now, exclude=()), code_file_sets(then, exclude=())
+    sets_now, sets_then = code_file_sets(worktree_listing(), 1), code_file_sets(listing, 1)
     out = []
     for k in sets_now:
         a, b = set(sets_now[k]), set(sets_then[k])
@@ -78,17 +84,23 @@ def changed_since(commit: str) -> list[str]:
     return sorted(set(out))
 
 
+def excluded_now(rel: str) -> bool:
+    files, prefixes = EXCLUSIONS[SCHEME]
+    return rel in files or rel.startswith(prefixes)
+
+
 def migrate(commit: str, results_dir: Path = RES, dry_run: bool = False) -> dict:
     commit = _git("rev-parse", "--verify", f"{commit}^{{commit}}").decode().strip()
     external = external_binding()
-    legacy, scheme2_then = bindings_at(commit, external)
     current = evidence_binding()
+    target = binding_at(commit, external, SCHEME)
     diff = changed_since(commit)
-    report = {"commit": commit, "changed_files": diff, "files": {}}
-    if scheme2_then != current or any(r not in CONTROL_PLANE for r in diff):
-        report["refused"] = ("bound (non-control-plane) files differ from the commit: "
-                             f"{[r for r in diff if r not in CONTROL_PLANE]}; recompute the gates")
+    report = {"commit": commit, "scheme": SCHEME, "changed_files": diff, "files": {}}
+    bad = [r for r in diff if not excluded_now(r)]
+    if target != current or bad:
+        report["refused"] = f"bound files differ from the commit: {bad}; recompute the gates"
         return report
+    cache: dict[int, dict] = {}
     for p in sorted(Path(results_dir).glob("*.json")):
         r = json.loads(p.read_text())
         b = r.get("binding")
@@ -97,16 +109,30 @@ def migrate(commit: str, results_dir: Path = RES, dry_run: bool = False) -> dict
         if b == current:
             report["files"][p.name] = "already current"
             continue
-        if b != legacy:
-            report["files"][p.name] = "STALE: recorded binding is not the legacy binding of the commit (recompute)"
+        k = int(b.get("scheme", 1))
+        if k not in EXCLUSIONS or k >= SCHEME:
+            report["files"][p.name] = f"STALE: recorded scheme {k} cannot be migrated (recompute)"
             continue
-        report["files"][p.name] = "rebound"
+        if k not in cache:
+            cache[k] = binding_at(commit, external, k)
+        if b != cache[k]:
+            report["files"][p.name] = (f"STALE: recorded binding is not the scheme-{k} binding of the commit "
+                                       "(recompute)")
+            continue
+        report["files"][p.name] = f"rebound (scheme {k} -> {SCHEME})"
         if dry_run:
             continue
+        hist = list(r.pop("binding_migrations", []))
+        old = r.pop("binding_migration", None)
+        if old is not None:  # round-4 record (scheme 1 -> 2)
+            hist.insert(0, {"from_commit": old["from_commit"], "from_scheme": 1, "to_scheme": 2,
+                            "from_binding": old["legacy_binding"], "to_binding": b,
+                            "files_changed_since": old["files_changed_since"], "rule": old["rule"]})
+        hist.append({"from_commit": commit, "from_scheme": k, "to_scheme": SCHEME, "from_binding": b,
+                     "to_binding": current, "files_changed_since": diff,
+                     "rule": "scripts/m3b_rebind_evidence.py (review rounds 4-5)"})
         r["binding"] = current
-        r["binding_migration"] = {"from_commit": commit, "legacy_binding": b, "files_changed_since": diff,
-                                  "all_changed_files_in_control_plane": True,
-                                  "rule": "scripts/m3b_rebind_evidence.py (review round 4)"}
+        r["binding_migrations"] = hist
         fd, tmp = tempfile.mkstemp(prefix=p.name + ".", suffix=".tmp", dir=p.parent)
         with os.fdopen(fd, "w") as f:
             json.dump(r, f, indent=1)
