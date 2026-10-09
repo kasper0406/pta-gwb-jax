@@ -1,0 +1,2366 @@
+{
+ "manifest": "epta-dr2new-v1",
+ "pta": "EPTA",
+ "release": "DR2new",
+ "decisions": "D1 (tempo2 evaluator), D6 (fork audit) of docs/M3B_PLAN.md; user 2026-10-09",
+ "sources": {
+  "data": {
+   "repo": "gitlab.in2p3.fr/epta/epta-dr2",
+   "commit": "2911d0e52e0c8a4e528c4e3aa46b868ced1910e8",
+   "dir": "EPTA-DR2/DR2new",
+   "note": "identical to the Zenodo EPTA-DR2 copy; replaced the pre-2023-08-23 files (1506123); the chain fingerprint confirms this version"
+  },
+  "noise_files": {
+   "dir": "EPTA-DR2/noisefiles/DR2new",
+   "sha256": {
+    "J0030+0451_noise.json": "4ef27c66a7797a786018ad067f1c1ad0afe3dd876864dc2c3a5ad601f4dfbb3d",
+    "J0613-0200_noise.json": "5708c3327a93b7337f4d8de5d2d8a0510cb5b8d15b7335900edecfb236465e78",
+    "J0751+1807_noise.json": "df28dfe6d7b4d3dd75324240e93603d3c0cd6e94a5608d1bece868c23e5dde94",
+    "J0900-3144_noise.json": "02f7fa27ff886bb6d4f60ca236b75625ba35598ff550d1777a0d37cf8a1ee2a1",
+    "J1012+5307_noise.json": "e6bbd1aa961173f6b05c0de9487a5053553dd026b772c8fea409037b2ac71ef8",
+    "J1022+1001_noise.json": "abbc25837d66e3e4ce4581fbf48d4821d642f8900293c2808268ddd8097b2654",
+    "J1024-0719_noise.json": "8eeb63eaf49ea3ce84840d74f6f2ec7fee6d1e4643f356acc5656f7b87438030",
+    "J1455-3330_noise.json": "d6b8f9f5f874d87078f2ab5bd0e318bc6527e44c5471e6ef391d49959b65fe20",
+    "J1600-3053_noise.json": "3487194c47e96dd2516fe2ee5f77ed6d0dd75c09b7c1c9f50bac456be65c6272",
+    "J1640+2224_noise.json": "9d0dec7b7912191b978fdaf42e2ad261b5ded1b2997b48c2bd66c8d99ee766a7",
+    "J1713+0747_noise.json": "d5fa189fb6e051389f1715631ae55d27ab0e55bb32d66dca0ac5bbec82f2e316",
+    "J1730-2304_noise.json": "f56a0f722606dd80a8bddeb58961921dd22262dfd3870ec6e6f20c74c275bea5",
+    "J1738+0333_noise.json": "3c0ffe1fb68f389ba7094acd456405f7fd0ee44e3d35e074a3144680497d1d4a",
+    "J1744-1134_noise.json": "dea0c07bd2cf06e2177ff8e764b1479576223a48296586644cd78a05cf53d074",
+    "J1751-2857_noise.json": "13cffa24fe223d47a4cfe351a54bccf4e46c9e733f63d29b800aadd05d290270",
+    "J1801-1417_noise.json": "1d6ccfa8648c67e1210b34548608a7dc81ad8029220ad57892f508cb5501dc28",
+    "J1804-2717_noise.json": "8c534f19d3bf6ea2ba80583626b2527c32c0b01ee36d1efb739e2fa9f46819f3",
+    "J1843-1113_noise.json": "83d4d1cbfffaba89510cf2bdba7a0229e0bd94fa117a05e8e53478e3909aa637",
+    "J1857+0943_noise.json": "cbb4e3320bbd55768a67f55f72e87d2f343d136c8782a91d9b0d7c8dbb2cf2fd",
+    "J1909-3744_noise.json": "6dc6efa2f88ebfab4ebb6efb0074733cb46b557e6a619e76a03607cc0db9a280",
+    "J1910+1256_noise.json": "de2e4872c1147e6286d0da6520ea3ff61a4f93e1b5891e47146be1a0dd03cd64",
+    "J1911+1347_noise.json": "e67c040c66fcae397d3ed97d84affae09501dbd85f05b82226635cd516657224",
+    "J1918-0642_noise.json": "46f0d4c76e4a752c14347b2c7f7de27b4ace65d85b43c56c2af9acda52b9986a",
+    "J2124-3358_noise.json": "c46e58703848430aae00b701526e5c6cc47a054df9451dde88be025fef6123d0",
+    "J2322+2057_noise.json": "0abf185d10ec43c1a0769cdbc3a216b72fb01fbe21cef7eff2156605fc9c0478",
+    "chrom_dict.json": "9efe79df211ef6350f4e39b8ce41587e3ce1a8bc65ec52e86a68c897b634d69f",
+    "dm_dict.json": "9ee3047ded5ad4843d4fec008aaafa41aabda9268b9c6d5228a9be08b4808d7f",
+    "red_dict.json": "d1cc9f978aac73b9d262779b2f89ecf2863485115264d5459ec164c716fe66dd"
+   },
+   "consumed": "efac and log10_tnequad per -group backend; red/dm/chrom dict mode counts; the rn/dm_gp/cn/expd entries are not used (sampled)"
+  },
+  "script": {
+   "repo": "gitlab.in2p3.fr/epta/epta-dr2",
+   "commit": "be91c6b",
+   "file": "EPTA-DR2/scripts/model_single.py",
+   "note": "original script; HEAD (0ec5705, 2024-01-23) uses chrom_var/chrom_kernel, which exist only from fork commit f8f7ba4 (2023-07-28)",
+   "cli": {
+    "orf": "crn | hd",
+    "common_components": 9,
+    "num_dmdips": 1,
+    "gamma_common": null
+   }
+  },
+  "enterprise": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise",
+   "tag": "EPTADR2-v1.1",
+   "commit": "607c28533acc18b4ed7a743ca568ffc7e41a9137",
+   "upstream_base": "v3.3.1"
+  },
+  "enterprise_extensions": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "upstream_base": "v2.4.0",
+   "identified_by": "chain parameter names J1713+0747_J1713+0747_dmexp_1_* (renamed by d3248419, 2023-03-23) and the script's orf_bins keyword (added by 23c63a17, 2023-03-14); equivalent on this path to EPTADR2-v1.1 (7619622a: rename + unused pseed only)"
+  },
+  "PTMCMCSampler": "not recoverable; proposals only (does not enter likelihood or prior)",
+  "tempo2": {
+   "binary": "2026.04.1 (conda-forge), libstempo 2.5.1 rebuilt against it: D1 profile published-tempo2-v1",
+   "runtime": "epta-dr2-chain-runtime-v1",
+   "runtime_pin": "configs/m3b/t2runtime_epta.json",
+   "runtime_base_conda": [
+    "tempo2-2023.05.1-hcb8dc1c_5.json"
+   ],
+   "runtime_overlay": {
+    "gps2utc.clk": "gps2utc.clk",
+    "ncyobs2obspm.clk": "ncyobs2obspm.clk"
+   },
+   "identified_by": "chain fingerprint (docs/M3B0_VALIDATION.md Sec. 3)"
+  },
+  "ephemeris": "DE440 (Pulsar(ephem='DE440')); clock: par CLK TT(BIPM2021)"
+ },
+ "provenance": {
+  "red_prior": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/blocks.py",
+   "line": 203,
+   "text": "log10_A = parameter.Uniform(-18, -10)"
+  },
+  "red_gamma": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/blocks.py",
+   "line": 210,
+   "text": "gamma = parameter.Uniform(0, 7)"
+  },
+  "red_basis": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/blocks.py",
+   "line": 317,
+   "text": "rn = gp_signals.FourierBasisGP(pl, components=components,"
+  },
+  "dm_prior": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/blocks.py",
+   "line": 464,
+   "text": "log10_A_dm = parameter.Uniform(-18, -10)"
+  },
+  "dm_gamma": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/blocks.py",
+   "line": 471,
+   "text": "gamma_dm = parameter.Uniform(0, 7)"
+  },
+  "dm_basis": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/blocks.py",
+   "line": 542,
+   "text": "dm_basis = utils.createfourierdesignmatrix_dm_tn(nmodes=components,"
+  },
+  "chrom_prior": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/blocks.py",
+   "line": 696,
+   "text": "log10_A = parameter.Uniform(-18, -10)"
+  },
+  "chrom_gamma": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/blocks.py",
+   "line": 702,
+   "text": "gamma = parameter.Uniform(0, 7)"
+  },
+  "chrom_basis": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/blocks.py",
+   "line": 677,
+   "text": "chm_basis = gpb.createfourierdesignmatrix_dm_tn(nmodes=components,"
+  },
+  "gw_prior": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/blocks.py",
+   "line": 980,
+   "text": "log10_Agw = parameter.Uniform(-18, -10)(amp_name)"
+  },
+  "gw_gamma": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/blocks.py",
+   "line": 988,
+   "text": "gamma_gw = parameter.Uniform(0, 7)(gam_name)"
+  },
+  "gw_basis": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/blocks.py",
+   "line": 1123,
+   "text": "cbasis = gpb.createfourierdesignmatrix_red(nmodes=components, Tspan=Tspan,"
+  },
+  "gw_crn": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/blocks.py",
+   "line": 1127,
+   "text": "crn = gp_signals.BasisGP(cpl, cbasis, coefficients=coefficients, combine=combine,"
+  },
+  "gw_hd": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/blocks.py",
+   "line": 1130,
+   "text": "crn = gp_signals.BasisCommonGP(cpl, cbasis, orfs[orf], coefficients=coefficients,"
+  },
+  "hd_orf": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/model_orfs.py",
+   "line": 221,
+   "text": "def hd_orf(pos1, pos2, diag=1.):"
+  },
+  "tspan_common": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/models.py",
+   "line": 943,
+   "text": "Tspan_common = model_utils.get_tspan(psrs)"
+  },
+  "tspan_red": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/models.py",
+   "line": 711,
+   "text": "red_var=True, Tspan_red=None, red_components=30,"
+  },
+  "tspan_dm": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/models.py",
+   "line": 702,
+   "text": "dm_var=False, Tspan_dm=None, dm_components=30,"
+  },
+  "tspan_chrom": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/models.py",
+   "line": 708,
+   "text": "dm_chrom=False, Tspan_chrom=None, chrom_components=30,"
+  },
+  "chrom_in_dm": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/models.py",
+   "line": 1144,
+   "text": "s0 += chromatic_noise_block(gp_kernel=dmchrom_kernel,"
+  },
+  "dip_call": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/models.py",
+   "line": 1168,
+   "text": "name='{0}_dmexp_{1}'.format(p.name,dd+1))"
+  },
+  "dip_t0": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/chromatic/chromatic.py",
+   "line": 231,
+   "text": "t0_dmexp = parameter.Uniform(tmin, tmax)"
+  },
+  "dip_amp": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/chromatic/chromatic.py",
+   "line": 232,
+   "text": "log10_Amp_dmexp = parameter.Uniform(-10, -2)"
+  },
+  "dip_tau": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/chromatic/chromatic.py",
+   "line": 233,
+   "text": "log10_tau_dmexp = parameter.Uniform(0, 2.5)"
+  },
+  "dip_sign": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/chromatic/chromatic.py",
+   "line": 239,
+   "text": "sign_param = -1.0"
+  },
+  "dip_wf": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/chromatic/chromatic.py",
+   "line": 39,
+   "text": "wf = 10**log10_Amp * np.heaviside(toas - t0, 1)"
+  },
+  "wn_tnequad": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/blocks.py",
+   "line": 127,
+   "text": "efeq += white_signals.TNEquadNoise(log10_tnequad=equad,"
+  },
+  "tm": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise_extensions",
+   "commit": "051173f46e64918aa4df9e9fea8fbc04a79839f9",
+   "file": "enterprise_extensions/models.py",
+   "line": 912,
+   "text": "s = gp_signals.MarginalizingTimingModel(use_svd=tm_svd)"
+  },
+  "tm_svd_basis": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise",
+   "commit": "607c28533acc18b4ed7a743ca568ffc7e41a9137",
+   "file": "enterprise/signals/utils.py",
+   "line": 897,
+   "text": "u, s, v = np.linalg.svd(Mmat, full_matrices=False)"
+  },
+  "tm_prior_const": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise",
+   "commit": "607c28533acc18b4ed7a743ca568ffc7e41a9137",
+   "file": "enterprise/signals/gp_signals.py",
+   "line": 829,
+   "text": "self.Mprior = Mmat.shape[1] * np.log(1e40)"
+  },
+  "dm_tn_factor": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise",
+   "commit": "607c28533acc18b4ed7a743ca568ffc7e41a9137",
+   "file": "enterprise/signals/gp_bases.py",
+   "line": 161,
+   "text": "Dm = (fref / freqs) ** idx * np.sqrt(12) * np.pi / 1400 / 1400 / 2.41e-4"
+  },
+  "fourier_grid": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise",
+   "commit": "607c28533acc18b4ed7a743ca568ffc7e41a9137",
+   "file": "enterprise/signals/gp_bases.py",
+   "line": 56,
+   "text": "f = 1.0 * np.arange(1, nmodes + 1) / T"
+  },
+  "fourier_tspan": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise",
+   "commit": "607c28533acc18b4ed7a743ca568ffc7e41a9137",
+   "file": "enterprise/signals/gp_bases.py",
+   "line": 47,
+   "text": "T = Tspan if Tspan is not None else toas.max() - toas.min()"
+  },
+  "freqs_ssb": {
+   "repo": "gitlab.in2p3.fr/epta/enterprise",
+   "commit": "607c28533acc18b4ed7a743ca568ffc7e41a9137",
+   "file": "enterprise/pulsar.py",
+   "line": 455,
+   "text": "self._ssbfreqs = np.double(t2pulsar.ssbfreqs()) / 1e6"
+  },
+  "script_call": {
+   "repo": "gitlab.in2p3.fr/epta/epta-dr2",
+   "commit": "be91c6b",
+   "file": "EPTA-DR2/scripts/model_single.py",
+   "line": 127,
+   "text": "dm_chrom=True, chrom_components=chrom_dict,"
+  },
+  "script_dip": {
+   "repo": "gitlab.in2p3.fr/epta/epta-dr2",
+   "commit": "be91c6b",
+   "file": "EPTA-DR2/scripts/model_single.py",
+   "line": 130,
+   "text": "dmpsr_list=['J1713+0747'], dm_expdip_idx=[1,4],"
+  }
+ },
+ "pulsars": [
+  "J0030+0451",
+  "J0613-0200",
+  "J0751+1807",
+  "J0900-3144",
+  "J1012+5307",
+  "J1022+1001",
+  "J1024-0719",
+  "J1455-3330",
+  "J1600-3053",
+  "J1640+2224",
+  "J1713+0747",
+  "J1730-2304",
+  "J1738+0333",
+  "J1744-1134",
+  "J1751-2857",
+  "J1801-1417",
+  "J1804-2717",
+  "J1843-1113",
+  "J1857+0943",
+  "J1909-3744",
+  "J1910+1256",
+  "J1911+1347",
+  "J1918-0642",
+  "J2124-3358",
+  "J2322+2057"
+ ],
+ "toas": {
+  "n_total": 45428,
+  "per_pulsar": {
+   "J0030+0451": 3347,
+   "J0613-0200": 1750,
+   "J0751+1807": 2469,
+   "J0900-3144": 5525,
+   "J1012+5307": 4188,
+   "J1022+1001": 1804,
+   "J1024-0719": 2112,
+   "J1455-3330": 2433,
+   "J1600-3053": 2598,
+   "J1640+2224": 1546,
+   "J1713+0747": 4001,
+   "J1730-2304": 1163,
+   "J1738+0333": 749,
+   "J1744-1134": 1541,
+   "J1751-2857": 305,
+   "J1801-1417": 384,
+   "J1804-2717": 648,
+   "J1843-1113": 736,
+   "J1857+0943": 1156,
+   "J1909-3744": 2289,
+   "J1910+1256": 460,
+   "J1911+1347": 811,
+   "J1918-0642": 1138,
+   "J2124-3358": 1601,
+   "J2322+2057": 674
+  },
+  "roster": "published set: every TOA tempo2 reads, no removals (plan Sec. 4.2)"
+ },
+ "conventions": {
+  "timing_model": "MarginalizingTimingModel(use_svd=True): thin-SVD basis U of psr.Mmat, flat prior; logdet includes n_tm ln(1e40); no N ln(2 pi) term (fork enterprise; enterprise >= 3.5 subtracts it)",
+  "white_noise": "N_ii = efac_b^2 sigma_i^2 + 10^(2 log10_tnequad_b), b = -group backend; no ECORR (all TOAs -pta EPTA)",
+  "radio_frequency": "SSB frequencies (t2pulsar.ssbfreqs()/1e6)",
+  "fourier": "f_k = k/T (k = 1..n), columns [sin, cos] interleaved, absolute BAT seconds (TCB)",
+  "powerlaw": "phi_k = 10^(2 log10_A)/(12 pi^2) f_yr^(gamma-3) f_k^-gamma / T, f_yr = 1/(365.25 d)",
+  "temponest_dm": "basis rows x (1400/nu)^idx sqrt(12) pi / (1400^2 2.41e-4), for idx 2 (DM) and 4 (chromatic)",
+  "combine": "no columns merge: no pulsar spans the whole array (earliest TOA J1843-1113, latest J1640+2224)"
+ },
+ "white_noise": {
+  "values": {
+   "J0030+0451_EFF.P200.1380_efac": 1.1045950948818555,
+   "J0030+0451_EFF.P200.1380_log10_tnequad": -6.168262261771374,
+   "J0030+0451_EFF.P217.1380_efac": 0.848194739410362,
+   "J0030+0451_EFF.P217.1380_log10_tnequad": -7.898145381752085,
+   "J0030+0451_EFF.PS110.2487_efac": 0.9443048546615437,
+   "J0030+0451_EFF.PS110.2487_log10_tnequad": -6.263274196060782,
+   "J0030+0451_JBO.ROACH.1520_efac": 0.9184905449812792,
+   "J0030+0451_JBO.ROACH.1520_log10_tnequad": -6.873679824259591,
+   "J0030+0451_LEAP.1396_efac": 1.4194567362018933,
+   "J0030+0451_LEAP.1396_log10_tnequad": -7.035431021176787,
+   "J0030+0451_NRT.NUPPI.1484_efac": 0.776131390132143,
+   "J0030+0451_NRT.NUPPI.1484_log10_tnequad": -7.984517962133032,
+   "J0030+0451_NRT.NUPPI.1854_efac": 1.1089143495690343,
+   "J0030+0451_NRT.NUPPI.1854_log10_tnequad": -6.4987472770497625,
+   "J0030+0451_WSRT.P2.1380_efac": 0.3381260667250748,
+   "J0030+0451_WSRT.P2.1380_log10_tnequad": -5.25577145703114,
+   "J0613-0200_EFF.P200.1380_efac": 1.2810562728735235,
+   "J0613-0200_EFF.P200.1380_log10_tnequad": -7.688200368312655,
+   "J0613-0200_EFF.P217.1380_efac": 1.2597018806785478,
+   "J0613-0200_EFF.P217.1380_log10_tnequad": -6.956714232036004,
+   "J0613-0200_EFF.S110.2487_efac": 1.2266737944057213,
+   "J0613-0200_EFF.S110.2487_log10_tnequad": -6.526872383435261,
+   "J0613-0200_JBO.ROACH.1520_efac": 0.911716114279691,
+   "J0613-0200_JBO.ROACH.1520_log10_tnequad": -7.207738643749434,
+   "J0613-0200_LEAP.1396_efac": 0.6820842370183298,
+   "J0613-0200_LEAP.1396_log10_tnequad": -6.3944038538275905,
+   "J0613-0200_NRT.NUPPI.1484_efac": 0.8277857078402245,
+   "J0613-0200_NRT.NUPPI.1484_log10_tnequad": -8.60165405615579,
+   "J0613-0200_NRT.NUPPI.1854_efac": 0.7089371243040629,
+   "J0613-0200_NRT.NUPPI.1854_log10_tnequad": -8.634364542894792,
+   "J0613-0200_NRT.NUPPI.2539_efac": 0.8444149024880875,
+   "J0613-0200_NRT.NUPPI.2539_log10_tnequad": -8.131395892976768,
+   "J0613-0200_WSRT.P2.1380_efac": 1.2794135321268916,
+   "J0613-0200_WSRT.P2.1380_log10_tnequad": -7.7779273400896365,
+   "J0751+1807_EFF.P200.1380_efac": 1.4622887414114853,
+   "J0751+1807_EFF.P200.1380_log10_tnequad": -5.855316110896133,
+   "J0751+1807_EFF.P217.1380_efac": 1.1182322606329167,
+   "J0751+1807_EFF.P217.1380_log10_tnequad": -5.951730622301865,
+   "J0751+1807_EFF.S110.2487_efac": 1.2021518407383947,
+   "J0751+1807_EFF.S110.2487_log10_tnequad": -8.273874757633164,
+   "J0751+1807_JBO.ROACH.1520_efac": 0.9659487293118227,
+   "J0751+1807_JBO.ROACH.1520_log10_tnequad": -8.892936209777913,
+   "J0751+1807_LEAP.1396_efac": 0.9858262574040735,
+   "J0751+1807_LEAP.1396_log10_tnequad": -7.228475518428845,
+   "J0751+1807_NRT.NUPPI.1484_efac": 0.8765546208048559,
+   "J0751+1807_NRT.NUPPI.1484_log10_tnequad": -7.240212548545826,
+   "J0751+1807_NRT.NUPPI.2539_efac": 0.8712565953680692,
+   "J0751+1807_NRT.NUPPI.2539_log10_tnequad": -6.521626337818643,
+   "J0751+1807_WSRT.P2.1380_efac": 1.0578633335599714,
+   "J0751+1807_WSRT.P2.1380_log10_tnequad": -6.760179341150843,
+   "J0900-3144_JBO.ROACH.1520_efac": 1.04101013120358,
+   "J0900-3144_JBO.ROACH.1520_log10_tnequad": -6.1579476020947235,
+   "J0900-3144_NRT.NUPPI.1484_efac": 0.8506499833973288,
+   "J0900-3144_NRT.NUPPI.1484_log10_tnequad": -6.1208882351205895,
+   "J0900-3144_NRT.NUPPI.1854_efac": 1.4944510649111937,
+   "J0900-3144_NRT.NUPPI.1854_log10_tnequad": -8.771532099848624,
+   "J0900-3144_NRT.NUPPI.2154_efac": 1.1280088187462487,
+   "J0900-3144_NRT.NUPPI.2154_log10_tnequad": -6.6692139276891975,
+   "J0900-3144_NRT.NUPPI.2539_efac": 0.9074278562818382,
+   "J0900-3144_NRT.NUPPI.2539_log10_tnequad": -8.857058345244642,
+   "J1012+5307_EFF.P200.1380_efac": 1.0548133535433428,
+   "J1012+5307_EFF.P200.1380_log10_tnequad": -6.240183097594486,
+   "J1012+5307_EFF.P217.1380_efac": 1.0877812691698507,
+   "J1012+5307_EFF.P217.1380_log10_tnequad": -6.804387306350895,
+   "J1012+5307_EFF.S110.2487_efac": 0.989805594951363,
+   "J1012+5307_EFF.S110.2487_log10_tnequad": -5.70344505119584,
+   "J1012+5307_EFF.S60.4857_efac": 0.8301538451582426,
+   "J1012+5307_EFF.S60.4857_log10_tnequad": -8.674275925215627,
+   "J1012+5307_JBO.ROACH.1520_efac": 0.9641677541515948,
+   "J1012+5307_JBO.ROACH.1520_log10_tnequad": -8.49205268487396,
+   "J1012+5307_LEAP.1396_efac": 1.4332993699844783,
+   "J1012+5307_LEAP.1396_log10_tnequad": -6.681502406231853,
+   "J1012+5307_NRT.NUPPI.1484_efac": 0.8472184300814208,
+   "J1012+5307_NRT.NUPPI.1484_log10_tnequad": -8.859715211778916,
+   "J1012+5307_NRT.NUPPI.1854_efac": 0.8143047394107772,
+   "J1012+5307_NRT.NUPPI.1854_log10_tnequad": -6.240703159669776,
+   "J1012+5307_NRT.NUPPI.2539_efac": 0.7671972870699303,
+   "J1012+5307_NRT.NUPPI.2539_log10_tnequad": -7.236433417005013,
+   "J1012+5307_WSRT.P2.1380_efac": 1.237984987345866,
+   "J1012+5307_WSRT.P2.1380_log10_tnequad": -7.693529095894691,
+   "J1012+5307_WSRT.P2.350_efac": 1.2892671667785593,
+   "J1012+5307_WSRT.P2.350_log10_tnequad": -8.563979070953891,
+   "J1022+1001_EFF.P200.1380_efac": 0.8102206481490057,
+   "J1022+1001_EFF.P200.1380_log10_tnequad": -6.572227821559285,
+   "J1022+1001_EFF.P217.1380_efac": 0.7858128904591491,
+   "J1022+1001_EFF.P217.1380_log10_tnequad": -7.005589378023857,
+   "J1022+1001_EFF.S110.2487_efac": 0.879606018512383,
+   "J1022+1001_EFF.S110.2487_log10_tnequad": -6.391685700921404,
+   "J1022+1001_EFF.S60.4857_efac": 1.1737541790871822,
+   "J1022+1001_EFF.S60.4857_log10_tnequad": -5.6713037903220505,
+   "J1022+1001_JBO.ROACH.1520_efac": 1.0747453048700975,
+   "J1022+1001_JBO.ROACH.1520_log10_tnequad": -5.826146883391521,
+   "J1022+1001_LEAP.1396_efac": 2.438256888182125,
+   "J1022+1001_LEAP.1396_log10_tnequad": -8.63537066059122,
+   "J1022+1001_NRT.NUPPI.1484_efac": 0.805516529751389,
+   "J1022+1001_NRT.NUPPI.1484_log10_tnequad": -6.208441744577778,
+   "J1022+1001_WSRT.P2.1380_efac": 1.0806590482719904,
+   "J1022+1001_WSRT.P2.1380_log10_tnequad": -5.748242625477178,
+   "J1024-0719_EFF.P200.1380_efac": 0.9551974352791707,
+   "J1024-0719_EFF.P200.1380_log10_tnequad": -7.05065179837003,
+   "J1024-0719_EFF.P217.1380_efac": 0.9258318800843921,
+   "J1024-0719_EFF.P217.1380_log10_tnequad": -6.189856602824119,
+   "J1024-0719_EFF.S110.2487_efac": 0.8396735963799056,
+   "J1024-0719_EFF.S110.2487_log10_tnequad": -5.346016302576432,
+   "J1024-0719_JBO.ROACH.1520_efac": 0.9434863523119911,
+   "J1024-0719_JBO.ROACH.1520_log10_tnequad": -8.21586325008337,
+   "J1024-0719_LEAP.1396_efac": 1.1523801155580489,
+   "J1024-0719_LEAP.1396_log10_tnequad": -6.290103368658607,
+   "J1024-0719_NRT.NUPPI.1484_efac": 0.7687856834625707,
+   "J1024-0719_NRT.NUPPI.1484_log10_tnequad": -7.32549311640761,
+   "J1024-0719_NRT.NUPPI.2539_efac": 0.8045230724764365,
+   "J1024-0719_NRT.NUPPI.2539_log10_tnequad": -8.106099547840559,
+   "J1024-0719_WSRT.P2.1380_efac": 0.4653006137768964,
+   "J1024-0719_WSRT.P2.1380_log10_tnequad": -5.694096730161006,
+   "J1455-3330_JBO.ROACH.1520_efac": 0.8043700135371057,
+   "J1455-3330_JBO.ROACH.1520_log10_tnequad": -8.694817396061016,
+   "J1455-3330_NRT.NUPPI.1484_efac": 0.8407432349339051,
+   "J1455-3330_NRT.NUPPI.1484_log10_tnequad": -8.47992369819152,
+   "J1455-3330_NRT.NUPPI.1854_efac": 0.8338079763067537,
+   "J1455-3330_NRT.NUPPI.1854_log10_tnequad": -5.868863195311095,
+   "J1455-3330_NRT.NUPPI.2539_efac": 0.8883363918996182,
+   "J1455-3330_NRT.NUPPI.2539_log10_tnequad": -6.287320180876826,
+   "J1600-3053_EFF.P200.1380_efac": 0.9165710995742749,
+   "J1600-3053_EFF.P200.1380_log10_tnequad": -8.78681028514216,
+   "J1600-3053_EFF.P217.1380_efac": 1.7551021055815608,
+   "J1600-3053_EFF.P217.1380_log10_tnequad": -5.519052538898048,
+   "J1600-3053_EFF.S110.2487_efac": 1.1549168980036049,
+   "J1600-3053_EFF.S110.2487_log10_tnequad": -7.59331811415248,
+   "J1600-3053_JBO.ROACH.1520_efac": 1.217854326425572,
+   "J1600-3053_JBO.ROACH.1520_log10_tnequad": -6.8630253018403256,
+   "J1600-3053_LEAP.1396_efac": 1.9527327109252122,
+   "J1600-3053_LEAP.1396_log10_tnequad": -8.096990503062509,
+   "J1600-3053_NRT.NUPPI.1484_efac": 0.7353004001394867,
+   "J1600-3053_NRT.NUPPI.1484_log10_tnequad": -6.9799998357772095,
+   "J1600-3053_NRT.NUPPI.1854_efac": 0.9123422835055031,
+   "J1600-3053_NRT.NUPPI.1854_log10_tnequad": -8.120215061110759,
+   "J1600-3053_NRT.NUPPI.2154_efac": 0.749663602721091,
+   "J1600-3053_NRT.NUPPI.2154_log10_tnequad": -8.795040948819464,
+   "J1600-3053_NRT.NUPPI.2539_efac": 0.8038809724822832,
+   "J1600-3053_NRT.NUPPI.2539_log10_tnequad": -7.793228746717177,
+   "J1600-3053_WSRT.P2.1380_efac": 0.9704307198506573,
+   "J1600-3053_WSRT.P2.1380_log10_tnequad": -6.63125782756769,
+   "J1640+2224_EFF.P200.1380_efac": 1.6740103438387088,
+   "J1640+2224_EFF.P200.1380_log10_tnequad": -8.119469937696858,
+   "J1640+2224_EFF.P217.1380_efac": 1.0356321999126166,
+   "J1640+2224_EFF.P217.1380_log10_tnequad": -8.361131309787513,
+   "J1640+2224_EFF.S110.2487_efac": 1.344823590532148,
+   "J1640+2224_EFF.S110.2487_log10_tnequad": -8.33652279211746,
+   "J1640+2224_JBO.ROACH.1520_efac": 1.0900889895596009,
+   "J1640+2224_JBO.ROACH.1520_log10_tnequad": -6.89888899120869,
+   "J1640+2224_LEAP.1396_efac": 1.0755152580227818,
+   "J1640+2224_LEAP.1396_log10_tnequad": -7.3394633596342995,
+   "J1640+2224_NRT.NUPPI.1484_efac": 0.9349544896349673,
+   "J1640+2224_NRT.NUPPI.1484_log10_tnequad": -7.946053186812969,
+   "J1713+0747_EFF.P200.1380_efac": 1.412374726303919,
+   "J1713+0747_EFF.P200.1380_log10_tnequad": -6.649000741215544,
+   "J1713+0747_EFF.P217.1380_efac": 1.1826730155965852,
+   "J1713+0747_EFF.P217.1380_log10_tnequad": -6.6593602574637805,
+   "J1713+0747_EFF.S110.2487_efac": 1.843610252576271,
+   "J1713+0747_EFF.S110.2487_log10_tnequad": -7.9772772266290275,
+   "J1713+0747_EFF.S60.4857_efac": 0.9566210128555996,
+   "J1713+0747_EFF.S60.4857_log10_tnequad": -8.312222023615337,
+   "J1713+0747_JBO.MK2.1520_efac": 0.8778418556697566,
+   "J1713+0747_JBO.MK2.1520_log10_tnequad": -8.095181552632685,
+   "J1713+0747_JBO.ROACH.1520_efac": 0.8794972097058603,
+   "J1713+0747_JBO.ROACH.1520_log10_tnequad": -6.615228034705099,
+   "J1713+0747_LEAP.1396_efac": 1.552862675531769,
+   "J1713+0747_LEAP.1396_log10_tnequad": -6.7185150489060375,
+   "J1713+0747_NRT.NUPPI.1484_efac": 0.7896503325063164,
+   "J1713+0747_NRT.NUPPI.1484_log10_tnequad": -7.124620438769816,
+   "J1713+0747_NRT.NUPPI.1854_efac": 0.7079678541925291,
+   "J1713+0747_NRT.NUPPI.1854_log10_tnequad": -8.520459384443132,
+   "J1713+0747_NRT.NUPPI.2539_efac": 0.7731047657187958,
+   "J1713+0747_NRT.NUPPI.2539_log10_tnequad": -6.868562726735876,
+   "J1713+0747_WSRT.P2.1380_efac": 1.0345911103112715,
+   "J1713+0747_WSRT.P2.1380_log10_tnequad": -6.9716719287703555,
+   "J1713+0747_WSRT.P2.2273_efac": 0.8427914809395443,
+   "J1713+0747_WSRT.P2.2273_log10_tnequad": -6.676656824013697,
+   "J1713+0747_WSRT.P2.350_efac": 0.898914858648177,
+   "J1713+0747_WSRT.P2.350_log10_tnequad": -8.972410387384546,
+   "J1730-2304_JBO.ROACH.1520_efac": 1.0966895598937743,
+   "J1730-2304_JBO.ROACH.1520_log10_tnequad": -8.76732339089998,
+   "J1730-2304_NRT.NUPPI.1484_efac": 0.8936515336010582,
+   "J1730-2304_NRT.NUPPI.1484_log10_tnequad": -7.092912342511541,
+   "J1730-2304_NRT.NUPPI.2539_efac": 0.82955546014866,
+   "J1730-2304_NRT.NUPPI.2539_log10_tnequad": -8.070483707308561,
+   "J1738+0333_EFF.P200.1380_efac": 1.2329115324118975,
+   "J1738+0333_EFF.P200.1380_log10_tnequad": -6.79109245509378,
+   "J1738+0333_EFF.P217.1380_efac": 0.8867280280191301,
+   "J1738+0333_EFF.P217.1380_log10_tnequad": -7.93640722539657,
+   "J1738+0333_JBO.ROACH.1520_efac": 0.7472756385097318,
+   "J1738+0333_JBO.ROACH.1520_log10_tnequad": -5.43250967829,
+   "J1738+0333_NRT.NUPPI.1484_efac": 0.8613738492525165,
+   "J1738+0333_NRT.NUPPI.1484_log10_tnequad": -7.826039383135421,
+   "J1738+0333_WSRT.P2.1380_efac": 1.1112003518112685,
+   "J1738+0333_WSRT.P2.1380_log10_tnequad": -8.662202710812908,
+   "J1744-1134_EFF.P200.1380_efac": 1.5289889739981626,
+   "J1744-1134_EFF.P200.1380_log10_tnequad": -8.076864368319155,
+   "J1744-1134_EFF.P217.1380_efac": 1.2771057723574064,
+   "J1744-1134_EFF.P217.1380_log10_tnequad": -7.778377010704876,
+   "J1744-1134_EFF.S110.2487_efac": 1.244705701316738,
+   "J1744-1134_EFF.S110.2487_log10_tnequad": -6.53903945008975,
+   "J1744-1134_EFF.S60.4857_efac": 1.0561167945451462,
+   "J1744-1134_EFF.S60.4857_log10_tnequad": -7.257195389387301,
+   "J1744-1134_JBO.ROACH.1520_efac": 1.1363656211662838,
+   "J1744-1134_JBO.ROACH.1520_log10_tnequad": -6.3815473236602775,
+   "J1744-1134_LEAP.1396_efac": 1.3136587135168925,
+   "J1744-1134_LEAP.1396_log10_tnequad": -6.478777690017408,
+   "J1744-1134_NRT.NUPPI.1484_efac": 0.8171455527990248,
+   "J1744-1134_NRT.NUPPI.1484_log10_tnequad": -6.727670528542976,
+   "J1744-1134_NRT.NUPPI.2539_efac": 0.6214279693404747,
+   "J1744-1134_NRT.NUPPI.2539_log10_tnequad": -6.520348996009733,
+   "J1744-1134_WSRT.P2.1380_efac": 1.2098338519224716,
+   "J1744-1134_WSRT.P2.1380_log10_tnequad": -6.695781710027594,
+   "J1751-2857_JBO.ROACH.1520_efac": 0.7549920950094138,
+   "J1751-2857_JBO.ROACH.1520_log10_tnequad": -8.984319052277996,
+   "J1751-2857_NRT.NUPPI.1484_efac": 0.7531123951282895,
+   "J1751-2857_NRT.NUPPI.1484_log10_tnequad": -8.842148621404872,
+   "J1801-1417_JBO.ROACH.1520_efac": 0.9864350427630586,
+   "J1801-1417_JBO.ROACH.1520_log10_tnequad": -6.261181331261443,
+   "J1801-1417_NRT.NUPPI.1484_efac": 0.7483157602884402,
+   "J1801-1417_NRT.NUPPI.1484_log10_tnequad": -6.117048727714347,
+   "J1804-2717_JBO.ROACH.1520_efac": 1.0057404787686226,
+   "J1804-2717_JBO.ROACH.1520_log10_tnequad": -8.517548525232066,
+   "J1804-2717_NRT.NUPPI.1484_efac": 0.8049270400445149,
+   "J1804-2717_NRT.NUPPI.1484_log10_tnequad": -7.738473879868597,
+   "J1843-1113_EFF.P217.1380_efac": 1.1814583391980884,
+   "J1843-1113_EFF.P217.1380_log10_tnequad": -7.348379374130354,
+   "J1843-1113_EFF.S110.2487_efac": 0.8510196074666396,
+   "J1843-1113_EFF.S110.2487_log10_tnequad": -7.178804349666641,
+   "J1843-1113_JBO.ROACH.1520_efac": 0.5085959354688436,
+   "J1843-1113_JBO.ROACH.1520_log10_tnequad": -5.297139966908785,
+   "J1843-1113_NRT.NUPPI.1484_efac": 0.7483857925666096,
+   "J1843-1113_NRT.NUPPI.1484_log10_tnequad": -8.20133231501511,
+   "J1843-1113_WSRT.P2.1380_efac": 1.0406588880071412,
+   "J1843-1113_WSRT.P2.1380_log10_tnequad": -6.567219495870018,
+   "J1857+0943_EFF.P200.1380_efac": 0.8903961781606221,
+   "J1857+0943_EFF.P200.1380_log10_tnequad": -8.08507027056367,
+   "J1857+0943_EFF.P217.1380_efac": 0.5727944719143326,
+   "J1857+0943_EFF.P217.1380_log10_tnequad": -5.651476519327127,
+   "J1857+0943_EFF.S110.2487_efac": 0.8872282802497014,
+   "J1857+0943_EFF.S110.2487_log10_tnequad": -5.5312698143074845,
+   "J1857+0943_EFF.S60.4857_efac": 0.7349637319778864,
+   "J1857+0943_EFF.S60.4857_log10_tnequad": -8.426628290626866,
+   "J1857+0943_JBO.ROACH.1520_efac": 1.2238336779590848,
+   "J1857+0943_JBO.ROACH.1520_log10_tnequad": -6.135956765069297,
+   "J1857+0943_LEAP.1396_efac": 1.5409148049950512,
+   "J1857+0943_LEAP.1396_log10_tnequad": -6.855223837221721,
+   "J1857+0943_NRT.NUPPI.1484_efac": 0.9416000131448992,
+   "J1857+0943_NRT.NUPPI.1484_log10_tnequad": -8.900236976699127,
+   "J1857+0943_NRT.NUPPI.2539_efac": 0.9509516872455311,
+   "J1857+0943_NRT.NUPPI.2539_log10_tnequad": -8.33485330361282,
+   "J1857+0943_WSRT.P2.1380_efac": 0.9497468011319526,
+   "J1857+0943_WSRT.P2.1380_log10_tnequad": -8.621053689913959,
+   "J1909-3744_NRT.NUPPI.1484_efac": 0.8540704265946855,
+   "J1909-3744_NRT.NUPPI.1484_log10_tnequad": -7.415073878834863,
+   "J1909-3744_NRT.NUPPI.1854_efac": 0.7676705441810963,
+   "J1909-3744_NRT.NUPPI.1854_log10_tnequad": -7.120859176440731,
+   "J1909-3744_NRT.NUPPI.2154_efac": 1.03247195323751,
+   "J1909-3744_NRT.NUPPI.2154_log10_tnequad": -7.230582195698377,
+   "J1909-3744_NRT.NUPPI.2539_efac": 0.7010197803207379,
+   "J1909-3744_NRT.NUPPI.2539_log10_tnequad": -6.971700069604973,
+   "J1910+1256_JBO.ROACH.1520_efac": 1.0605708987634797,
+   "J1910+1256_JBO.ROACH.1520_log10_tnequad": -8.60288324441584,
+   "J1910+1256_NRT.NUPPI.1484_efac": 0.8345119172671124,
+   "J1910+1256_NRT.NUPPI.1484_log10_tnequad": -6.560712227869687,
+   "J1911+1347_EFF.P200.1380_efac": 0.8761134222727486,
+   "J1911+1347_EFF.P200.1380_log10_tnequad": -6.325898247530114,
+   "J1911+1347_EFF.P217.1380_efac": 1.4282541670316486,
+   "J1911+1347_EFF.P217.1380_log10_tnequad": -8.972867072178717,
+   "J1911+1347_EFF.S110.2487_efac": 1.6558234534679714,
+   "J1911+1347_EFF.S110.2487_log10_tnequad": -5.8910997224670405,
+   "J1911+1347_JBO.ROACH.1520_efac": 0.8120162030722926,
+   "J1911+1347_JBO.ROACH.1520_log10_tnequad": -5.504056196974953,
+   "J1911+1347_NRT.NUPPI.1484_efac": 0.8145191417597308,
+   "J1911+1347_NRT.NUPPI.1484_log10_tnequad": -8.815757478736355,
+   "J1918-0642_EFF.P200.1380_efac": 0.911571024305496,
+   "J1918-0642_EFF.P200.1380_log10_tnequad": -6.339692244024356,
+   "J1918-0642_EFF.P217.1380_efac": 1.1332353140352633,
+   "J1918-0642_EFF.P217.1380_log10_tnequad": -7.9507971426473105,
+   "J1918-0642_EFF.S110.2487_efac": 0.5276154326065083,
+   "J1918-0642_EFF.S110.2487_log10_tnequad": -5.583677452793728,
+   "J1918-0642_JBO.ROACH.1520_efac": 0.9655238565741925,
+   "J1918-0642_JBO.ROACH.1520_log10_tnequad": -6.332914721246314,
+   "J1918-0642_LEAP.1396_efac": 0.6781781812273364,
+   "J1918-0642_LEAP.1396_log10_tnequad": -5.796154707117647,
+   "J1918-0642_NRT.NUPPI.1484_efac": 0.831041493837829,
+   "J1918-0642_NRT.NUPPI.1484_log10_tnequad": -6.636962947462052,
+   "J1918-0642_WSRT.P2.1380_efac": 0.9493532309055206,
+   "J1918-0642_WSRT.P2.1380_log10_tnequad": -7.45893781848895,
+   "J2124-3358_JBO.ROACH.1520_efac": 1.3225391415374796,
+   "J2124-3358_JBO.ROACH.1520_log10_tnequad": -8.02686408638112,
+   "J2124-3358_NRT.NUPPI.1484_efac": 0.8358609453728573,
+   "J2124-3358_NRT.NUPPI.1484_log10_tnequad": -8.868578577184497,
+   "J2124-3358_NRT.NUPPI.1854_efac": 0.808915114390453,
+   "J2124-3358_NRT.NUPPI.1854_log10_tnequad": -5.254878544747536,
+   "J2124-3358_NRT.NUPPI.2154_efac": 1.128419743531647,
+   "J2124-3358_NRT.NUPPI.2154_log10_tnequad": -7.4274298640233125,
+   "J2124-3358_NRT.NUPPI.2539_efac": 0.6632723665048084,
+   "J2124-3358_NRT.NUPPI.2539_log10_tnequad": -5.366358828495574,
+   "J2322+2057_EFF.P217.1380_efac": 1.2087043553497132,
+   "J2322+2057_EFF.P217.1380_log10_tnequad": -6.508521806272974,
+   "J2322+2057_JBO.ROACH.1520_efac": 0.9610659725859465,
+   "J2322+2057_JBO.ROACH.1520_log10_tnequad": -6.054868484868762,
+   "J2322+2057_NRT.NUPPI.1484_efac": 0.8809550106099319,
+   "J2322+2057_NRT.NUPPI.1484_log10_tnequad": -8.583883932763115
+  },
+  "n_values": 306
+ },
+ "blocks": {
+  "J0030+0451": [
+   {
+    "name": "red_noise",
+    "modes": 10,
+    "span": "pulsar",
+    "chrom_idx": 0.0,
+    "norm": "enterprise",
+    "prov": [
+     "red_basis",
+     "tspan_red",
+     "fourier_tspan"
+    ]
+   }
+  ],
+  "J0613-0200": [
+   {
+    "name": "dm_gp",
+    "modes": 11,
+    "span": "pulsar",
+    "chrom_idx": 2.0,
+    "fref": 1400.0,
+    "norm": "temponest_dm",
+    "prov": [
+     "dm_basis",
+     "dm_tn_factor",
+     "tspan_dm"
+    ]
+   }
+  ],
+  "J0751+1807": [
+   {
+    "name": "dm_gp",
+    "modes": 92,
+    "span": "pulsar",
+    "chrom_idx": 2.0,
+    "fref": 1400.0,
+    "norm": "temponest_dm",
+    "prov": [
+     "dm_basis",
+     "dm_tn_factor",
+     "tspan_dm"
+    ]
+   }
+  ],
+  "J0900-3144": [
+   {
+    "name": "red_noise",
+    "modes": 99,
+    "span": "pulsar",
+    "chrom_idx": 0.0,
+    "norm": "enterprise",
+    "prov": [
+     "red_basis",
+     "tspan_red",
+     "fourier_tspan"
+    ]
+   },
+   {
+    "name": "dm_gp",
+    "modes": 100,
+    "span": "pulsar",
+    "chrom_idx": 2.0,
+    "fref": 1400.0,
+    "norm": "temponest_dm",
+    "prov": [
+     "dm_basis",
+     "dm_tn_factor",
+     "tspan_dm"
+    ]
+   }
+  ],
+  "J1012+5307": [
+   {
+    "name": "red_noise",
+    "modes": 92,
+    "span": "pulsar",
+    "chrom_idx": 0.0,
+    "norm": "enterprise",
+    "prov": [
+     "red_basis",
+     "tspan_red",
+     "fourier_tspan"
+    ]
+   },
+   {
+    "name": "dm_gp",
+    "modes": 16,
+    "span": "pulsar",
+    "chrom_idx": 2.0,
+    "fref": 1400.0,
+    "norm": "temponest_dm",
+    "prov": [
+     "dm_basis",
+     "dm_tn_factor",
+     "tspan_dm"
+    ]
+   }
+  ],
+  "J1022+1001": [
+   {
+    "name": "red_noise",
+    "modes": 30,
+    "span": "pulsar",
+    "chrom_idx": 0.0,
+    "norm": "enterprise",
+    "prov": [
+     "red_basis",
+     "tspan_red",
+     "fourier_tspan"
+    ]
+   },
+   {
+    "name": "dm_gp",
+    "modes": 100,
+    "span": "pulsar",
+    "chrom_idx": 2.0,
+    "fref": 1400.0,
+    "norm": "temponest_dm",
+    "prov": [
+     "dm_basis",
+     "dm_tn_factor",
+     "tspan_dm"
+    ]
+   }
+  ],
+  "J1024-0719": [
+   {
+    "name": "dm_gp",
+    "modes": 15,
+    "span": "pulsar",
+    "chrom_idx": 2.0,
+    "fref": 1400.0,
+    "norm": "temponest_dm",
+    "prov": [
+     "dm_basis",
+     "dm_tn_factor",
+     "tspan_dm"
+    ]
+   }
+  ],
+  "J1455-3330": [
+   {
+    "name": "red_noise",
+    "modes": 80,
+    "span": "pulsar",
+    "chrom_idx": 0.0,
+    "norm": "enterprise",
+    "prov": [
+     "red_basis",
+     "tspan_red",
+     "fourier_tspan"
+    ]
+   }
+  ],
+  "J1600-3053": [
+   {
+    "name": "dm_gp",
+    "modes": 97,
+    "span": "pulsar",
+    "chrom_idx": 2.0,
+    "fref": 1400.0,
+    "norm": "temponest_dm",
+    "prov": [
+     "dm_basis",
+     "dm_tn_factor",
+     "tspan_dm"
+    ]
+   },
+   {
+    "name": "chrom_gp",
+    "modes": 93,
+    "span": "pulsar",
+    "chrom_idx": 4.0,
+    "fref": 1400.0,
+    "norm": "temponest_dm",
+    "prov": [
+     "chrom_basis",
+     "chrom_in_dm",
+     "dm_tn_factor",
+     "tspan_chrom"
+    ]
+   }
+  ],
+  "J1640+2224": [
+   {
+    "name": "dm_gp",
+    "modes": 47,
+    "span": "pulsar",
+    "chrom_idx": 2.0,
+    "fref": 1400.0,
+    "norm": "temponest_dm",
+    "prov": [
+     "dm_basis",
+     "dm_tn_factor",
+     "tspan_dm"
+    ]
+   }
+  ],
+  "J1713+0747": [
+   {
+    "name": "red_noise",
+    "modes": 10,
+    "span": "pulsar",
+    "chrom_idx": 0.0,
+    "norm": "enterprise",
+    "prov": [
+     "red_basis",
+     "tspan_red",
+     "fourier_tspan"
+    ]
+   },
+   {
+    "name": "dm_gp",
+    "modes": 73,
+    "span": "pulsar",
+    "chrom_idx": 2.0,
+    "fref": 1400.0,
+    "norm": "temponest_dm",
+    "prov": [
+     "dm_basis",
+     "dm_tn_factor",
+     "tspan_dm"
+    ]
+   }
+  ],
+  "J1730-2304": [
+   {
+    "name": "dm_gp",
+    "modes": 11,
+    "span": "pulsar",
+    "chrom_idx": 2.0,
+    "fref": 1400.0,
+    "norm": "temponest_dm",
+    "prov": [
+     "dm_basis",
+     "dm_tn_factor",
+     "tspan_dm"
+    ]
+   }
+  ],
+  "J1738+0333": [
+   {
+    "name": "dm_gp",
+    "modes": 24,
+    "span": "pulsar",
+    "chrom_idx": 2.0,
+    "fref": 1400.0,
+    "norm": "temponest_dm",
+    "prov": [
+     "dm_basis",
+     "dm_tn_factor",
+     "tspan_dm"
+    ]
+   }
+  ],
+  "J1744-1134": [
+   {
+    "name": "dm_gp",
+    "modes": 87,
+    "span": "pulsar",
+    "chrom_idx": 2.0,
+    "fref": 1400.0,
+    "norm": "temponest_dm",
+    "prov": [
+     "dm_basis",
+     "dm_tn_factor",
+     "tspan_dm"
+    ]
+   }
+  ],
+  "J1751-2857": [
+   {
+    "name": "dm_gp",
+    "modes": 25,
+    "span": "pulsar",
+    "chrom_idx": 2.0,
+    "fref": 1400.0,
+    "norm": "temponest_dm",
+    "prov": [
+     "dm_basis",
+     "dm_tn_factor",
+     "tspan_dm"
+    ]
+   }
+  ],
+  "J1801-1417": [
+   {
+    "name": "dm_gp",
+    "modes": 11,
+    "span": "pulsar",
+    "chrom_idx": 2.0,
+    "fref": 1400.0,
+    "norm": "temponest_dm",
+    "prov": [
+     "dm_basis",
+     "dm_tn_factor",
+     "tspan_dm"
+    ]
+   }
+  ],
+  "J1804-2717": [
+   {
+    "name": "dm_gp",
+    "modes": 23,
+    "span": "pulsar",
+    "chrom_idx": 2.0,
+    "fref": 1400.0,
+    "norm": "temponest_dm",
+    "prov": [
+     "dm_basis",
+     "dm_tn_factor",
+     "tspan_dm"
+    ]
+   }
+  ],
+  "J1843-1113": [
+   {
+    "name": "dm_gp",
+    "modes": 95,
+    "span": "pulsar",
+    "chrom_idx": 2.0,
+    "fref": 1400.0,
+    "norm": "temponest_dm",
+    "prov": [
+     "dm_basis",
+     "dm_tn_factor",
+     "tspan_dm"
+    ]
+   }
+  ],
+  "J1857+0943": [
+   {
+    "name": "dm_gp",
+    "modes": 20,
+    "span": "pulsar",
+    "chrom_idx": 2.0,
+    "fref": 1400.0,
+    "norm": "temponest_dm",
+    "prov": [
+     "dm_basis",
+     "dm_tn_factor",
+     "tspan_dm"
+    ]
+   }
+  ],
+  "J1909-3744": [
+   {
+    "name": "red_noise",
+    "modes": 14,
+    "span": "pulsar",
+    "chrom_idx": 0.0,
+    "norm": "enterprise",
+    "prov": [
+     "red_basis",
+     "tspan_red",
+     "fourier_tspan"
+    ]
+   },
+   {
+    "name": "dm_gp",
+    "modes": 95,
+    "span": "pulsar",
+    "chrom_idx": 2.0,
+    "fref": 1400.0,
+    "norm": "temponest_dm",
+    "prov": [
+     "dm_basis",
+     "dm_tn_factor",
+     "tspan_dm"
+    ]
+   }
+  ],
+  "J1910+1256": [
+   {
+    "name": "dm_gp",
+    "modes": 20,
+    "span": "pulsar",
+    "chrom_idx": 2.0,
+    "fref": 1400.0,
+    "norm": "temponest_dm",
+    "prov": [
+     "dm_basis",
+     "dm_tn_factor",
+     "tspan_dm"
+    ]
+   }
+  ],
+  "J1911+1347": [
+   {
+    "name": "dm_gp",
+    "modes": 15,
+    "span": "pulsar",
+    "chrom_idx": 2.0,
+    "fref": 1400.0,
+    "norm": "temponest_dm",
+    "prov": [
+     "dm_basis",
+     "dm_tn_factor",
+     "tspan_dm"
+    ]
+   }
+  ],
+  "J1918-0642": [
+   {
+    "name": "dm_gp",
+    "modes": 75,
+    "span": "pulsar",
+    "chrom_idx": 2.0,
+    "fref": 1400.0,
+    "norm": "temponest_dm",
+    "prov": [
+     "dm_basis",
+     "dm_tn_factor",
+     "tspan_dm"
+    ]
+   }
+  ],
+  "J2124-3358": [
+   {
+    "name": "dm_gp",
+    "modes": 24,
+    "span": "pulsar",
+    "chrom_idx": 2.0,
+    "fref": 1400.0,
+    "norm": "temponest_dm",
+    "prov": [
+     "dm_basis",
+     "dm_tn_factor",
+     "tspan_dm"
+    ]
+   }
+  ],
+  "J2322+2057": [
+   {
+    "name": "red_noise",
+    "modes": 10,
+    "span": "pulsar",
+    "chrom_idx": 0.0,
+    "norm": "enterprise",
+    "prov": [
+     "red_basis",
+     "tspan_red",
+     "fourier_tspan"
+    ]
+   }
+  ]
+ },
+ "spans_s": {
+  "J0030+0451": 308637890.70587254,
+  "J0613-0200": 317867141.68215084,
+  "J0751+1807": 318205166.3394718,
+  "J0900-3144": 311054283.552331,
+  "J1012+5307": 317965733.69150543,
+  "J1022+1001": 318208894.84350014,
+  "J1024-0719": 317950544.51810265,
+  "J1455-3330": 292439237.2792578,
+  "J1600-3053": 312610282.20199966,
+  "J1640+2224": 322450313.7609577,
+  "J1713+0747": 318031767.99963474,
+  "J1730-2304": 313385171.9250965,
+  "J1738+0333": 314852575.3996277,
+  "J1744-1134": 307599420.5615244,
+  "J1751-2857": 297530086.9574604,
+  "J1801-1417": 307511713.4870157,
+  "J1804-2717": 301147753.5459862,
+  "J1843-1113": 318120992.27200794,
+  "J1857+0943": 314848360.51895714,
+  "J1909-3744": 285376253.2349682,
+  "J1910+1256": 312859877.94896126,
+  "J1911+1347": 313078641.3975353,
+  "J1918-0642": 318204201.7724285,
+  "J2124-3358": 305538237.41468525,
+  "J2322+2057": 305623629.8295593
+ },
+ "common": {
+  "modes": 9,
+  "span": "array",
+  "T_s": 326044597.6654711,
+  "psd": "powerlaw",
+  "orf": {
+   "crn": "BasisGP per pulsar, shared (log10_A, gamma)",
+   "hd": "BasisCommonGP, hd_orf (diag 1)"
+  },
+  "prov": [
+   "gw_basis",
+   "gw_crn",
+   "gw_hd",
+   "hd_orf",
+   "tspan_common"
+  ],
+  "modes_identified_by": "script CLI not released; freq_bins/freqs_dr2new.txt lists k/T_array; chain fingerprint discriminates (Sec. 3)"
+ },
+ "dip": {
+  "pulsar": "J1713+0747",
+  "param_prefix": "J1713+0747_J1713+0747_dmexp_1",
+  "chrom_idx": 1.0,
+  "sign": -1.0,
+  "window_mjd": [
+   57490.0,
+   57530.0
+  ],
+  "waveform": "d = sign 10^log10_Amp H(t - t0) exp(-(t - t0)/(10^log10_tau d)) (1400/nu)^idx, H(0) = 1",
+  "prov": [
+   "script_dip",
+   "dip_call",
+   "dip_t0",
+   "dip_amp",
+   "dip_tau",
+   "dip_sign",
+   "dip_wf"
+  ]
+ },
+ "parameters": [
+  {
+   "name": "J0030+0451_red_noise_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "red_gamma",
+   "role": "red_noise_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J0030+0451_red_noise_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "red_prior",
+   "role": "red_noise_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J0613-0200_dm_gp_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "dm_gamma",
+   "role": "dm_gp_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J0613-0200_dm_gp_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "dm_prior",
+   "role": "dm_gp_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J0751+1807_dm_gp_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "dm_gamma",
+   "role": "dm_gp_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J0751+1807_dm_gp_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "dm_prior",
+   "role": "dm_gp_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J0900-3144_dm_gp_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "dm_gamma",
+   "role": "dm_gp_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J0900-3144_dm_gp_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "dm_prior",
+   "role": "dm_gp_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J0900-3144_red_noise_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "red_gamma",
+   "role": "red_noise_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J0900-3144_red_noise_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "red_prior",
+   "role": "red_noise_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J1012+5307_dm_gp_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "dm_gamma",
+   "role": "dm_gp_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J1012+5307_dm_gp_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "dm_prior",
+   "role": "dm_gp_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J1012+5307_red_noise_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "red_gamma",
+   "role": "red_noise_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J1012+5307_red_noise_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "red_prior",
+   "role": "red_noise_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J1022+1001_dm_gp_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "dm_gamma",
+   "role": "dm_gp_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J1022+1001_dm_gp_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "dm_prior",
+   "role": "dm_gp_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J1022+1001_red_noise_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "red_gamma",
+   "role": "red_noise_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J1022+1001_red_noise_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "red_prior",
+   "role": "red_noise_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J1024-0719_dm_gp_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "dm_gamma",
+   "role": "dm_gp_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J1024-0719_dm_gp_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "dm_prior",
+   "role": "dm_gp_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J1455-3330_red_noise_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "red_gamma",
+   "role": "red_noise_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J1455-3330_red_noise_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "red_prior",
+   "role": "red_noise_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J1600-3053_chrom_gp_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "chrom_gamma",
+   "role": "chrom_gp_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J1600-3053_chrom_gp_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "chrom_prior",
+   "role": "chrom_gp_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J1600-3053_dm_gp_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "dm_gamma",
+   "role": "dm_gp_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J1600-3053_dm_gp_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "dm_prior",
+   "role": "dm_gp_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J1640+2224_dm_gp_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "dm_gamma",
+   "role": "dm_gp_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J1640+2224_dm_gp_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "dm_prior",
+   "role": "dm_gp_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J1713+0747_J1713+0747_dmexp_1_log10_Amp",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -10.0,
+    -2.0
+   ],
+   "prov": "dip_amp",
+   "role": "dip_log10_Amp",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J1713+0747_J1713+0747_dmexp_1_log10_tau",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    2.5
+   ],
+   "prov": "dip_tau",
+   "role": "dip_log10_tau",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J1713+0747_J1713+0747_dmexp_1_t0",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    57490.0,
+    57530.0
+   ],
+   "prov": "dip_t0",
+   "role": "dip_t0",
+   "kernel": "mh",
+   "shelf_prone": false
+  },
+  {
+   "name": "J1713+0747_dm_gp_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "dm_gamma",
+   "role": "dm_gp_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J1713+0747_dm_gp_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "dm_prior",
+   "role": "dm_gp_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J1713+0747_red_noise_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "red_gamma",
+   "role": "red_noise_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J1713+0747_red_noise_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "red_prior",
+   "role": "red_noise_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J1730-2304_dm_gp_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "dm_gamma",
+   "role": "dm_gp_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J1730-2304_dm_gp_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "dm_prior",
+   "role": "dm_gp_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J1738+0333_dm_gp_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "dm_gamma",
+   "role": "dm_gp_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J1738+0333_dm_gp_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "dm_prior",
+   "role": "dm_gp_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J1744-1134_dm_gp_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "dm_gamma",
+   "role": "dm_gp_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J1744-1134_dm_gp_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "dm_prior",
+   "role": "dm_gp_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J1751-2857_dm_gp_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "dm_gamma",
+   "role": "dm_gp_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J1751-2857_dm_gp_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "dm_prior",
+   "role": "dm_gp_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J1801-1417_dm_gp_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "dm_gamma",
+   "role": "dm_gp_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J1801-1417_dm_gp_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "dm_prior",
+   "role": "dm_gp_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J1804-2717_dm_gp_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "dm_gamma",
+   "role": "dm_gp_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J1804-2717_dm_gp_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "dm_prior",
+   "role": "dm_gp_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J1843-1113_dm_gp_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "dm_gamma",
+   "role": "dm_gp_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J1843-1113_dm_gp_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "dm_prior",
+   "role": "dm_gp_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J1857+0943_dm_gp_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "dm_gamma",
+   "role": "dm_gp_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J1857+0943_dm_gp_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "dm_prior",
+   "role": "dm_gp_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J1909-3744_dm_gp_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "dm_gamma",
+   "role": "dm_gp_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J1909-3744_dm_gp_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "dm_prior",
+   "role": "dm_gp_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J1909-3744_red_noise_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "red_gamma",
+   "role": "red_noise_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J1909-3744_red_noise_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "red_prior",
+   "role": "red_noise_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J1910+1256_dm_gp_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "dm_gamma",
+   "role": "dm_gp_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J1910+1256_dm_gp_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "dm_prior",
+   "role": "dm_gp_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J1911+1347_dm_gp_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "dm_gamma",
+   "role": "dm_gp_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J1911+1347_dm_gp_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "dm_prior",
+   "role": "dm_gp_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J1918-0642_dm_gp_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "dm_gamma",
+   "role": "dm_gp_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J1918-0642_dm_gp_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "dm_prior",
+   "role": "dm_gp_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J2124-3358_dm_gp_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "dm_gamma",
+   "role": "dm_gp_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J2124-3358_dm_gp_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "dm_prior",
+   "role": "dm_gp_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "J2322+2057_red_noise_gamma",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "red_gamma",
+   "role": "red_noise_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "J2322+2057_red_noise_log10_A",
+   "models": [
+    "crn",
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "red_prior",
+   "role": "red_noise_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "gw_crn_gamma",
+   "models": [
+    "crn"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "gw_gamma",
+   "role": "common_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "gw_crn_log10_A",
+   "models": [
+    "crn"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "gw_prior",
+   "role": "common_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  },
+  {
+   "name": "gw_hd_gamma",
+   "models": [
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    0.0,
+    7.0
+   ],
+   "prov": "gw_gamma",
+   "role": "common_gamma",
+   "kernel": "nuts",
+   "shelf_prone": false
+  },
+  {
+   "name": "gw_hd_log10_A",
+   "models": [
+    "hd"
+   ],
+   "prior": "uniform",
+   "bounds": [
+    -18.0,
+    -10.0
+   ],
+   "prov": "gw_prior",
+   "role": "common_log10_A",
+   "kernel": "nuts",
+   "shelf_prone": true
+  }
+ ],
+ "reference_chains": {
+  "crn_pl": {
+   "zenodo": "8091568",
+   "tar": "epta_dr2_gwb_chains/extracted/chains/DR2new/crn_pl.tar.gz",
+   "tar_sha256": "05f9cfa7b55624506b88ef056adcfcecece7808a36e4ea9580d60110002b9b3d",
+   "chain_sha256": "b7dee2a7b9377c029ffeb017f853a3413d13c1212975559a972e0d2c4c1cf1b1",
+   "pars_sha256": "1c780738d0c882e4919e85494bbf2a4f283b9c3d7add858eff18487a354fdab3",
+   "rows": 29990,
+   "burn_in_rows": 7497,
+   "burn_in": "first 25 % of chain_1.txt (plan Sec. 6.5)",
+   "logging_convention": "single-model PTMCMCSampler: lnpost - lnlike = physical log prior (uniform boxes)",
+   "columns": "67 parameters (pars.txt order) + lnpost, lnlike, acceptance, PT acceptance",
+   "storage": "text; parameters ~22 significant digits; lnpost/lnlike 6 decimals (parsed to float64)"
+  },
+  "hd_pl": {
+   "zenodo": "8091568",
+   "tar": "epta_dr2_gwb_chains/extracted/chains/DR2new/hd_pl.tar.gz",
+   "tar_sha256": "f10ab49e6a2f530f9c2e798ce6e9eb3098e834ba2b8ad834850ea1ef9db175f8",
+   "chain_sha256": "3621247f44f78134622946adf267c1f0728bd3c85e6bd80fe8ab65bdcbe0bfd8",
+   "pars_sha256": "e05f75c2f8fa2e159962c953feadd154363dbc0bd0f6395ebb2a06cca7add7a3",
+   "rows": 29990,
+   "burn_in_rows": 7497,
+   "burn_in": "first 25 % of chain_1.txt (plan Sec. 6.5)",
+   "logging_convention": "single-model PTMCMCSampler: lnpost - lnlike = physical log prior (uniform boxes)",
+   "columns": "67 parameters (pars.txt order) + lnpost, lnlike, acceptance, PT acceptance",
+   "storage": "text; parameters ~22 significant digits; lnpost/lnlike 6 decimals (parsed to float64)"
+  }
+ },
+ "physical_log_prior": {
+  "crn": -135.49586583119273,
+  "hd": -135.49586583119273
+ }
+}
