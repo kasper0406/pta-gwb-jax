@@ -2,19 +2,22 @@
 
 Every M3b gate result file records ``binding = evidence_binding()``: sha256 of the evaluated code
 (``src/ptagwb/*.py``, ``scripts/m3b_*.py``, the oracles ``tests/m3b_arbiter.py`` and
-``tests/dense_oracle.py``), the committed M3b configs, the exported input arrays our model
+``tests/dense_oracle.py``; scheme 2 excludes the **control plane** ``CONTROL_PLANE``: the GPU-time
+budget and supervisor, this module, the run driver and the rebind script, none of which is imported
+by any gate computation, which a strict-suite test checks), the committed M3b configs, the exported input arrays our model
 consumes (immutable evidence), the installed tempo2 runtime verified file by file against the
 committed pin (runtime evidence), the numerical-library versions of the evaluating env and the
 package versions of the external oracle envs. A consumer of gate
 results (the D3 benchmark, the production runner) calls ``require_bound`` and fails closed if any
 result is missing, failed, or was produced from a different configuration (a stale artifact).
+The run driver binds the control plane separately (``control_binding``, committed and clean).
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from .config import REPO_ROOT
 
@@ -22,6 +25,12 @@ EXPORTS = REPO_ROOT / "data" / "processed" / "m3b" / "epta" / "export" / "ours_c
 RUNTIME_DIR = REPO_ROOT / "data" / "processed" / "m3b" / "epta" / "t2runtime"
 RUNTIME_PIN = REPO_ROOT / "configs" / "m3b" / "t2runtime_epta.json"
 LIBRARIES = ("numpy", "scipy", "jax", "jaxlib", "numpyro")
+SCHEME = 2
+ORACLES = ("tests/m3b_arbiter.py", "tests/dense_oracle.py")
+# Files that never enter a gate computation (GPU-time accounting, supervision, evidence bookkeeping,
+# the run driver). Excluded from the gate-evidence binding; bound by the run driver instead.
+CONTROL_PLANE = ("src/ptagwb/budget.py", "src/ptagwb/binding.py", "scripts/m3b_run_epta.py",
+                 "scripts/m3b_rebind_evidence.py")
 
 
 class StaleEvidenceError(RuntimeError):
@@ -78,30 +87,80 @@ def _env_versions(env: Path) -> dict:
     return {"env": str(env), "packages": sorted(out)}
 
 
-def evidence_binding(root: Path = REPO_ROOT) -> dict:
-    """The configuration a gate result was computed from. Two kinds of evidence are separated:
-    ``inputs`` binds the immutable exported arrays our model consumes (and the committed configs);
-    ``runtime`` records that the installed tempo2 runtime's actual files equal the committed pin
-    (needed by evidence that re-evaluates tempo2 / the fork oracle: T1, fingerprint, G5-PTA)."""
+def code_file_sets(listing, exclude=CONTROL_PLANE) -> dict[str, list[str]]:
+    """Bound files from a list of repo-relative POSIX paths (the work tree or a git tree): the same
+    selection as the globs ``src/ptagwb/*.py``, ``scripts/m3b_*.py``, ``configs/m3b/**/*.json`` plus the
+    oracles, minus ``exclude``."""
+    ex = set(exclude)
+    src, scripts, configs = [], [], []
+    for r in listing:
+        q = PurePosixPath(r)
+        if r in ex:
+            continue
+        if str(q.parent) == "src/ptagwb" and q.suffix == ".py":
+            src.append(r)
+        elif str(q.parent) == "scripts" and q.name.startswith("m3b_") and q.suffix == ".py":
+            scripts.append(r)
+        elif r.startswith("configs/m3b/") and q.suffix == ".json":
+            configs.append(r)
+    return {"source": src, "scripts": scripts, "oracles": list(ORACLES), "configs": configs}
+
+
+def worktree_listing(root: Path = REPO_ROOT) -> list[str]:
+    files = [*(root / "src" / "ptagwb").glob("*.py"), *(root / "scripts").glob("m3b_*.py"),
+             *(root / "configs" / "m3b").rglob("*.json")]
+    return [str(f.relative_to(root)) for f in files if f.is_file()]
+
+
+def _group_read(rels, read, root: Path) -> str:
+    """Same digest as ``_group`` (Path ordering, relative path + content sha), with contents from
+    ``read(rel) -> bytes`` (a work tree or a git commit)."""
+    h = hashlib.sha256()
+    for p in sorted(root / r for r in rels):
+        rel = str(p.relative_to(root))
+        h.update(rel.encode())
+        h.update(hashlib.sha256(read(rel)).hexdigest().encode())
+    return h.hexdigest()
+
+
+def code_binding(listing, read, root: Path = REPO_ROOT, exclude=CONTROL_PLANE) -> dict:
+    sets = code_file_sets(listing, exclude)
+    return {"code": {k: _group_read(sets[k], read, root) for k in ("source", "scripts", "oracles")},
+            "configs": _group_read(sets["configs"], read, root)}
+
+
+def external_binding() -> dict:
+    """The non-code part: exported inputs, the verified runtime, library versions, oracle envs."""
     import importlib.metadata as md
     import os
 
-    src = sorted((root / "src" / "ptagwb").glob("*.py"))
-    scripts = sorted((root / "scripts").glob("m3b_*.py"))
-    oracles = [root / "tests" / "m3b_arbiter.py", root / "tests" / "dense_oracle.py"]
-    configs = sorted((root / "configs" / "m3b").rglob("*.json"))
     exports = sorted(EXPORTS.glob("*.npz"))
     if not exports:
         raise StaleEvidenceError(f"no exported inputs in {EXPORTS}")
     home = Path.home() / ".local" / "opt"
     envs = {k: _env_versions(Path(os.environ.get(v, home / d)))
             for k, v, d in (("fork_env", "EF_ENV", "epta-fork-env"), ("tempo2_env", "T2_ENV", "tempo2-env"))}
-    return {"code": {"source": _group(src, root), "scripts": _group(scripts, root), "oracles": _group(oracles, root)},
-            "configs": _group(configs, root),
-            "inputs": {"exports": _group(exports, root), "n_exports": len(exports)},
+    return {"inputs": {"exports": _group(exports), "n_exports": len(exports)},
             "runtime": {"verified_files": verify_runtime(), "pin": _sha(RUNTIME_PIN)},
             "libraries": {n: md.version(n) for n in LIBRARIES},
             "oracle_envs": hashlib.sha256(json.dumps(envs, sort_keys=True).encode()).hexdigest()}
+
+
+def evidence_binding(root: Path = REPO_ROOT) -> dict:
+    """The configuration a gate result was computed from (scheme 2). ``code`` and ``configs`` bind
+    the evaluated code (control plane excluded) and the committed configs; ``inputs`` binds the
+    immutable exported arrays our model consumes; ``runtime`` records that the installed tempo2
+    runtime's actual files equal the committed pin (needed by evidence that re-evaluates tempo2 /
+    the fork oracle: T1, fingerprint, G5-PTA)."""
+    return {"scheme": SCHEME,
+            **code_binding(worktree_listing(root), lambda r: (root / r).read_bytes(), root),
+            **external_binding()}
+
+
+def control_binding(root: Path = REPO_ROOT) -> dict:
+    """sha256 of each control-plane file (recorded by the run driver, which also requires them to
+    be committed and clean)."""
+    return {r: _sha(root / r) for r in CONTROL_PLANE if (root / r).exists()}
 
 
 def require_bound(results: dict[str, str], directory: Path, binding: dict | None = None) -> dict:

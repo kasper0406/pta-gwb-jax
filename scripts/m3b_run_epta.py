@@ -15,12 +15,19 @@ Fail-closed rules, all checked before the GPU is touched:
 
 During the run (review round 3: deadline enforcement independent of the ledger): this process is
 the **supervisor**; it admits the run, then starts the sampling **worker** (``--worker``) and
-SIGKILLs it at allocation - 2 grace, using only monotonic time, ``waitpid`` and ``kill``. Inside the
-worker a lock-free ``HardDeadline`` timer calls ``os._exit`` at allocation - 3 grace, and the chunk
-planner stops between chunks before allocation - 4 grace (the previous chunk's time must fit).
-Heartbeats are best-effort ledger writes. After the reap the supervisor writes its lock-free
-record (time before start, time after reap) and closes the ledger entry with that span rounded up
-(best-effort: if the write fails, the entry stays open and charged in full). Stop rules (fixed in the config): the deadline, the
+SIGKILLs it at allocation - 2 grace, using only ``CLOCK_BOOTTIME``, ``waitpid`` and ``kill``. The
+worker registers PR_SET_PDEATHSIG and verifies that its parent is still the supervisor before it is
+executed (review round 4). Inside the worker a lock-free ``HardDeadline`` timer calls ``os._exit`` at
+allocation - 3 grace, and the chunk planner stops between chunks before allocation - 4 grace (the
+previous chunk's time must fit). Heartbeats are best-effort ledger writes. After the reap the
+supervisor writes its lock-free record with the duration it measured on ``CLOCK_BOOTTIME`` (never
+wall-clock timestamps) and closes the ledger entry with that duration rounded up (best-effort: if
+the write fails, the entry stays open and charged in full).
+
+The control plane (``ptagwb.budget``, ``ptagwb.binding``, this driver, the evidence rebind script)
+is excluded from the gate-evidence binding (it cannot change a gate's numbers) and is bound
+separately here: it must be committed and clean, and its file hashes (``control_binding``) are
+recorded with the run. Stop rules (fixed in the config): the deadline, the
 number of transitions, a non-finite log-likelihood. The driver never changes a setting; a pilot
 that suggests a change ends the work and is reported.
 
@@ -93,8 +100,12 @@ def committed_and_clean(cfg_path: Path) -> dict:
     dirty = git("status", "--porcelain", "--", "src", "scripts", "tests", "configs").strip()
     if dirty:
         raise ConfigError(f"uncommitted changes (no deviation from committed configs):\n{dirty}")
+    from ptagwb.binding import control_binding
+
+    # the control plane (budget, binding, this driver) is outside the gate-evidence binding; the run
+    # binds it separately: committed and clean (checked above), and its file hashes are recorded
     return {"head": git("rev-parse", "HEAD").strip(), "config": rel,
-            "config_sha256": hashlib.sha256(cfg_path.read_bytes()).hexdigest()}
+            "config_sha256": hashlib.sha256(cfg_path.read_bytes()).hexdigest(), "control": control_binding()}
 
 
 def gpu_free() -> str:
@@ -162,7 +173,7 @@ def main():
         env = dict(os.environ, M3B_RUN_LIMIT_S=str(alloc - 4 * grace), M3B_HARD_EXIT_S=str(alloc - 3 * grace))
 
         def on_exit(rec):  # best-effort terminal write; on failure the entry stays open (charged)
-            charge = conservative_charge_s(rec["start_unix"], rec["end_unix"], cfg["max_gpu_hours"])
+            charge = conservative_charge_s(rec["elapsed_s"], cfg["max_gpu_hours"])  # CLOCK_BOOTTIME duration
             status = "killed_at_deadline" if rec["killed_at_deadline"] else (
                 "completed" if rec["returncode"] == 0 else f"worker_exit_{rec['returncode']}")
             ledger.close(cfg["run_id"], charge, status, {"supervisor": rec})
@@ -172,7 +183,7 @@ def main():
         rec = supervise([sys.executable, str(Path(__file__).resolve()), str(cfg_path), "--worker"],
                         run_id=cfg["run_id"], kill_after_s=alloc - 2 * grace, record_path=out / "supervisor.json",
                         env=env, on_exit=on_exit)
-        print(json.dumps({k: rec[k] for k in ("returncode", "killed_at_deadline", "elapsed_monotonic")}))
+        print(json.dumps({k: rec[k] for k in ("returncode", "killed_at_deadline", "elapsed_s")}))
 
 
 def worker(cfg_path: str) -> None:

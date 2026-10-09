@@ -21,15 +21,25 @@ round 2 of M3b-0E).
   planner (``Deadline``) stops between chunks earlier still. Heartbeats (``Watchdog``) only write
   the ledger; a failing heartbeat ends the worker. Every ledger write after admission is
   best-effort: if the terminal write does not happen, the entry stays open and is charged in full.
-* **Reconciliation** of an open entry needs the supervisor's lock-free record (time before the
-  worker started, time after it was reaped): the charge is that span rounded up to whole minutes
-  plus one minute. Process death alone never reduces the charge.
+* **Charging clock** (review round 4): every charge comes from a *duration* the supervisor measures
+  itself with ``CLOCK_BOOTTIME`` (monotonic, immune to wall-clock steps, and it keeps counting
+  through a suspend): the time from before the worker was started to after it was reaped. Wall-clock
+  timestamps are recorded for information only and never enter a charge.
+* **Reconciliation** of an open entry reads the supervisor's lock-free record. With the measured
+  duration (written only after the reap), the charge is that duration rounded up to whole minutes
+  plus one minute; without it (e.g. the supervisor died), the entry is closed at its **full
+  allocation**. Process death alone never reduces the charge.
+* **Parent-death registration** (review round 4): the worker's pre-exec hook (``pdeathsig_hook``)
+  must set PR_SET_PDEATHSIG = SIGKILL successfully (read back with PR_GET_PDEATHSIG) and then
+  verify that its parent is still the supervisor PID captured before spawning; otherwise the worker
+  is never executed (the hook raises, the child exits with status 255).
 """
 
 from __future__ import annotations
 
 import fcntl
 import json
+import math
 import os
 import tempfile
 import threading
@@ -40,6 +50,14 @@ from pathlib import Path
 
 CAPS_H = {"total": 12.0, "pilot": 2.0, "production": 8.0, "contingency": 2.0}
 OPEN = "running"
+CLOCK = "CLOCK_BOOTTIME"
+PR_SET_PDEATHSIG, PR_GET_PDEATHSIG = 1, 2
+
+
+def clock_s() -> float:
+    """The charging clock: CLOCK_BOOTTIME (monotonic; not affected by wall-clock steps; counts
+    suspend)."""
+    return time.clock_gettime(time.CLOCK_BOOTTIME)
 
 
 class BudgetExceeded(RuntimeError):
@@ -150,42 +168,47 @@ class Ledger:
 
     def reconcile(self, run_id: str, record_path: Path | str, *, operator_note: str) -> float:
         """Close a still-open entry from the **supervisor record** (``SupervisorRecord``) written by
-        the launching supervisor process, never from the worker's heartbeats: the record holds the
-        wall-clock time taken *before* the worker was started and the time *after* it was reaped
-        (``waitpid``), so end - start bounds the consumption from above. The charge is that span
-        rounded up to whole minutes, plus one minute, capped at the allocation. Without a complete
-        record (e.g. the supervisor itself died), nothing changes: the full allocation stays
-        charged. Returns the charged seconds."""
+        the launching supervisor process, never from the worker's heartbeats or from wall-clock
+        timestamps. If the record holds the duration the supervisor measured on ``CLOCK_BOOTTIME``
+        from before the worker started to after it was reaped (``elapsed_s``, written only after the
+        reap), the charge is that duration rounded up to whole minutes plus one minute, capped at the
+        allocation. Otherwise (no record, another run, no reap: e.g. the supervisor itself died)
+        there is no reliable bound and the entry is closed at its **full allocation**. Returns the
+        charged seconds."""
         rec = SupervisorRecord.read(record_path)
-        if rec.get("run_id") != run_id or "start_unix" not in rec or "end_unix" not in rec:
-            raise BudgetExceeded(f"run {run_id!r}: no complete supervisor record (start and reaped end); "
-                                 "the full allocation stays charged")
+        el = rec.get("elapsed_s")
+        bounded = (rec.get("run_id") == run_id and rec.get("clock") == CLOCK and rec.get("reaped") is True
+                   and isinstance(el, (int, float)) and not isinstance(el, bool) and math.isfinite(el) and el >= 0)
         with self._locked():
             e = self._read()
             for x in e:
                 if x["run_id"] == run_id and x["status"] == OPEN:
-                    charge = conservative_charge_s(rec["start_unix"], rec["end_unix"], x["max_gpu_hours"])
-                    x["status"] = "reconciled_from_supervisor_record"
+                    full = float(x["max_gpu_hours"]) * 3600.0
+                    charge = conservative_charge_s(el, x["max_gpu_hours"]) if bounded else full
+                    x["status"] = ("reconciled_from_supervisor_record" if bounded
+                                   else "reconciled_full_allocation_no_reliable_bound")
                     x["seconds"] = charge
-                    x.setdefault("info", {})["reconcile"] = {"note": operator_note, "record": rec}
+                    x.setdefault("info", {})["reconcile"] = {"note": operator_note, "record": rec, "bounded": bounded}
                     self._write(e)
                     return charge
             raise BudgetExceeded(f"no open entry {run_id!r}")
 
 
-def conservative_charge_s(start_unix: float, end_unix: float, max_gpu_hours: float) -> float:
-    """Upper bound of the consumption from supervisor timestamps: (end - start) rounded up to whole
-    minutes plus one minute, never more than the allocation."""
-    import math
-
-    if not (end_unix >= start_unix):
-        raise BudgetExceeded("supervisor record: end before start")
-    return float(min(60.0 * (math.ceil((end_unix - start_unix) / 60.0) + 1), max_gpu_hours * 3600.0))
+def conservative_charge_s(elapsed_s: float, max_gpu_hours: float) -> float:
+    """Upper bound of the consumption from the supervisor's measured ``CLOCK_BOOTTIME`` duration:
+    rounded up to whole minutes plus one minute, never more than the allocation. A missing or
+    invalid duration is charged the full allocation."""
+    full = float(max_gpu_hours) * 3600.0
+    if isinstance(elapsed_s, bool) or not isinstance(elapsed_s, (int, float)) or not math.isfinite(elapsed_s) \
+            or elapsed_s < 0:
+        return full
+    return float(min(60.0 * (math.ceil(elapsed_s / 60.0) + 1), full))
 
 
 class SupervisorRecord:
-    """Lock-free record of a run, written only by its supervisor (atomic temp file + rename): the
-    wall-clock time before the worker was started, and after it was reaped."""
+    """Lock-free record of a run, written only by its supervisor (atomic temp file + rename): before
+    the worker is started, and after it was reaped, with the duration measured on ``CLOCK_BOOTTIME``
+    (``elapsed_s``). Wall-clock fields (``*_unix``) are informational."""
 
     @staticmethod
     def write(path: Path | str, rec: dict) -> None:
@@ -308,42 +331,66 @@ class Watchdog:
         self._stop.set()
 
 
+def pdeathsig_hook(supervisor_pid: int, *, libc=None, getppid=os.getppid):
+    """Return the worker's pre-exec hook. Everything that might allocate or import is prepared here,
+    in the supervisor, before the fork. In the child the hook (1) sets PR_SET_PDEATHSIG = SIGKILL
+    and requires success, reading the value back with PR_GET_PDEATHSIG; (2) then checks that its
+    parent is still ``supervisor_pid`` (captured before spawning). If the supervisor died before
+    step (1) took effect, the child was re-parented and the check fails. Any failure raises, so the
+    worker is never executed (``subprocess`` reports the error and the child exits with 255)."""
+    import ctypes
+    import signal
+
+    if libc is None:
+        libc = ctypes.CDLL(None, use_errno=True)
+    out = ctypes.c_int(-1)
+    sig = int(signal.SIGKILL)
+
+    def hook():
+        if libc.prctl(PR_SET_PDEATHSIG, sig, 0, 0, 0) != 0:
+            raise OSError(ctypes.get_errno(), "prctl(PR_SET_PDEATHSIG) failed")
+        if libc.prctl(PR_GET_PDEATHSIG, ctypes.byref(out), 0, 0, 0) != 0 or out.value != sig:
+            raise OSError(ctypes.get_errno(), "PR_SET_PDEATHSIG did not take effect")
+        if getppid() != supervisor_pid:
+            raise RuntimeError("the supervisor died before the worker registered its parent-death signal")
+
+    return hook
+
+
 def supervise(cmd: list[str], *, run_id: str, kill_after_s: float, record_path: Path | str, env=None,
               poll_s: float = 0.05, on_exit=None) -> dict:
-    """Run ``cmd`` as a worker and SIGKILL it ``kill_after_s`` seconds after starting it, whatever it
-    is doing. The kill path uses only ``time.monotonic``, ``waitpid`` and ``kill``: no locks, no
-    ledger. The supervisor record (start before ``Popen``; end after the reap) is written before
-    and after (lock-free, atomic); then ``on_exit(record)`` (e.g. the best-effort ledger close)
-    is called, and its failure leaves the allocation open (charged in full). The worker gets
-    PR_SET_PDEATHSIG = SIGKILL, so it dies with the supervisor."""
-    import signal
+    """Run ``cmd`` as a worker and SIGKILL it ``kill_after_s`` seconds (``CLOCK_BOOTTIME``) after
+    starting it, whatever it is doing. The kill path uses only the clock, ``waitpid`` and ``kill``:
+    no locks, no ledger. The supervisor record is written before the start and after the reap
+    (lock-free, atomic); the second write adds ``elapsed_s``, the duration from before ``Popen`` to
+    after the reap on ``CLOCK_BOOTTIME``, which is the only quantity charges are computed from. Then
+    ``on_exit(record)`` (e.g. the best-effort ledger close) is called; its failure leaves the
+    allocation open (charged in full). The worker registers PR_SET_PDEATHSIG = SIGKILL and verifies
+    its parent before it is executed (``pdeathsig_hook``), so it dies with the supervisor."""
     import subprocess
 
-    def _pdeathsig():
-        try:
-            import ctypes
-
-            ctypes.CDLL("libc.so.6").prctl(1, signal.SIGKILL)  # PR_SET_PDEATHSIG
-        except Exception:  # noqa: BLE001
-            pass
-
-    rec = {"run_id": run_id, "start_unix": time.time(), "kill_after_s": kill_after_s, "cmd": cmd}
+    sup_pid = os.getpid()
+    hook = pdeathsig_hook(sup_pid)
+    rec = {"run_id": run_id, "clock": CLOCK, "supervisor_pid": sup_pid, "start_unix_info": time.time(),
+           "kill_after_s": kill_after_s, "cmd": cmd, "reaped": False}
     SupervisorRecord.write(record_path, rec)
-    t0 = time.monotonic()
-    proc = subprocess.Popen(cmd, env=env, preexec_fn=_pdeathsig)
+    t0 = clock_s()
+    # the hook was fully prepared before the fork and only calls prctl/getppid in the child; the
+    # driver's supervisor runs no other threads
+    proc = subprocess.Popen(cmd, env=env, preexec_fn=hook)  # noqa: PLW1509
     rec["worker_pid"] = proc.pid
     killed = False
     while True:
         rc = proc.poll()
         if rc is not None:
             break
-        if time.monotonic() - t0 >= kill_after_s:
+        if clock_s() - t0 >= kill_after_s:
             proc.kill()
             killed = True
             rc = proc.wait()
             break
         time.sleep(poll_s)
-    rec.update({"end_unix": time.time(), "elapsed_monotonic": time.monotonic() - t0, "returncode": rc,
+    rec.update({"elapsed_s": clock_s() - t0, "reaped": True, "end_unix_info": time.time(), "returncode": rc,
                 "killed_at_deadline": killed})
     try:
         SupervisorRecord.write(record_path, rec)
