@@ -29,8 +29,8 @@ cap leaks; `review_m3b0_r4.out`).**
      checking names of `binding`.
    * The driver binds the control plane separately: committed and clean, with its file hashes
      recorded with the run.
-   * Gate results computed at 2f55e24 were re-stamped, not recomputed, by
-     `scripts/m3b_rebind_evidence.py`. It requires (i) that each recorded binding equals the
+   * Gate results computed at 2f55e24 were first re-stamped, without recomputation, by
+     `scripts/m3b_rebind_evidence.py` (the strict suite later regenerated three of them; see Sec. 9). It requires (i) that each recorded binding equals the
      legacy binding rebuilt from 2f55e24's git tree with today's inputs, runtime, libraries and
      oracle envs, and (ii) that every bound file is byte-identical to 2f55e24, so only control-plane
      files changed.
@@ -876,9 +876,13 @@ and conditional occupancy were all recomputed at 2f55e24. T1, fingerprint and G5
 immaterial: shifts ≤0.003 σ68. Occupancy: every U region ≤3e-3.
 
 The occupancy job ran 2f55e24 from start to finish: the round-4 code was written in a separate
-worktree and merged only afterwards. All results were then re-stamped to scheme 2 by the verified
-rebind (revision-5 header, item 3); none was recomputed under 4477b5a. The driver's dry-run passes
-every precondition and records the control-plane hashes.
+worktree and merged only afterwards. All eight results were then re-stamped to scheme 2 by the
+verified rebind (revision-5 header, item 3).
+
+The strict suite at 4477b5a then **regenerated T1, the fingerprint and G5-PTA**. Those three now
+carry fresh scheme-2 bindings from 4477b5a, all PASS. The other five (prior volume, t0 conditional,
+runtime sensitivity, T2, conditional occupancy) carry verified migration records from 2f55e24. The
+driver's dry-run passes every precondition and records the control-plane hashes.
 
 **Revision 3** (superseded) (2026-10-09): `PTAGWB_REQUIRE_ORACLES=1`, CPU, run at 1cc3654 (code 39cf5e6).
 **498 passed, 2 xfailed** (the open M3a gates E7 and E8, `xfail(strict=True)`), **0 failed, 0
