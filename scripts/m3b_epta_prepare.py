@@ -55,13 +55,9 @@ def t2_par(text: str) -> str:
 
 
 def runtime_hashes(rt: Path) -> dict:
-    out = {}
-    for sub in ("clock", "earth", "observatory"):
-        for f in sorted((rt / sub).rglob("*")):
-            if f.is_file():
-                out[f"{sub}/{f.relative_to(rt / sub)}"] = sha(f)
-    out["ephemeris/DE440.1950.2050"] = sha(rt / "ephemeris" / "DE440.1950.2050")
-    return out
+    from ptagwb.binding import runtime_file_hashes
+
+    return runtime_file_hashes(rt)
 
 
 def build_runtime(tag: str = "", env: Path = RT_BASE_ENV, extra: tuple = (RT_GPS2UTC,), pin: bool = False) -> dict:
@@ -85,15 +81,17 @@ def build_runtime(tag: str = "", env: Path = RT_BASE_ENV, extra: tuple = (RT_GPS
     for f in extra:
         shutil.copy2(f, out / "clock" / Path(f).name)
         overlay[Path(f).name] = str(f)
-    pin = json.loads((REPO_ROOT / "configs" / "m3" / "clocks" / f"{prof.name}.json").read_text())
+    m3a_pin = json.loads((REPO_ROOT / "configs" / "m3" / "clocks" / f"{prof.name}.json").read_text())
     files = {f.name: sha(f) for f in sorted((out / "clock").glob("*.clk"))}
-    mism = {k: (files.get(k), v) for k, v in pin["files"].items() if files.get(k) != v}
+    mism = {k: (files.get(k), v) for k, v in m3a_pin["files"].items() if files.get(k) != v}
     meta = {"runtime": RUNTIME_NAME if not tag else f"diagnostic:{tag}", "clock_profile": prof.name,
             "base": str(base), "base_conda": sorted(p.name for p in (Path(env) / "conda-meta").glob("tempo2-*.json")),
             "overlay": overlay, "clock_files": files, "m3a_pin_mismatches": mism}
     if not tag:
         hashes = runtime_hashes(out)
         if pin:
+            if PIN.exists():
+                raise RuntimeError(f"{PIN} exists; a re-pin is a deliberate, reviewed change (delete it first)")
             PIN.parent.mkdir(parents=True, exist_ok=True)
             PIN.write_text(json.dumps({"runtime": RUNTIME_NAME, "base_conda": meta["base_conda"],
                                        "overlay": {k: Path(v).name for k, v in overlay.items()},

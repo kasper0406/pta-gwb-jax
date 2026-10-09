@@ -1,8 +1,8 @@
 {
  "pta": "EPTA DR2new",
- "version": 2,
+ "version": 3,
  "frozen_before_any_production_run": true,
- "plan": "docs/M3B_PLAN.md (approved 6ef14c8; user decisions D1-D9 of 2026-10-09 and the second set of 2026-10-09 revising D9, the D2 headline rule and D4)",
+ "plan": "docs/M3B_PLAN.md (approved 6ef14c8; user decisions D1-D9 of 2026-10-09 and the second set of 2026-10-09 revising D9, the D2 headline rule and D4); v3 after review round 2 of M3b-0E: same-domain E-6 reference, E-5 context only",
  "manifest": "epta-dr2new-v1",
  "margins_status": "provisional (D2): changed only by a reviewed revision before the run it affects",
  "decision_rule": {
@@ -623,30 +623,44 @@
   "E-6"
  ],
  "E5": {
-  "role": "secondary",
-  "target": "HD log10_A at gamma = 13/3 (reweighted from a fixed-gamma CURN run), conditional on D",
-  "q_ref_paper": {
+  "role": "context only: not classified",
+  "reason": "no released fixed-gamma chain exists, so no reference conditional on D can be formed; the paper's unconditional, rounded values are context",
+  "paper_context_unconditional": {
    "0.5": -14.61,
    "0.05": -14.73,
    "0.95": -14.5
   },
-  "m": {
-   "0.5": 0.035,
-   "0.05": 0.03,
-   "0.95": 0.03
-  },
-  "reference_rounding_se": 0.005,
-  "label": "reference uncertainty incomplete"
+  "reported": "our HD log10_A at gamma = 13/3 (reweighted from the fixed-gamma CURN run), conditional on D, with MCSE"
  },
  "E6": {
   "role": "headline",
-  "target_lnbf": 4.0943445622221,
+  "reference_lnB_D": 4.224513860960112,
+  "mcse_ref": 0.037135301186436515,
+  "reference_lnB_full": 4.2238163828233475,
+  "mcse_ref_full": 0.03714593833002194,
+  "khat_D": 0.340979163117916,
+  "kish_ess_D": 907.5796587021954,
+  "n_draws": 4499,
+  "n_in_D": 4492,
+  "source": {
+   "file": "data/processed/m3b/epta/results/reference_weights.npz",
+   "sha256": "488e553b3342041c86dd6a4ab62fa4e6b2716f047adf6f1f85c44eac4949465a",
+   "draws": "released crn_pl chain, every 5th retained row (chain order kept)",
+   "likelihoods": "pinned fork enterprise, runtime epta-dr2-chain-runtime-v1 (= ours to <= 5e-10 nats)"
+  },
   "m": 0.3,
   "max_se": 0.1,
-  "estimate": "ln B_D = ln[Z_HD(D) / Z_CURN(D)]: raw mean of w 1[D] over CURN draws divided by the mean of 1[D]",
-  "se": "MCSE(ln B_D) (Sec. 5.4, ordered chains) and the spread of our estimators in quadrature",
-  "descriptive": "ln B_full - ln B_D = ln(1 - p_CURN) - ln(1 - p_HD) reported with the U fractions of both sample sets; no coverage claim",
-  "context": "EPTA re-estimates 56-66"
+  "max_our_mcse": 0.08329002562628395,
+  "headline_rule": true,
+  "estimate": "ours: ln B_D = ln mean(w I_D) - ln mean(I_D) over our CURN draws (ptagwb.reweight.raw_bf with mask)",
+  "se": "paired OBM MCSE (max with the block bootstrap) and the spread of our estimators in quadrature",
+  "classification": "ptagwb.acceptance.classify_e6_from_frozen: Sec. 6.1 rule with SE_D = sqrt(SE_ours^2 + mcse_ref^2), m = 0.30; SE_ours > 0.10 -> INCONCLUSIVE",
+  "context_not_target": {
+   "published_lnBF_unrestricted": 4.0943445622221,
+   "EPTA_re_estimates": "56-66",
+   "note": "the published BF is unrestricted and computed by EPTA's own methods; it is reported as context, never classified against"
+  },
+  "descriptive": "ln B_full - ln B_D = ln(1 - p_CURN) - ln(1 - p_HD) with the U fractions of both sample sets; no coverage claim"
  },
  "reweighting": {
   "estimator": "raw only, weights w 1[D]",

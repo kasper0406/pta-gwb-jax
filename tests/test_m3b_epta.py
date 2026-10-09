@@ -177,7 +177,7 @@ def test_acceptance_files_frozen(epta_data):
     from ptagwb import acceptance as acc
 
     a = json.loads((REPO_ROOT / "configs" / "m3b" / "acceptance_epta.json").read_text())
-    assert a["frozen_before_any_production_run"] and a["version"] == 2
+    assert a["frozen_before_any_production_run"] and a["version"] == 3
     ex = acc.d9_exclusions(a)  # validates every field (fail closed)
     assert len(ex) == 24 and a["d9"]["reference_draws_in_U"] == {"crn_pl": 38, "hd_pl": 78}
     assert all(set(e["params"]) == {"crn_pl", "hd_pl"} for e in ex)  # one common domain
@@ -189,11 +189,69 @@ def test_acceptance_files_frozen(epta_data):
     for r in a["quantities"]:  # the uniform rule
         assert r["headline"] == (1.645 * r["mcse_ref_D"] <= r["m"] / 2 + 1e-15)
     assert a["headline"][-1] == "E-6" and len(a["headline"]) == 9
+    e6 = a["E6"]  # same-domain reference; the published BF is context only
+    assert e6["reference_lnB_D"] == pytest.approx(4.22451, abs=1e-4) and e6["mcse_ref"] == pytest.approx(0.0371, abs=1e-3)
+    assert "target_lnbf" not in e6 and e6["context_not_target"]["published_lnBF_unrestricted"] == pytest.approx(np.log(60))
+    assert a["E5"]["role"].startswith("context only")
     import m3b_freeze_acceptance as fa
 
     acc_new, rel_new = fa.build()
     assert json.loads(json.dumps(acc_new)) == a, "acceptance file differs from a fresh generation"
     assert json.loads(json.dumps(rel_new)) == json.loads(fa.REL.read_text())
+
+
+@pytest.mark.slow
+def test_conditional_acceptance_end_to_end_on_the_frozen_schema(epta_data):
+    """The complete conditional path on the actual frozen acceptance file: common-domain
+    indicators on ordered chains, conditional CURN quantiles, HD quantiles and ln B_D by
+    reweighting (weights w I_D, paired MCSE), classification of every headline row with
+    ``classify_from_frozen`` / ``classify_e6_from_frozen``, and D9 eligibility with the file's
+    inventories. 'Ours' = the released CURN chain split into 4 contiguous chains (a schema test;
+    the CURN rows must come out EQUIVALENT against themselves)."""
+    from ptagwb import acceptance as acc
+    from ptagwb import epta
+    from ptagwb import reweight as rw
+
+    man, _ = epta_data
+    a = json.loads((REPO_ROOT / "configs" / "m3b" / "acceptance_epta.json").read_text())
+    ex = acc.d9_exclusions(a)
+    npz = REPO_ROOT / a["E6"]["source"]["file"]
+    if not npz.exists():
+        pytest.skip("reference_weights.npz missing (scripts/m3b_reference_weights.py)")
+    names, X, burn = epta.load_reference("crn_pl", man)
+    z = np.load(npz)
+    rows = z["curn_rows_thin"]
+    R = X[rows, :67]
+    lw = z["lnl_hd_at_crn"] - z["lnl_crn"]
+    k = 4
+    split = lambda v: np.array_split(v, k)  # noqa: E731
+    col = lambda n: split(R[:, names.index(n)])  # noqa: E731
+    ind = acc.domain_indicator(col, ex, "crn_pl")
+    status = {}
+    for row in a["quantities"]:
+        if not row["headline"]:
+            continue
+        p = row["param"].replace("gw_hd_", "gw_crn_")
+        x = col(p)
+        r = acc.conditional_quantile(x, ind, row["quantile"], log_w=split(lw) if row["model"] == "hd_pl" else None)
+        c = acc.classify_from_frozen(row, r["q"], r["mcse"])
+        status[f"{row['id']} q{row['quantile']}"] = c.status
+        if row["model"] == "crn_pl":
+            assert c.status == acc.EQUIVALENT, (row["id"], row["quantile"], c)
+    assert set(status) == set(a["headline"][:-1])
+    ar = rw.accept_reweighting(split(lw), {"gw_crn_log10_A": col("gw_crn_log10_A")}, (0.5,),
+                               {("gw_crn_log10_A", 0.5): None}, mask=ind, n_boot=200)
+    assert ar["lnbf"]["value"] == pytest.approx(a["E6"]["reference_lnB_D"], abs=1e-12)
+    se = max(ar["lnbf"]["mcse_obm"], ar["lnbf"]["mcse_bootstrap"])
+    status["E-6"] = acc.classify_e6_from_frozen(a["E6"], ar["lnbf"]["value"], se).status
+    assert status["E-6"] == acc.EQUIVALENT
+    res = acc.d9_eligibility({c: acc.PASS for c in a["d9"]["required_checks"]}, status,
+                             required_checks=a["d9"]["required_checks"], required_headline=a["headline"],
+                             excluded_draws={"crn_pl": {"reference": 38, "ours": int(sum((~m).sum() for m in ind))},
+                                             "hd_pl": {"reference": 78, "ours": 0}},
+                             required_models=a["d9"]["models"])
+    assert res.unconditional_verdict == acc.INCONCLUSIVE
+    assert res.eligible == all(v == acc.EQUIVALENT for v in status.values())
 
 @pytest.mark.slow
 def test_buckets_and_hh_reducer_are_exact(epta_data):
@@ -241,3 +299,16 @@ def test_binding_rejects_stale_missing_and_failed_results(tmp_path):
     for f in ("stale.json", "failed.json", "unbound.json", "nonbool.json", "absent.json"):
         with pytest.raises(StaleEvidenceError):
             require_bound({"ok.json": "pass", f: "pass"}, tmp_path, cur)
+
+
+def test_fingerprint_inventory_and_discrimination_negatives():
+    good = {"pass": True, "t0_margin_ok": True, "discrimination": {"resolved": True}}
+    assert not fp.overall_pass({"crn_pl": good}, True)  # HD omitted
+    assert not fp.overall_pass({"crn_pl": good, "hd_pl": good, "extra": good}, True)
+    rng = np.random.default_rng(1)
+    ref = rng.normal(5e5, 10, 60)
+    ok = fp.evaluate(ref + rng.uniform(-5e-7, 5e-7, 60), ref, np.zeros(60))
+    bad = fp.evaluate(ref + rng.normal(0, 1.0, 60), ref, np.zeros(60))
+    assert not fp.discriminate(ok, {})["resolved"]  # empty alternatives
+    assert not fp.discriminate(ok, {"common_modes_8": bad})["resolved"]  # incomplete inventory
+    assert fp.discriminate(ok, {"common_modes_8": bad, "common_modes_10": bad})["resolved"]

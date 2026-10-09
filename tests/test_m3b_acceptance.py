@@ -119,6 +119,20 @@ def test_frozen_entry_fails_closed():
         "EQUIVALENT"
     with pytest.raises(GateInputError):
         classify_from_frozen({"q_ref": 1.0, "m": 0.1}, 1.0, 0.01)
+    # v2 rows (conditional reference on D)
+    v2 = {"q_ref_D": 1.0, "mcse_ref_D": 0.0, "m": 0.1, "headline": True}
+    assert classify_from_frozen(v2, 1.0, 0.01).status == "EQUIVALENT"
+    for bad in ({**v2, "q_ref": 1.0}, {"q_ref_D": 1.0, "m": 0.1}, {**v2, "mcse_ref_D": float("nan")}):
+        with pytest.raises(GateInputError):
+            classify_from_frozen(bad, 1.0, 0.01)
+    from ptagwb.acceptance import classify_e6_from_frozen
+
+    e6 = {"reference_lnB_D": 4.2245, "mcse_ref": 0.0371, "m": 0.30, "max_se": 0.10}
+    assert classify_e6_from_frozen(e6, 4.2245, 0.05).status == "EQUIVALENT"
+    assert classify_e6_from_frozen(e6, 4.2245, 0.2).status == "INCONCLUSIVE"
+    assert classify_e6_from_frozen(e6, 3.0, 0.05).status == "INCOMPATIBLE"
+    with pytest.raises(GateInputError):
+        classify_e6_from_frozen({k: v for k, v in e6.items() if k != "mcse_ref"}, 4.2, 0.05)
     good = {"name": "S_J0437", "type": "shelf", "boundaries": [-18, -17],
             "params": {"crn_pl": "J0437_red_noise_log10_A", "hd_pl": "J0437_red_noise_log10_A"},
             "reference_cases": {"crn_pl": "zero-visit", "hd_pl": "few-event"}}
@@ -395,3 +409,14 @@ def test_d9_eligibility_fails_closed_on_bad_inventories():
             d9_eligibility(gate, head, excluded_draws={**ex, "hd_pl": {"reference": v, "ours": 0}}, **inv)
     with pytest.raises(GateInputError):  # no inventories
         d9_eligibility(gate, head, excluded_draws=ex, required_checks=(), required_headline=(), required_models=())
+
+
+def test_d9_exclusions_require_finite_ordered_boundaries():
+    base = {"name": "x:S", "type": "shelf", "params": {"crn_pl": "x", "hd_pl": "x"},
+            "reference_cases": {"crn_pl": "zero-visit"}}
+    for b in ([np.nan, np.nan], [-17.0, -18.0], [-18.0, -18.0], [-18.0, np.inf], ["a", 1], [True, 2]):
+        with pytest.raises(GateInputError):
+            d9_exclusions({"d9": {"exclusions": [dict(base, boundaries=b)], "models": ["crn_pl", "hd_pl"],
+                                  "reference": {}}})
+    with pytest.raises(GateInputError):
+        domain_indicator(lambda n: [np.zeros(5)], [dict(base, boundaries=[np.nan, np.nan])], "crn_pl")

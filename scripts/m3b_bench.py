@@ -46,7 +46,8 @@ ACC = REPO_ROOT / "configs" / "m3b" / "acceptance_epta.json"
 
 
 PRECONDITIONS = {"t1.json": "T1_pass", "prior_volume.json": "pass", "fingerprint.json": "pass",
-                 "g5_pta.json": "G5_PTA_pass", "t0_conditional.json": "pass"}
+                 "g5_pta.json": "G5_PTA_pass", "t0_conditional.json": "pass",
+                 "t2.json": "completed", "conditional_occupancy.json": "completed"}
 
 
 def preconditions() -> dict:

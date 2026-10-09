@@ -198,69 +198,101 @@ def psis_khat(log_w) -> float:
 # ----------------------------------------------------------------------------------------------
 
 
-def raw_bf(log_w) -> float:
-    """ln BF_raw = ln mean(w) = logsumexp(log_w) - ln N over all pooled draws."""
-    lw = np.concatenate(as_chains(log_w))
-    return float(logsumexp(lw) - np.log(lw.size))
+def _masks(mask, chains: list[np.ndarray]) -> list[np.ndarray]:
+    """Per-chain domain indicators (None -> all True), shape-checked against the chains."""
+    if mask is None:
+        return [np.ones(c.size, bool) for c in chains]
+    ms = [np.asarray(m, bool).ravel() for m in ([mask] if isinstance(mask, np.ndarray) and mask.ndim == 1 else mask)]
+    if len(ms) != len(chains) or any(a.size != b.size for a, b in zip(ms, chains)):
+        raise ValueError("mask chains differ from the weights in number or length")
+    if not any(m.any() for m in ms):
+        raise ValueError("domain mask selects no draw")
+    return ms
 
 
-def mcse_lnbf_obm(log_w) -> dict:
-    """OBM MCSE of ln BF (delta method: Var(ln wbar) = Var(wbar) / wbar^2).
+def raw_bf(log_w, mask=None) -> float:
+    """ln BF_raw = ln mean(w) over all pooled draws; with a domain indicator I (``mask``),
+    ln B_D = ln mean(w I) - ln mean(I) (the restricted-domain evidence ratio for a common domain
+    D; draws outside D stay in the chains with weight 0, so chain order is preserved)."""
+    chains = as_chains(log_w)
+    ms = _masks(mask, chains)
+    lw = np.concatenate(chains)
+    m = np.concatenate(ms)
+    return float(logsumexp(lw[m]) - np.log(m.sum()))
 
-    Per chain c: tau_c = integrated autocorrelation time of that chain's normalised weights,
-    b_c = batch_length(tau_c, n_c), V_c = OBM variance of the chain's mean weight. Pooled:
-    Var(wbar) = sum_c (n_c / N)^2 V_c (independent chains). Returns ``mcse`` (pooled),
-    ``per_chain_lnbf``, ``per_chain_mcse`` (sqrt(V_c) / wbar_c), ``tau``, ``batch_length``.
+
+def _ratio_parts(chains, ms):
+    """(a, b) per chain: a = w I with w normalised by the global maximum weight, b = I."""
+    w = _normalised_weights(chains)
+    return [c * m for c, m in zip(w, ms)], [m.astype(np.float64) for m in ms]
+
+
+def mcse_lnbf_obm(log_w, mask=None) -> dict:
+    """OBM MCSE of ln B (ln B_D with a domain mask) by the delta method on the ratio
+    R = mean(a) / mean(b), a = w I, b = I (paired numerator/denominator):
+    Z_i = a_i / abar - b_i / bbar, Var(ln R) = Var(mean Z).
+
+    Per chain c: tau_c = integrated autocorrelation time of Z_c, b_c = batch_length(tau_c, n_c),
+    V_c = OBM variance of mean(Z_c) (chain order kept). Pooled: Var = sum_c (n_c / N)^2 V_c with
+    the pooled means in Z. Without a mask (b = 1) this is the OBM variance of mean(w) / wbar^2.
+    Returns ``mcse`` (pooled), per-chain ln B and MCSE (each chain's own means), ``tau``,
+    ``batch_length``.
     """
     chains = as_chains(log_w)
-    w = _normalised_weights(chains)
-    n = np.array([c.size for c in w], float)
+    ms = _masks(mask, chains)
+    a, b = _ratio_parts(chains, ms)
+    n = np.array([c.size for c in a], float)
     big_n = n.sum()
-    means = np.array([c.mean() for c in w])
-    taus = [integrated_autocorr_time(c) for c in w]
-    bs = [batch_length(t, c.size) for t, c in zip(taus, w)]
-    v = np.array([obm_variance_of_mean(c, b) for c, b in zip(w, bs)])
-    pooled = float(np.sum(n * means) / big_n)
-    var_pooled = float(np.sum((n / big_n) ** 2 * v))
-    lnbf_c = [raw_bf(c) for c in chains]
-    with np.errstate(divide="ignore", invalid="ignore"):
-        mcse_c = (np.sqrt(v) / means).tolist()
-    return {
-        "lnbf": raw_bf(chains),
-        "mcse": float(np.sqrt(var_pooled) / pooled),
-        "per_chain_lnbf": lnbf_c,
-        "per_chain_mcse": [float(s) for s in mcse_c],
-        "tau": [float(t) for t in taus],
-        "batch_length": bs,
-    }
+    abar = float(np.sum([x.sum() for x in a]) / big_n)
+    bbar = float(np.sum([x.sum() for x in b]) / big_n)
+    var, taus, bs, lnb_c, mc_c = 0.0, [], [], [], []
+    for ac, bc, lc, mc, nc in zip(a, b, chains, ms, n):
+        z = ac / abar - bc / bbar
+        tau = integrated_autocorr_time(z)
+        bl = batch_length(tau, int(nc))
+        taus.append(float(tau))
+        bs.append(bl)
+        var += (nc / big_n) ** 2 * obm_variance_of_mean(z, bl)
+        if mc.any() and ac.sum() > 0:
+            zc = ac / ac.mean() - bc / bc.mean()
+            lnb_c.append(raw_bf(lc, mc))
+            mc_c.append(float(np.sqrt(obm_variance_of_mean(zc, batch_length(integrated_autocorr_time(zc), int(nc))))))
+        else:
+            lnb_c.append(float("nan"))
+            mc_c.append(float("inf"))
+    return {"lnbf": raw_bf(chains, ms), "mcse": float(np.sqrt(var)), "per_chain_lnbf": lnb_c,
+            "per_chain_mcse": mc_c, "tau": taus, "batch_length": bs}
 
 
 def mcse_lnbf_block_bootstrap(log_w, n_boot: int = 1000, seed: int = 0,
-                              block_lengths: Sequence[int] | None = None) -> float:
-    """Moving-block bootstrap SD of the pooled ln BF (cross-check of the OBM MCSE).
+                              block_lengths: Sequence[int] | None = None, mask=None) -> float:
+    """Moving-block bootstrap SD of the pooled ln B (ln B_D with a mask): blocks of the paired
+    series (a, b) = (w I, I) are resampled together (cross-check of the OBM MCSE).
 
     Each chain is resampled independently: floor(n_c / b_c) blocks of length b_c drawn with
     replacement from the n_c - b_c + 1 overlapping blocks (non-circular), b_c as in
     ``mcse_lnbf_obm`` unless given. Returns +inf if any chain has b_c > n_c / 4.
     """
     chains = as_chains(log_w)
-    w = _normalised_weights(chains)
+    ms = _masks(mask, chains)
+    a, b = _ratio_parts(chains, ms)
     if block_lengths is None:
-        block_lengths = [batch_length(integrated_autocorr_time(c), c.size) for c in w]
+        block_lengths = mcse_lnbf_obm(chains, ms)["batch_length"]
     rng = np.random.default_rng(seed)
-    tot = np.zeros(n_boot)
-    cnt = 0
-    for c, b in zip(w, block_lengths):
-        n = c.size
-        if 4 * b > n:
+    ta, tb = np.zeros(n_boot), np.zeros(n_boot)
+    for ac, bc, bl in zip(a, b, block_lengths):
+        n = ac.size
+        if 4 * bl > n:
             return float("inf")
-        k = n // b
-        cs = np.concatenate([[0.0], np.cumsum(c)])
-        block_sums = cs[b:] - cs[:-b]
-        starts = rng.integers(0, n - b + 1, size=(n_boot, k))
-        tot += block_sums[starts].sum(axis=1)
-        cnt += k * b
-    return float(np.std(np.log(tot / cnt), ddof=1))
+        k = n // bl
+        csa = np.concatenate([[0.0], np.cumsum(ac)])
+        csb = np.concatenate([[0.0], np.cumsum(bc)])
+        starts = rng.integers(0, n - bl + 1, size=(n_boot, k))
+        ta += (csa[bl:] - csa[:-bl])[starts].sum(axis=1)
+        tb += (csb[bl:] - csb[:-bl])[starts].sum(axis=1)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        lr = np.log(ta / tb)
+    return float(np.std(lr, ddof=1)) if np.all(np.isfinite(lr)) else float("inf")
 
 
 # ----------------------------------------------------------------------------------------------
@@ -339,6 +371,32 @@ def weighted_quantile_mcse(x, log_w, p: float, mask=None) -> dict:
             "mcse_prob": mcse_r, "density": dens, "bandwidth": h}
 
 
+def paired_quantile_shift(x, log_w, p: float, mask=None) -> dict:
+    """Displacement of the p-quantile under reweighting, delta = q_w - q_1 (weights w I vs I), with
+    the **paired** MCSE: both endpoints come from the same ordered draws, so the linearisations are
+    combined before the variance is taken,
+        Z_i = -[w_i I_i (1[x_i <= q_w] - p) / mean(w I)] / f_w(q_w) + [I_i (1[x_i <= q_1] - p) / mean(I)] / f_1(q_1),
+    Var(delta) = Var(mean Z) by OBM per chain (batch length from tau(Z)), pooled over chains. f are
+    the weighted / unweighted Gaussian KDEs (``weighted_kde_density``)."""
+    xs, lws = as_chains(x), as_chains(log_w)
+    ms = _masks(mask, lws)
+    w = [c * m for c, m in zip(_normalised_weights(lws), ms)]
+    one = [m.astype(np.float64) for m in ms]
+    xa, wa, oa = np.concatenate(xs), np.concatenate(w), np.concatenate(one)
+    qw, q1 = weighted_quantile(xa, p, wa), weighted_quantile(xa, p, oa)
+    fw, _ = weighted_kde_density(xa, wa, qw)
+    f1, _ = weighted_kde_density(xa, oa, q1)
+    mw, m1 = float(wa.mean()), float(oa.mean())
+    n = np.array([c.size for c in xs], float)
+    big_n = n.sum()
+    var = 0.0
+    for xc, wc, oc, nc in zip(xs, w, one, n):
+        z = -wc * ((xc <= qw) - p) / mw / fw + oc * ((xc <= q1) - p) / m1 / f1
+        var += (nc / big_n) ** 2 * obm_variance_of_mean(z, batch_length(integrated_autocorr_time(z), int(nc)))
+    return {"q_unweighted": q1, "q_weighted": qw, "shift": qw - q1, "mcse_shift_paired": float(np.sqrt(var)),
+            "endpoint_mcse_weighted": weighted_quantile_mcse(xs, lws, p, mask=ms)["mcse"]}
+
+
 # ----------------------------------------------------------------------------------------------
 # per-chain stability
 # ----------------------------------------------------------------------------------------------
@@ -358,20 +416,22 @@ def chi2_consistency(values: Sequence[float], mcses: Sequence[float]) -> dict:
             "mean": mean}
 
 
-def chain_stability(log_w, x_by_name: Mapping[str, Sequence[np.ndarray]] | None = None) -> dict:
-    """Independent-chain stability (Sec. 5.4): chi^2 consistency of per-chain ln BF (OBM MCSEs)
-    and of per-chain weighted medians of each target (ratio-estimator MCSEs), plus the maximum
-    single-chain share of the total weight. Passes iff every p > 0.01 and share <= 0.5."""
+def chain_stability(log_w, x_by_name: Mapping[str, Sequence[np.ndarray]] | None = None, mask=None) -> dict:
+    """Independent-chain stability (Sec. 5.4): chi^2 consistency of per-chain ln B (ln B_D with a
+    mask; OBM MCSEs) and of per-chain weighted medians of each target (ratio-estimator MCSEs, with
+    the mask), plus the maximum single-chain share of the total weight w I. Passes iff every
+    p > 0.01 and share <= 0.5."""
     chains = as_chains(log_w)
-    w = _normalised_weights(chains)
-    tot = np.array([c.sum() for c in w])
+    ms = _masks(mask, chains)
+    a, _ = _ratio_parts(chains, ms)
+    tot = np.array([c.sum() for c in a])
     share = float(tot.max() / tot.sum())
-    ob = mcse_lnbf_obm(chains)
+    ob = mcse_lnbf_obm(chains, ms)
     lnbf = chi2_consistency(ob["per_chain_lnbf"], ob["per_chain_mcse"])
     medians = {}
     for name, xc in (x_by_name or {}).items():
         xc = as_chains(xc)
-        per = [weighted_quantile_mcse(a, b, 0.5) for a, b in zip(xc, chains)]
+        per = [weighted_quantile_mcse(xa, lc, 0.5, mask=[m]) for xa, lc, m in zip(xc, chains, ms)]
         res = chi2_consistency([r["q"] for r in per], [r["mcse"] for r in per])
         res["per_chain"] = [r["q"] for r in per]
         medians[name] = res
@@ -395,8 +455,12 @@ def accept_reweighting(
     khat_threshold: float = KHAT_THRESHOLD,
     n_boot: int = 1000,
     seed: int = 0,
+    mask=None,
 ) -> dict:
-    """Reweighting acceptance (Sec. 5.4), fail closed.
+    """Reweighting acceptance (Sec. 5.4), fail closed. With ``mask`` (per-chain indicators of the
+    common domain D, revised D9) every quantity is the conditional one: k-hat and Kish ESS on the
+    weights of draws in D, ln B_D with the paired OBM / block-bootstrap MCSE, weighted quantiles
+    with weights w I, and the per-chain stability on D; chain order is preserved throughout.
 
     ``max_our_mcse`` must contain an entry for every (name, p) in x_by_name x probs (KeyError
     otherwise); a value of None marks a reported-only (non-decidable) quantity whose MCSE is not
@@ -405,19 +469,21 @@ def accept_reweighting(
     MCSE finite and <= its max_our_MCSE. Returns a dict with all diagnostics and ``reasons``.
     """
     chains = as_chains(log_w)
+    ms = _masks(mask, chains)
     for name in x_by_name:
         for p in probs:
             if (name, p) not in max_our_mcse:
                 raise KeyError(f"max_our_mcse missing for ({name!r}, {p})")
     reasons: list[str] = []
-    k_pooled = psis_khat(chains)
-    k_chain = [psis_khat(c) for c in chains]
+    in_d = [c[m] for c, m in zip(chains, ms)]
+    k_pooled = psis_khat(np.concatenate(in_d))
+    k_chain = [psis_khat(c) if c.size else float("inf") for c in in_d]
     khat_ok = all(k < khat_threshold for k in [k_pooled, *k_chain])  # nan / +inf fail
     if not khat_ok:
         reasons.append(f"k-hat >= {khat_threshold} (pooled {k_pooled:.3f}, chains {k_chain})")
-    ob = mcse_lnbf_obm(chains)
+    ob = mcse_lnbf_obm(chains, ms)
     boot = mcse_lnbf_block_bootstrap(chains, n_boot=n_boot, seed=seed,
-                                     block_lengths=ob["batch_length"])
+                                     block_lengths=ob["batch_length"], mask=ms)
     mcse_gate = max(ob["mcse"], boot)
     lnbf_ok = bool(np.isfinite(mcse_gate) and mcse_gate <= max_mcse_lnbf)
     if not lnbf_ok:
@@ -427,7 +493,7 @@ def accept_reweighting(
     for name, xc in x_by_name.items():
         quant[name] = {}
         for p in probs:
-            r = weighted_quantile_mcse(xc, chains, p)
+            r = weighted_quantile_mcse(xc, chains, p, mask=ms)
             lim = max_our_mcse[(name, p)]
             r["max_our_mcse"] = lim
             r["pass"] = True if lim is None else bool(np.isfinite(r["mcse"]) and r["mcse"] <= lim)
@@ -435,7 +501,7 @@ def accept_reweighting(
                 quant_ok = False
                 reasons.append(f"MCSE({name} q{p}) {r['mcse']:.4g} > {lim}")
             quant[name][p] = r
-    stab = chain_stability(chains, x_by_name)
+    stab = chain_stability(chains, x_by_name, ms)
     if not stab["pass"]:
         reasons.append("per-chain stability failed")
     return {
@@ -449,8 +515,9 @@ def accept_reweighting(
                  "tau_w": ob["tau"], "batch_length": ob["batch_length"]},
         "quantiles": quant,
         "stability": stab,
-        "kish_ess": kish_ess(chains),
+        "kish_ess": kish_ess(np.concatenate(in_d)),
         "n_draws": int(sum(c.size for c in chains)),
+        "n_draws_in_domain": int(sum(m.sum() for m in ms)),
         "n_chains": len(chains),
     }
 
@@ -458,6 +525,6 @@ def accept_reweighting(
 __all__ = [
     "accept_reweighting", "as_chains", "batch_length", "chain_stability", "chi2_consistency",
     "integrated_autocorr_time", "kish_ess", "mcse_lnbf_block_bootstrap", "mcse_lnbf_obm",
-    "obm_variance_of_mean", "psis_khat", "raw_bf", "weighted_kde_density", "weighted_quantile",
+    "obm_variance_of_mean", "paired_quantile_shift", "psis_khat", "raw_bf", "weighted_kde_density", "weighted_quantile",
     "weighted_quantile_mcse",
 ]

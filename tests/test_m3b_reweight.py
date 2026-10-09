@@ -176,3 +176,71 @@ def test_accept_reweighting_pass_and_fail_closed():
     # too few draws per chain to estimate MCSE -> not accepted
     r4 = accept_reweighting(lw[:, :20], {"a": x[:, :20]}, (0.5,), {("a", 0.5): 10.0}, n_boot=50)
     assert not r4["accepted"]
+
+
+def _ar1(rng, n, rho):
+    e = rng.normal(size=n) * np.sqrt(1 - rho**2)
+    x = np.empty(n)
+    x[0] = rng.normal()
+    for i in range(1, n):
+        x[i] = rho * x[i - 1] + e[i]
+    return x
+
+
+def test_conditional_lnbf_on_domain_known_answer_and_coverage():
+    """ln B_D = ln mean(w I) - ln mean(I) with the paired OBM MCSE on correlated chains: proposal
+    N(0,1), target N(0.5,1) (w = exp(0.5 x - 1/8), BF = 1), D = {x > -1}:
+    B_D = Phi(1.5) / Phi(1)."""
+    from scipy import stats as st
+
+    from ptagwb.reweight import mcse_lnbf_block_bootstrap
+
+    truth = np.log(st.norm.cdf(1.5) / st.norm.cdf(1.0))
+    rng = np.random.default_rng(21)
+    hits, reps = 0, 120
+    for _ in range(reps):
+        xs = [_ar1(rng, 4000, 0.8) for _ in range(3)]
+        lw = [0.5 * x - 0.125 for x in xs]
+        m = [x > -1.0 for x in xs]
+        ob = mcse_lnbf_obm(lw, m)
+        assert ob["lnbf"] == raw_bf(lw, m)
+        hits += abs(ob["lnbf"] - truth) <= 1.96 * ob["mcse"]
+    assert 0.85 <= hits / reps <= 0.99
+    boot = mcse_lnbf_block_bootstrap(lw, n_boot=400, mask=m)
+    assert 0.5 < boot / ob["mcse"] < 2.0
+    # no mask == all-True mask, exactly
+    assert raw_bf(lw) == raw_bf(lw, [np.ones(4000, bool)] * 3)
+    assert mcse_lnbf_obm(lw)["mcse"] == pytest.approx(mcse_lnbf_obm(lw, [np.ones(4000, bool)] * 3)["mcse"], rel=1e-12)
+    with pytest.raises(ValueError):
+        raw_bf(lw, [np.zeros(4000, bool)] * 3)
+    with pytest.raises(ValueError):
+        raw_bf(lw, [np.ones(10, bool)] * 3)
+
+
+def test_accept_reweighting_with_domain():
+    rng = np.random.default_rng(22)
+    xs = [_ar1(rng, 6000, 0.5) for _ in range(4)]
+    lw = [0.3 * x - 0.045 for x in xs]
+    m = [x > -1.5 for x in xs]
+    r = accept_reweighting(lw, {"a": xs}, (0.5,), {("a", 0.5): 0.05}, mask=m, n_boot=200)
+    assert r["n_draws_in_domain"] == sum(int(v.sum()) for v in m)
+    assert r["lnbf"]["value"] == raw_bf(lw, m)
+    assert r["quantiles"]["a"][0.5]["q"] > np.quantile(np.concatenate(xs), 0.5)  # shelf excluded, tilted
+    assert r["accepted"], r["reasons"]
+
+
+def test_paired_quantile_shift_known_answer_and_coverage():
+    """Shift of the median under a tilt w = exp(t x - t^2/2) on N(0,1) draws (target N(t,1)): the
+    true shift is t; the paired MCSE covers it on AR(1) chains and is smaller than the endpoint
+    MCSE (positive covariance between the endpoints)."""
+    from ptagwb.reweight import paired_quantile_shift
+
+    rng = np.random.default_rng(31)
+    t, hits, reps, ratio = 0.05, 0, 100, []
+    for _ in range(reps):
+        xs = [_ar1(rng, 5000, 0.7) for _ in range(2)]
+        r = paired_quantile_shift(xs, [t * x - t * t / 2 for x in xs], 0.5)
+        hits += abs(r["shift"] - t) <= 1.96 * r["mcse_shift_paired"]
+        ratio.append(r["mcse_shift_paired"] / r["endpoint_mcse_weighted"])
+    assert 0.85 <= hits / reps <= 0.995
+    assert np.median(ratio) < 0.7

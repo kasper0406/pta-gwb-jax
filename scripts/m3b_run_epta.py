@@ -9,8 +9,9 @@ Fail-closed rules, all checked before the GPU is touched:
 * every exact-model gate result is current, passing and bound to this configuration
   (``ptagwb.binding.require_bound``: T1, manifest/prior volume, fingerprint, G5-PTA, t0
   conditional);
-* the GPU-time ledger (``ptagwb.budget``) admits the run's ``max_gpu_hours`` within its phase and
-  the 12 GPU-h total; no other process holds the GPU.
+* the GPU-time ledger (``ptagwb.budget``, locked) admits the run's ``max_gpu_hours`` within its
+  phase and the 12 GPU-h total, reserving it in full while the run is open; the exclusive GPU lock
+  is held for the whole run and ``nvidia-smi`` shows no other compute process.
 
 During the run: chunks of ``chunk_transitions`` transitions; before each chunk the predicted chunk
 time (the previous chunk's) must fit before the deadline (= max_gpu_hours minus two watchdog grace
@@ -39,8 +40,10 @@ from ptagwb.config import REPO_ROOT
 RUNS = REPO_ROOT / "data" / "processed" / "m3b" / "epta" / "runs"
 RES = REPO_ROOT / "data" / "processed" / "m3b" / "epta" / "results"
 LEDGER = RUNS / "ledger.json"
+GPU_LOCK = Path.home() / ".cache" / "ptagwb" / "gpu0.lock"
 PRECONDITIONS = {"t1.json": "T1_pass", "prior_volume.json": "pass", "fingerprint.json": "pass",
-                 "g5_pta.json": "G5_PTA_pass", "t0_conditional.json": "pass"}
+                 "g5_pta.json": "G5_PTA_pass", "t0_conditional.json": "pass",
+                 "t2.json": "completed", "conditional_occupancy.json": "completed"}
 REQUIRED = {"run_id": str, "phase": str, "model": str, "gamma_common": (float, type(None)), "chains": int,
             "num_warmup": int, "max_transitions": int, "chunk_transitions": int, "max_tree_depth": int,
             "step_size_init": float, "dense_mass": bool, "adapt_mass_matrix": bool, "seed": int,
@@ -125,7 +128,7 @@ def main():
     cfg = validate_config(json.loads(cfg_path.read_text()))
     prov = committed_and_clean(cfg_path)
     from ptagwb.binding import evidence_binding, require_bound
-    from ptagwb.budget import Deadline, Ledger, Watchdog
+    from ptagwb.budget import Deadline, GpuLock, Ledger, Watchdog
 
     binding = evidence_binding()
     require_bound(PRECONDITIONS, RES, binding)
@@ -133,29 +136,33 @@ def main():
     rem = ledger.remaining_h(cfg["phase"])
     if cfg["max_gpu_hours"] > rem:
         raise ConfigError(f"max_gpu_hours {cfg['max_gpu_hours']} > remaining {rem:.3f} GPU-h of {cfg['phase']}")
-    smi = gpu_free()
-    if a.dry_run:
-        print(json.dumps({"ok": True, "provenance": prov, "remaining_h": rem, "gpu": smi}, indent=1))
-        return
-    out = RUNS / cfg["run_id"]
-    if out.exists():
-        raise ConfigError(f"{out} exists (runs are never resumed or repeated silently)")
-    out.mkdir(parents=True)
-    ledger.open(cfg["run_id"], cfg["phase"], cfg["max_gpu_hours"], {**prov, "binding": binding, "gpu": smi})
-    grace = cfg["watchdog_grace_s"]
-    dl = Deadline(time.monotonic(), cfg["max_gpu_hours"] * 3600 - 2 * grace, grace)
-    status = {"value": "error"}
+    with GpuLock(GPU_LOCK):  # exclusive for the whole run (released at exit, also on a crash)
+        smi = gpu_free()
+        if a.dry_run:
+            print(json.dumps({"ok": True, "provenance": prov, "remaining_h": rem, "gpu": smi}, indent=1))
+            return
+        out = RUNS / cfg["run_id"]
+        if out.exists():
+            raise ConfigError(f"{out} exists (runs are never resumed or repeated silently)")
+        out.mkdir(parents=True)
+        # admission reserves the full allocation; a crash stays charged in full until reconciled
+        ledger.open(cfg["run_id"], cfg["phase"], cfg["max_gpu_hours"], {**prov, "binding": binding, "gpu": smi})
+        grace = cfg["watchdog_grace_s"]
+        # the watchdog fires at the latest at limit + grace + poll = allocation - grace + grace/4
+        dl = Deadline(time.monotonic(), cfg["max_gpu_hours"] * 3600 - 2 * grace, grace)
+        status = {"value": "error"}
 
-    def on_kill(el):
-        ledger.update(cfg["run_id"], el, "killed_at_cap")
+        def on_kill(el, reason):
+            ledger.close(cfg["run_id"], el, "killed: " + reason)
 
-    wd = Watchdog(dl, on_kill, on_beat=lambda el: ledger.update(cfg["run_id"], el)).start()
-    try:
-        status["value"] = run(cfg, out, dl, ledger, prov, binding)
-    finally:
-        wd.stop()
-        ledger.update(cfg["run_id"], dl.elapsed, status["value"])
-    print(status["value"])
+        wd = Watchdog(dl, on_kill, poll_s=grace / 4, on_beat=lambda el: ledger.heartbeat(cfg["run_id"], el),
+                      beat_s=grace).start()
+        try:
+            status["value"] = run(cfg, out, dl, ledger, prov, binding)
+        finally:
+            wd.stop()
+            ledger.close(cfg["run_id"], dl.elapsed, status["value"])
+        print(status["value"])
 
 
 def run(cfg, out, dl, ledger, prov, binding) -> str:
@@ -214,7 +221,7 @@ def run(cfg, out, dl, ledger, prov, binding) -> str:
         meta["chunks"].append({"n": n_chunk, "seconds": dt, "transitions_done": done, "elapsed_s": dl.elapsed,
                                "divergences": int(div.sum())})
         (out / "run_meta.json").write_text(json.dumps(meta, indent=1, default=str))
-        ledger.update(cfg["run_id"], dl.elapsed)
+        ledger.heartbeat(cfg["run_id"], dl.elapsed)
         n_chunk += 1
         if not np.all(np.isfinite(ll)):
             reason = "stopped: non-finite log-likelihood"

@@ -216,6 +216,39 @@ def decision_table_D(cref):
     return rows
 
 
+RW_NPZ = REPO_ROOT / "data" / "processed" / "m3b" / "epta" / "results" / "reference_weights.npz"
+
+
+def e6_reference(man, exclusions):
+    """Same-domain E-6 reference (review round 2 of M3b-0E): ln B_D of the released chains, from the
+    released CURN draws (every 5th retained draw, chain order kept) reweighted to HD with the
+    pinned fork likelihoods (scripts/m3b_reference_weights.py), restricted to D:
+    ln B_D = ln mean(w I_D) - ln mean(I_D), with the paired OBM MCSE."""
+    import hashlib
+
+    from ptagwb import reweight as rw
+
+    if not RW_NPZ.exists():
+        raise SystemExit(f"{RW_NPZ} missing: run scripts/m3b_reference_weights.py")
+    z = np.load(RW_NPZ)
+    names, X, burn = epta.load_reference("crn_pl", man)
+    rows = z["curn_rows_thin"]
+    if not np.allclose(X[rows, 68], z["stored_lnl_crn"], rtol=0, atol=0):
+        raise SystemExit("reference_weights.npz does not match the released CURN chain rows")
+    lw = z["lnl_hd_at_crn"] - z["lnl_crn"]
+    R = X[rows, :67]
+    ind = acc.domain_indicator(lambda n: [R[:, names.index(n)]], exclusions, "crn_pl")[0]
+    ob = rw.mcse_lnbf_obm([lw], [ind])
+    full = rw.mcse_lnbf_obm([lw])
+    return {"reference_lnB_D": ob["lnbf"], "mcse_ref": ob["mcse"],
+            "reference_lnB_full": full["lnbf"], "mcse_ref_full": full["mcse"],
+            "khat_D": rw.psis_khat(lw[ind]), "kish_ess_D": rw.kish_ess(lw[ind]),
+            "n_draws": int(lw.size), "n_in_D": int(ind.sum()),
+            "source": {"file": str(RW_NPZ.relative_to(REPO_ROOT)), "sha256": hashlib.sha256(RW_NPZ.read_bytes()).hexdigest(),
+                       "draws": "released crn_pl chain, every 5th retained row (chain order kept)",
+                       "likelihoods": "pinned fork enterprise, runtime epta-dr2-chain-runtime-v1 (= ours to <= 5e-10 nats)"}}
+
+
 def build():
     man = epta.load_manifest()
     psrs = epta.load_pulsars()
@@ -224,12 +257,14 @@ def build():
     exclusions = common_domain(man, rel, U, few)
     cref = conditional_reference(man, exclusions)
     table = decision_table_D(cref)
+    e6 = e6_reference(man, exclusions)
     headline = [f"{r['id']} q{r['quantile']}" for r in table if r["headline"]]
     acc_file = {
-        "pta": "EPTA DR2new", "version": 2,
+        "pta": "EPTA DR2new", "version": 3,
         "frozen_before_any_production_run": True,
         "plan": ("docs/M3B_PLAN.md (approved 6ef14c8; user decisions D1-D9 of 2026-10-09 and the second set "
-                 "of 2026-10-09 revising D9, the D2 headline rule and D4)"),
+                 "of 2026-10-09 revising D9, the D2 headline rule and D4); v3 after review round 2 of M3b-0E: "
+                 "same-domain E-6 reference, E-5 context only"),
         "manifest": man["manifest"],
         "margins_status": "provisional (D2): changed only by a reviewed revision before the run it affects",
         "decision_rule": {"interval": "D +- 1.645 SE_D, SE_D = sqrt(MCSE_ours^2 + MCSE_ref^2)",
@@ -245,14 +280,19 @@ def build():
         "reference_conditional_D": {k: {kk: vv for kk, vv in v.items()} for k, v in cref.items()},
         "quantities": table,
         "headline": headline + ["E-6"],
-        "E5": {"role": "secondary", "target": "HD log10_A at gamma = 13/3 (reweighted from a fixed-gamma CURN run), conditional on D",
-               "q_ref_paper": {"0.5": -14.61, "0.05": -14.73, "0.95": -14.50}, "m": {"0.5": 0.035, "0.05": 0.03, "0.95": 0.03},
-               "reference_rounding_se": 0.005, "label": "reference uncertainty incomplete"},
-        "E6": {"role": "headline", "target_lnbf": float(np.log(60.0)), "m": 0.30, "max_se": 0.10,
-               "estimate": "ln B_D = ln[Z_HD(D) / Z_CURN(D)]: raw mean of w 1[D] over CURN draws divided by the mean of 1[D]",
-               "se": "MCSE(ln B_D) (Sec. 5.4, ordered chains) and the spread of our estimators in quadrature",
-               "descriptive": "ln B_full - ln B_D = ln(1 - p_CURN) - ln(1 - p_HD) reported with the U fractions of both sample sets; no coverage claim",
-               "context": "EPTA re-estimates 56-66"},
+        "E5": {"role": "context only: not classified",
+               "reason": "no released fixed-gamma chain exists, so no reference conditional on D can be formed; the paper's unconditional, rounded values are context",
+               "paper_context_unconditional": {"0.5": -14.61, "0.05": -14.73, "0.95": -14.50},
+               "reported": "our HD log10_A at gamma = 13/3 (reweighted from the fixed-gamma CURN run), conditional on D, with MCSE"},
+        "E6": {"role": "headline", **e6, "m": 0.30, "max_se": 0.10,
+               "max_our_mcse": acc.max_our_mcse(0.30, e6["mcse_ref"]),
+               "headline_rule": bool(acc.Z90 * e6["mcse_ref"] <= 0.30 / 2),
+               "estimate": "ours: ln B_D = ln mean(w I_D) - ln mean(I_D) over our CURN draws (ptagwb.reweight.raw_bf with mask)",
+               "se": "paired OBM MCSE (max with the block bootstrap) and the spread of our estimators in quadrature",
+               "classification": "ptagwb.acceptance.classify_e6_from_frozen: Sec. 6.1 rule with SE_D = sqrt(SE_ours^2 + mcse_ref^2), m = 0.30; SE_ours > 0.10 -> INCONCLUSIVE",
+               "context_not_target": {"published_lnBF_unrestricted": float(np.log(60.0)), "EPTA_re_estimates": "56-66",
+                                      "note": "the published BF is unrestricted and computed by EPTA's own methods; it is reported as context, never classified against"},
+               "descriptive": "ln B_full - ln B_D = ln(1 - p_CURN) - ln(1 - p_HD) with the U fractions of both sample sets; no coverage claim"},
         "reweighting": {"estimator": "raw only, weights w 1[D]", "khat_max": 0.5, "khat_scope": "pooled and every chain",
                         "max_mcse_lnbf": 0.10, "stability_p_min": 0.01, "max_chain_weight_share": 0.5},
         "convergence": {"rhat_max": 1.01, "ess_min_all": 400, "ess_min_targets": 1000, "divergences": 0,

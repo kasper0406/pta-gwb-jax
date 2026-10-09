@@ -87,17 +87,26 @@ def discontinuity_margin(t0_days: np.ndarray, toas_s: np.ndarray, delta_days: np
     return float(np.min(gaps))
 
 
-def discriminate(primary: FingerprintResult, alternatives: dict) -> dict:
+REQUIRED_ALTERNATIVES = ("common_modes_8", "common_modes_10")
+REQUIRED_MODELS = ("crn_pl", "hd_pl")
+
+
+def discriminate(primary: FingerprintResult, alternatives: dict,
+                 required: tuple = REQUIRED_ALTERNATIVES) -> dict:
+    """Resolved only if the primary passes and every *required* alternative was evaluated and fails
+    with chi2 >= 100 (an empty or incomplete alternatives set is never resolved)."""
     alt = {k: {"chi2": v.chi2, "fails_decisively": bool(v.chi2 >= CHI2_ALTERNATIVE_FAIL)} for k, v in alternatives.items()}
-    return {"primary_pass": primary.passed, "alternatives": alt,
-            "resolved": bool(primary.passed and all(a["fails_decisively"] for a in alt.values()))}
+    complete = bool(alt) and set(required) <= set(alt)
+    return {"primary_pass": primary.passed, "alternatives": alt, "complete": complete,
+            "resolved": bool(primary.passed and complete and all(a["fails_decisively"] for a in alt.values()))}
 
 
-def overall_pass(models: dict, c_diff_consistent) -> bool:
-    """Top-level fingerprint verdict: every model passes (scatter within budget and the t0 margin),
-    its grid discrimination is resolved, and c_HD - c_CURN is consistent with the oracle
-    prediction. A missing or non-boolean predicate fails (closed)."""
-    if not models or c_diff_consistent is not True:
+def overall_pass(models: dict, c_diff_consistent, required_models: tuple = REQUIRED_MODELS) -> bool:
+    """Top-level fingerprint verdict: the model inventory is exactly ``required_models`` (CURN and
+    HD), every model passes (scatter within budget and the t0 margin), its grid discrimination is
+    resolved, and c_HD - c_CURN is consistent with the oracle prediction. A missing model or a
+    missing / non-boolean predicate fails (closed)."""
+    if set(models) != set(required_models) or c_diff_consistent is not True:
         return False
     for v in models.values():
         if v.get("pass") is not True or v.get("t0_margin_ok") is not True:

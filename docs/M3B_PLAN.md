@@ -143,7 +143,9 @@ set and D4:
   them), with no deviation from committed configs: if the pilot suggests a config change, work
   stops and is reported.
 
-**Proposed deferral (M3b-0E, 2026-10-09; for review, not yet approved).** Two M3b-0E items of
+**Deferral (M3b-0E, 2026-10-09): approved by the reviewer in round 2 (`review_m3b0_r2.out`) with
+the before-pilot deadline; both items were then completed in M3b-0E (docs/M3B0_VALIDATION.md
+Sec. 7.4, 7.5), so the milestone table below is unchanged in substance.** Two M3b-0E items of
 Sec. 7 were not completed in M3b-0E (review of 2ee1bb7, item 7):
 * **EPTA T2** (engine sensitivity: conditional posteriors with fixed released noise on grids, tempo2
   vs PINT evaluator for every leg that loads in PINT, the E8-named legs swapped one at a time);
@@ -952,7 +954,17 @@ Reference MCSEs from Appendix A. "Decidable" = 1.645 MCSE_ref < m.
 | E-5 | HD (gamma = 13/3) log10 A q50, q05, q95 | -14.61 / -14.73 / -14.50 (paper, rounded, slice method unknown) | not available | 0.035 / 0.03 / 0.03 | - | classified with SE_D = MCSE_ours plus a reference rounding term of 0.005 (half the last digit), labelled "reference uncertainty incomplete" | secondary |
 | E-6 | ln BF(HD/CURN) | ln 60 = 4.094 | - (see below) | 0.30 | - | yes | headline |
 
-**E-6 rule.**
+**E-6 rule (revised 2026-10-09 after review round 2 of M3b-0E; supersedes the paragraph below).**
+With the common domain D (Sec. 6.6), E-6 compares our ln B_D = ln[Z_HD(D)/Z_CURN(D)] with a
+*same-domain* reference: ln B_D of the released chains, obtained by reweighting the released CURN
+draws (every 5th retained draw, chain order kept) to HD with the pinned fork likelihoods,
+ln B_D,ref = 4.2245 +- 0.0371 (paired OBM MCSE). Classification: the Sec. 6.1 rule with
+SE_D = sqrt(SE_ours^2 + MCSE_ref^2), m = 0.30; SE_ours > 0.10 gives INCONCLUSIVE. The published
+ln 60 = 4.094 (unrestricted, EPTA's own BF methods) and the re-estimates 56-66 are **context
+only**, never classification targets. **E-5** (gamma = 13/3) is context only: there is no
+released fixed-gamma chain, so no reference conditional on D exists; our value is reported.
+
+**E-6 rule (original, superseded).**
 * Reference treatment: the published 60 is a point target with no calibrated SE. EPTA's other
   estimates (56-66, i.e. ln 4.03-4.19) are context, and the 0.30-nat margin is ~3.75x their
   half-range.
@@ -1114,7 +1126,7 @@ reviewers, same VERDICT rule). REQUEST_CHANGES blocks the dependent milestones o
 
 | sub-milestone | content | depends on | GPU (projection) | review | decisions |
 |---|---|---|---|---|---|
-| **M3b-0E** EPTA infrastructure (CPU + one benchmark, D3) | fork audit + EPTA manifest; tempo2 export + T1 (complete EPTA roster, released vs canonical); prior-volume and fingerprint checks; N1 (EPTA), N3, N7, N8, N9, N11, N13; event-epoch kernel validation; conditional-occupancy diagnostics on the reference chains (supporting only, Sec. 5.3); G5-EPTA incl. cross-model; reference loaders; EPTA acceptance/relevance files; EPTA T2 (CPU grids); benchmark | - | <= 1 (D3: one benchmark) | R-M3b-0E | D1, D2, D3, D6 |
+| **M3b-0E** EPTA infrastructure (CPU + one benchmark, D3) | fork audit + EPTA manifest; tempo2 export + T1 (complete EPTA roster, released vs canonical); prior-volume and fingerprint checks; N1 (EPTA), N3, N7, N8, N9, N11, N13; event-epoch kernel validation; conditional-occupancy diagnostics on the reference chains (supporting only, Sec. 5.3); G5-EPTA incl. cross-model; reference loaders; EPTA acceptance/relevance files; EPTA T2 (CPU grids) and the conditional-occupancy diagnostics (both completed before the pilot, round-2 review); per-run projection; budget ledger and run driver (D4); benchmark | - | <= 1 (D3: one benchmark) | R-M3b-0E | D1, D2, D3, D6 |
 | **M3b-EPTA** | E-C0 (CPU); pilot (<= 2 GPU-h, abort rules); proposals frozen; production CURN^gamma and CURN 13/3; HD^gamma and HD 13/3 by reweighting (HD run only if Sec. 5.4 fails); BF; E-7 optional | M3b-0E | 6-100 (2 pilot + two runs at 3-50 each, central ~12) | R-M3b-EPTA | D4, D8 |
 | **M3b-0P** PPTA infrastructure (CPU) | extensions version / image; grid resolution by fingerprint; PPTA manifest (resolve the -0.003872-nat residual; product-space logging convention); N1 (PPTA), N4, N5, N14; T1 (PPTA roster); P-C0 tooling; product-space reference bootstrap | M3b-0E tooling | <= 0.5 (grids + fingerprint) | R-M3b-0P | - |
 | **M3b-PPTA-C** | P-C0; band-overlap sensitivity | M3b-0P | < 0.5 | R-M3b-PPTA-C | D5 |

@@ -128,11 +128,34 @@ def classify_e6(lnbf_ours: float, se: float, target: float = float(np.log(60.0))
 
 
 def classify_from_frozen(entry: Mapping, q_ours: float, mcse_ours: float) -> Classification:
-    """Classify one quantity against a frozen acceptance entry. Required fields: q_ref, mcse_ref,
-    m (GateInputError otherwise)."""
-    require_fields(entry, ("q_ref", "mcse_ref", "m"))
-    return classify(q_ours - float(entry["q_ref"]), mcse_ours, float(entry["mcse_ref"]),
-                    float(entry["m"]))
+    """Classify one quantity against a frozen acceptance entry. Acceptance files v2+ hold the
+    conditional reference on the common domain D (``q_ref_D``, ``mcse_ref_D``, ``m``); v1 rows
+    (``q_ref``, ``mcse_ref``, ``m``) are still read. A row carrying both, neither, or a
+    non-finite value raises GateInputError (fail closed)."""
+    v2 = "q_ref_D" in entry or "mcse_ref_D" in entry
+    keys = ("q_ref_D", "mcse_ref_D", "m") if v2 else ("q_ref", "mcse_ref", "m")
+    require_fields(entry, keys)
+    if v2 and ("q_ref" in entry or "mcse_ref" in entry):
+        raise GateInputError("acceptance row mixes conditional (v2) and unconditional (v1) references")
+    vals = [float(entry[k]) for k in keys]
+    if not all(np.isfinite(vals)) or not np.isfinite(q_ours) or not np.isfinite(mcse_ours):
+        raise GateInputError(f"non-finite input in {keys} / ours")
+    return classify(q_ours - vals[0], mcse_ours, vals[1], vals[2])
+
+
+def classify_e6_from_frozen(entry: Mapping, lnb_d_ours: float, se_ours: float) -> Classification:
+    """E-6 against the frozen same-domain reference (acceptance v3): ln B_D of the released chains
+    with its MCSE. SE_ours > max_se (or non-finite) -> INCONCLUSIVE (ours-limited); otherwise the
+    Sec. 6.1 rule with SE_D = sqrt(SE_ours^2 + MCSE_ref^2)."""
+    require_fields(entry, ("reference_lnB_D", "mcse_ref", "m", "max_se"), "E6 entry")
+    ref, mref, m, mx = (float(entry[k]) for k in ("reference_lnB_D", "mcse_ref", "m", "max_se"))
+    if not all(np.isfinite([ref, mref, m, mx, lnb_d_ours])):
+        raise GateInputError("non-finite E-6 input")
+    d = lnb_d_ours - ref
+    if not np.isfinite(se_ours) or se_ours > mx:
+        return Classification(INCONCLUSIVE, d, float(se_ours), (d - Z90 * se_ours, d + Z90 * se_ours), m,
+                              "ours-limited")
+    return classify(d, se_ours, mref, m)
 
 
 # ----------------------------------------------------------------------------------------------
@@ -450,6 +473,8 @@ def event_interval_indicators(t0_chains, intervals: Sequence[tuple[float, float]
 
 
 def _region_excludes(x: np.ndarray, ex: Mapping) -> np.ndarray:
+    if not (np.all(np.isfinite(ex["boundaries"])) and ex["boundaries"][0] < ex["boundaries"][1]):
+        raise GateInputError(f"exclusion {ex.get('name')}: non-finite or unordered boundaries")
     """True where x lies in the excluded region of one exclusion entry:
     ``type="shelf"``: lo <= x <= hi (closed, the 1-dex shelf); ``type="outside"``: x not in the
     kept half-open interval [lo, hi) (the dip-epoch "rest" region)."""
@@ -475,8 +500,11 @@ def d9_exclusions(acceptance: Mapping) -> list[Mapping]:
     for i, r in enumerate(regs):
         require_fields(r, ("name", "type", "boundaries", "params", "reference_cases"), f"d9.exclusions[{i}]")
         require_fields(r["params"], models, f"d9.exclusions[{i}].params")
-        if r["type"] not in ("shelf", "outside") or len(r["boundaries"]) != 2:
+        b = r["boundaries"]
+        if r["type"] not in ("shelf", "outside") or len(b) != 2:
             raise GateInputError(f"d9.exclusions[{i}]: bad type/boundaries")
+        if not all(isinstance(v, (int, float)) and not isinstance(v, bool) and np.isfinite(v) for v in b) or not b[0] < b[1]:
+            raise GateInputError(f"d9.exclusions[{i}]: boundaries {b!r} must be finite and ordered (lo < hi)")
     return regs
 
 
