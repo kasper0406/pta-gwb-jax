@@ -45,15 +45,20 @@ RES = REPO_ROOT / "data" / "processed" / "m3b" / "epta" / "results"
 ACC = REPO_ROOT / "configs" / "m3b" / "acceptance_epta.json"
 
 
+PRECONDITIONS = {"t1.json": "T1_pass", "prior_volume.json": "pass", "fingerprint.json": "pass",
+                 "g5_pta.json": "G5_PTA_pass", "t0_conditional.json": "pass"}
+
+
 def preconditions() -> dict:
-    need = {"t1.json": "T1_pass", "prior_volume.json": "pass", "fingerprint.json": "pass", "g5_pta.json": "G5_PTA_pass"}
-    st = {}
-    for f, k in need.items():
-        p = RES / f
-        st[f] = bool(p.exists() and json.loads(p.read_text()).get(k))
-    if not all(st.values()):
-        sys.exit(f"D3: exact-model checks not all passed: {st}")
-    return st
+    """Every exact-model gate passed *for the current configuration*: each result file's recorded
+    binding (hashes of source, configs, runtime and exported inputs) must equal the current one
+    (``ptagwb.binding``; fails closed on stale or missing evidence)."""
+    from ptagwb.binding import StaleEvidenceError, require_bound
+
+    try:
+        return require_bound(PRECONDITIONS, RES)
+    except StaleEvidenceError as e:
+        sys.exit(f"D3: precondition not met: {e}")
 
 
 def timeit(f, *args, n=30):

@@ -23,6 +23,7 @@ from pathlib import Path
 
 import numpy as np
 
+from ptagwb.binding import evidence_binding
 from ptagwb.config import RAW_DIR, REPO_ROOT
 from ptagwb import epta
 
@@ -268,6 +269,7 @@ def main():
     pv = prior_volume_check(man)
     out = REPO_ROOT / "data" / "processed" / "m3b" / "epta" / "results"
     out.mkdir(parents=True, exist_ok=True)
+    pv["binding"] = evidence_binding()
     (out / "prior_volume.json").write_text(json.dumps(pv, indent=1))
     print(json.dumps(pv, indent=1))
 

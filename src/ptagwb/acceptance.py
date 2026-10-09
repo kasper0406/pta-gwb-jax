@@ -531,7 +531,9 @@ def epsilon_m(p_star_lo90: Iterable[float], grid: Sequence[float] = D9_P_GRID) -
     """Largest grid value <= min over the model's headline quantities of the lower 90 % bound of
     p*; None (class unavailable) if that minimum is below the smallest grid value (0.001) or no
     quantities are given."""
-    vals = list(p_star_lo90)
+    vals = [float(v) for v in p_star_lo90]
+    if not all(np.isfinite(v) for v in vals):
+        raise GateInputError(f"epsilon_m: non-finite p* bound in {vals}")
     if not vals:
         return None
     lim = min(vals)
@@ -591,7 +593,9 @@ class D9Result:
 def d9_eligibility(regions: Mapping[str, tuple[Occupancy, Occupancy]],
                    other_gate_items: Mapping[str, str],
                    headline: Mapping[str, tuple[str, bool]],
-                   epsilon_by_model: Mapping[str, float | None]) -> D9Result:
+                   epsilon_by_model: Mapping[str, float | None], *,
+                   required_models: Sequence[str],
+                   required_checks: Sequence[str]) -> D9Result:
     """D9 eligibility (Sec. 6.6 items 2-3).
 
     regions: every listed region of U -> (reference occupancy, our occupancy) of retained draws.
@@ -601,11 +605,22 @@ def d9_eligibility(regions: Mapping[str, tuple[Occupancy, Occupancy]],
     other_gate_items: every other applicable check -> status; all must be PASS.
     headline: quantity -> (Sec. 6.1 status, decidable); every decidable one must be EQUIVALENT.
     epsilon_by_model: model -> epsilon_m (None = unavailable); availability needs all >= 0.001.
+    required_models / required_checks: the complete inventories; a missing model or check, or a
+    non-finite epsilon, raises GateInputError (fail closed).
     """
     if not regions:
         raise GateInputError("d9_eligibility: U lists no regions")
-    if not epsilon_by_model:
-        raise GateInputError("d9_eligibility: no epsilon_m given")
+    if not required_models or not required_checks:
+        raise GateInputError("d9_eligibility: the required model and check inventories must be given")
+    if set(epsilon_by_model) != set(required_models):
+        raise GateInputError(f"d9_eligibility: epsilon_m given for {sorted(epsilon_by_model)}, "
+                             f"required {sorted(required_models)}")
+    for mdl, e in epsilon_by_model.items():
+        if e is not None and not (isinstance(e, (int, float, np.floating)) and np.isfinite(e)):
+            raise GateInputError(f"d9_eligibility: epsilon_m[{mdl}] = {e!r} is not finite")
+    missing = sorted(set(required_checks) - set(other_gate_items))
+    if missing:
+        raise GateInputError(f"d9_eligibility: required checks not reported: {missing}")
     reasons, review = [], []
     for name, (r, o) in regions.items():
         rz, oz = r.case == "zero-visit", o.case == "zero-visit"

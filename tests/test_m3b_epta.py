@@ -170,7 +170,7 @@ def test_g5_pta():
     import m3b_g5
 
     out = m3b_g5.run()
-    assert out["G5_PTA_pass"], {k: out[k] for k in out if k.endswith(("_max", "_max_rel"))}
+    assert out["G5_PTA_pass"], {k: c["fails"] for k, c in out["configs"].items()}
 
 
 def test_acceptance_files_frozen(epta_data):

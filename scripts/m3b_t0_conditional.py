@@ -26,6 +26,7 @@ import numpy as np
 from ptagwb import acceptance as acc
 from ptagwb import combined as C
 from ptagwb import epta
+from ptagwb.binding import evidence_binding
 from ptagwb.config import REPO_ROOT
 from ptagwb.diagnostics import mcse_quantile
 from ptagwb.eventmh import T0Proposal, mh_t0
@@ -116,6 +117,7 @@ def main():
                                "unresolved_intervals": unres, "rows": rows, "pass": bool(max(zs) < 3.5 and abs(dfull - done) < 1e-6)})
         print(row, out["results"][-1]["z_max"], len(ints), unres, dfull - done, flush=True)
     out["pass"] = all(r["pass"] for r in out["results"])
+    out["binding"] = evidence_binding()
     RES.mkdir(parents=True, exist_ok=True)
     (RES / "t0_conditional.json").write_text(json.dumps(out, indent=1))
     print("PASS" if out["pass"] else "FAIL")

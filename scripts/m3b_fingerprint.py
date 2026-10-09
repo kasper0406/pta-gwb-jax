@@ -20,6 +20,7 @@ import numpy as np
 
 from ptagwb import epta
 from ptagwb import fingerprint as fp
+from ptagwb.binding import evidence_binding
 from ptagwb.config import REPO_ROOT
 
 BASE = REPO_ROOT / "data" / "processed" / "m3b" / "epta"
@@ -105,7 +106,8 @@ def run(n: int = 60, with_enterprise: bool = True) -> dict:
     res["c_diff_predicted"] = 0.0
     res["c_diff_budget"] = float(3.5 * se + 2 * fp.SIGMA_EVAL)
     res["c_diff_consistent"] = bool(abs(res["c_hd_minus_c_crn"]) <= res["c_diff_budget"])
-    res["pass"] = all(v["pass"] for v in res["models"].values())
+    res["pass"] = fp.overall_pass(res["models"], res["c_diff_consistent"])
+    res["binding"] = evidence_binding()
     (BASE / "results").mkdir(parents=True, exist_ok=True)
     (BASE / "results" / "fingerprint.json").write_text(json.dumps(res, indent=1))
     return res

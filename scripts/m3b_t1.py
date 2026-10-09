@@ -26,6 +26,7 @@ from pathlib import Path
 
 import numpy as np
 
+from ptagwb.binding import evidence_binding
 from ptagwb.config import REPO_ROOT
 from ptagwb.t1 import compare
 
@@ -91,7 +92,8 @@ def run(jobs: int = 8, reuse: bool = False) -> dict:
     gate = res["comparisons"]["ours_canonical_vs_enterprise_original"]
     canon = res["comparisons"]["enterprise_original_vs_enterprise_canonical"]
     res["roster_complete"] = gate["n_pulsars"] == 25 and gate["n_toas"] == 45428
-    res["T1_pass"] = bool(res["roster_complete"] and gate["n_pass"] == 25 and canon["n_pass"] == 25)
+    res["T1_pass"] = bool(res["roster_complete"] and all(c["n_pass"] == 25 for c in res["comparisons"].values()))
+    res["binding"] = evidence_binding()
     (BASE / "results").mkdir(parents=True, exist_ok=True)
     (BASE / "results" / "t1.json").write_text(json.dumps(res, indent=1, default=str))
     return res

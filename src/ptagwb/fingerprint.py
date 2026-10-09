@@ -91,3 +91,17 @@ def discriminate(primary: FingerprintResult, alternatives: dict) -> dict:
     alt = {k: {"chi2": v.chi2, "fails_decisively": bool(v.chi2 >= CHI2_ALTERNATIVE_FAIL)} for k, v in alternatives.items()}
     return {"primary_pass": primary.passed, "alternatives": alt,
             "resolved": bool(primary.passed and all(a["fails_decisively"] for a in alt.values()))}
+
+
+def overall_pass(models: dict, c_diff_consistent) -> bool:
+    """Top-level fingerprint verdict: every model passes (scatter within budget and the t0 margin),
+    its grid discrimination is resolved, and c_HD - c_CURN is consistent with the oracle
+    prediction. A missing or non-boolean predicate fails (closed)."""
+    if not models or c_diff_consistent is not True:
+        return False
+    for v in models.values():
+        if v.get("pass") is not True or v.get("t0_margin_ok") is not True:
+            return False
+        if (v.get("discrimination") or {}).get("resolved") is not True:
+            return False
+    return True

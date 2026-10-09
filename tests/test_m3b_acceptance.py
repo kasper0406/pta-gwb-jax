@@ -358,7 +358,8 @@ def test_d9_eligibility():
     gate = {"rhat_ess": PASS, "k_hat": PASS}
     head = {"E-1 q50": ("EQUIVALENT", True), "E-1 q05": (INCONCLUSIVE, False)}
     eps = {"CURN": 0.01, "HD": 0.001}
-    ok = d9_eligibility({"S1": (zero, zero), "S2": (zero, zero)}, gate, head, eps)
+    inv = {"required_models": ("CURN", "HD"), "required_checks": ("rhat_ess", "k_hat")}
+    ok = d9_eligibility({"S1": (zero, zero), "S2": (zero, zero)}, gate, head, eps, **inv)
     assert ok.eligible and ok.available and ok.claim == D9_CLASS
     assert ok.unconditional_verdict == INCONCLUSIVE and ok.template == D9_TEMPLATE
     assert "REPRODUCED" not in (ok.claim or "")
@@ -366,20 +367,39 @@ def test_d9_eligibility():
         dataclasses.replace(ok, unconditional_verdict=PASS)
     with pytest.raises(dataclasses.FrozenInstanceError):
         ok.unconditional_verdict = PASS
-    asym = d9_eligibility({"S1": (zero, visited)}, gate, head, eps)
+    asym = d9_eligibility({"S1": (zero, visited)}, gate, head, eps, **inv)
     assert not asym.eligible and asym.claim is None and asym.separate_review == ("S1",)
-    asym2 = d9_eligibility({"S1": (visited, zero)}, gate, head, eps)
+    asym2 = d9_eligibility({"S1": (visited, zero)}, gate, head, eps, **inv)
     assert not asym2.eligible and "S1" in asym2.separate_review
-    fe = d9_eligibility({"S1": (zero, few)}, gate, head, eps)
+    fe = d9_eligibility({"S1": (zero, few)}, gate, head, eps, **inv)
     assert not fe.eligible and "few-event" in fe.reasons[0]
-    both = d9_eligibility({"S1": (visited, visited)}, gate, head, eps)
+    both = d9_eligibility({"S1": (visited, visited)}, gate, head, eps, **inv)
     assert not both.eligible and not both.separate_review
-    g = d9_eligibility({"S1": (zero, zero)}, {**gate, "transport_gamma": FAIL}, head, eps)
+    g = d9_eligibility({"S1": (zero, zero)}, {**gate, "transport_gamma": FAIL}, head, eps, **inv)
     assert not g.eligible
-    h = d9_eligibility({"S1": (zero, zero)}, gate, {"E-1 q50": (INCONCLUSIVE, True)}, eps)
+    h = d9_eligibility({"S1": (zero, zero)}, gate, {"E-1 q50": (INCONCLUSIVE, True)}, eps, **inv)
     assert not h.eligible
-    e = d9_eligibility({"S1": (zero, zero)}, gate, head, {"CURN": 0.01, "HD": None})
+    e = d9_eligibility({"S1": (zero, zero)}, gate, head, {"CURN": 0.01, "HD": None}, **inv)
     assert e.eligible and not e.available and e.claim is None
     assert e.unconditional_verdict == INCONCLUSIVE
     with pytest.raises(GateInputError):
-        d9_eligibility({}, gate, head, eps)
+        d9_eligibility({}, gate, head, eps, **inv)
+
+
+def test_d9_eligibility_fails_closed_on_bad_inventories():
+    zero = occupancy([np.zeros(1000, bool)] * 4)
+    gate = {"rhat_ess": PASS, "k_hat": PASS}
+    head = {"E-1 q50": ("EQUIVALENT", True)}
+    inv = {"required_models": ("CURN", "HD"), "required_checks": ("rhat_ess", "k_hat")}
+    regs = {"S1": (zero, zero)}
+    for bad in (np.nan, float("inf"), -np.inf):  # NaN / non-finite epsilon (review of 2ee1bb7)
+        with pytest.raises(GateInputError):
+            d9_eligibility(regs, gate, head, {"CURN": 0.01, "HD": bad}, **inv)
+    with pytest.raises(GateInputError):  # a model missing from the inventory
+        d9_eligibility(regs, gate, head, {"HD": 0.01}, **inv)
+    with pytest.raises(GateInputError):  # an omitted check
+        d9_eligibility(regs, {"rhat_ess": PASS}, head, {"CURN": 0.01, "HD": 0.01}, **inv)
+    with pytest.raises(GateInputError):  # no inventories
+        d9_eligibility(regs, gate, head, {"CURN": 0.01, "HD": 0.01}, required_models=(), required_checks=())
+    with pytest.raises(GateInputError):
+        epsilon_m([0.05, np.nan])
