@@ -1022,6 +1022,12 @@ All other settings are unchanged.
 * **No gate needs rerunning.** All 8 gate results were rebound from 492e71f. Since then, only
   control-plane and run-plane files changed.
 * At "go", committing the v2 config, metric and proposals changes no gate binding.
+* **Strict suite at e0fba68** (CPU, `PTAGWB_REQUIRE_ORACLES=1`): **555 passed, 2 xfailed** (E7 and
+  E8), 0 failed, in 46 min. The 32 new tests cover the driver fields, artifact checks and tamper
+  rejections, stop rules, checkpoints, generator recipe and exact reproduction, release rules,
+  projection, scheme-3 isolation, and multi-step rebind. T1, the fingerprint and G5-PTA were
+  regenerated with fresh scheme-3 bindings. The other five carry verified migration histories
+  (1 -> 2 -> 3, or 2 -> 3). The dry-run passes.
 
 **At "go":**
 1. copy the staged metric and proposals to `configs/m3b/metrics/` and `configs/m3b/proposals/`, and
