@@ -81,6 +81,17 @@ region, so p_hi = 1. This applies to reference chains, our chains and event inte
 table states how UNRESOLVED propagates: it gives INCONCLUSIVE, never a silent pass or a hard fail
 (Sec. 5.3).
 
+**Revision 5 (after review of 0dcb5ff).**
+* The Rao-Blackwellised conditional-occupancy bound is withdrawn as a classifier and kept as a
+  supporting diagnostic. Only certified bounds (over all conditioning states, or a proven global
+  mixing bound) could resolve zero- or few-event regions, and none is planned.
+* An explicit precedence rule makes any UNRESOLVED occupancy, in the reference or in our run, for
+  amplitude regions or event intervals, give INCONCLUSIVE before the transport-FAIL rows are
+  evaluated.
+* INCONCLUSIVE blocks acceptance.
+* The consequence for EPTA (REPRODUCED unattainable while its 17 unvisited shelves stay
+  unresolved) is flagged as decision D9 (Sec. 5.3, 8).
+
 Notation follows M3_PLAN: **leg** = one PTA's par + tim of one pulsar; **K_a** = sampled GP columns
 of pulsar a; **N_c** = number of common-process frequencies; **[UNCERTAIN]** = not pinned down from
 papers or released files. "Reference chain" = the PTA's released posterior samples.
@@ -391,7 +402,7 @@ reweighted chain (Sec. 5.4).
 | N7 | Reweighting / BF tooling (Sec. 5.4): raw estimator with k-hat diagnostic, batch-means MCSE, weighted-quantile MCSE, per-chain stability, ordered block bootstrap | EPTA, PPTA | `ptagwb.evidence` | synthetic targets with known BF and quantiles, including correlated draws |
 | N8 | Stage-2 size buckets for K_a up to ~1,800 and a memory model | EPTA, PPTA | M3_PLAN L6 | padding invariance 1e-10 |
 | N9 | Per-parameter prior table from the manifest | EPTA, PPTA | `ModelSpec` | prior-volume check vs chain lnprior (Sec. 4.5) |
-| N10 | Hybrid kernel generalisation, the generalised fail-closed gate with the UNRESOLVED class, and Rao-Blackwellised conditional occupancy bounds (Sec. 5.3) | sampled runs | `ptagwb.hybrid`, `diagnostics` | invariance tests incl. negative controls |
+| N10 | Hybrid kernel generalisation, the generalised fail-closed gate with the UNRESOLVED class and precedence rule, and conditional-occupancy diagnostics (Sec. 5.3) | sampled runs | `ptagwb.hybrid`, `diagnostics` | invariance tests incl. negative controls |
 | N11 | Reference loaders, manifest and fingerprint tooling (Sec. 4.5) | EPTA, PPTA | `scripts/m3b_reference.py`, `scripts/m3b_fingerprint.py` | reproduces Appendix A |
 | N12 | Coefficient-Gibbs kernel: **unvalidated research**, only via D5 | PPTA-S | separate design note. Plain conditional updates of power-law hyperparameters mix poorly (van Haasteren & Vallisneri 2014, arXiv:1407.1838, Sec. VI.3); collapsed joint updates are needed | toys with PPTA-like overlapping weak processes, then agreement with NUTS on EPTA |
 | N13 | Masked NUTS (NUTS over the continuous coordinates, conditional on the MH-updated event epochs) composed with exact MH for t0 | EPTA, PPTA | Metropolis-within-Gibbs; NUTS caches refreshed after each MH update (as in `ptagwb.hybrid`) | small numerical reference (Sec. 5.1) |
@@ -635,10 +646,10 @@ PASS only if all of the following hold; otherwise FAIL or INCONCLUSIVE.
          [p_lo, p_hi] is the Wilson score interval on n_eff = N / tau_R. tau_R comes from the
          indicator itself, never from the amplitude.
        * **Few-event case.** Some visits, but fewer than 10 entries or exits. tau_R is not
-         estimable, so the interval is **UNRESOLVED** unless the conditional bound below applies.
-       * **Zero-visit case.** The interval is **UNRESOLVED**, unless an independently justified,
-         conservative bound on region entry exists. The amplitude's (or t0's) bulk ESS, split-half
-         agreement and similar within-region mixing diagnostics are **not** such a bound. Fast mixing
+         estimable, so the interval is **UNRESOLVED**.
+       * **Zero-visit case.** The interval is **UNRESOLVED**. The only exception is a *certified*
+         bound (below). The amplitude's (or t0's) bulk ESS, split-half agreement and similar
+         within-region mixing diagnostics are **not** such a bound. Fast mixing
          inside the peak says nothing about entries into an unvisited shelf. Example (from the
          review): a two-region chain with entry and exit probabilities 1e-5 / 9e-5 per draw has 10 %
          shelf mass and zero visits in 1,000 draws with probability 0.89. Revision 3's ESS-based
@@ -646,60 +657,72 @@ PASS only if all of the following hold; otherwise FAIL or INCONCLUSIVE.
        * **All-visit case.** Handled as the zero-visit case of the complementary region, so
          p_hi(R) = 1 always. R's support then follows from the complement's status, and is
          **UNRESOLVED** when the complement's is.
-     * **The admissible independent bound: Rao-Blackwellised conditional occupancy.** At each
-       retained draw x_i (thinned to >= 2,000 draws), compute the exact conditional probability
-       pi_i = P(x_R in R | all other parameters at x_i):
-       * 2-D quadrature over the block's (log10 A, gamma) for amplitudes;
-       * an exact piecewise sum over inter-TOA intervals for t0 (the likelihood is constant
-         between TOAs for fixed other parameters, up to the waveform's smooth dependence, which
-         is integrated numerically within each gap).
+     * **Certified bounds only.** An UNRESOLVED interval can be resolved without visits only by
+       a bound whose justification does not rest on empirical convergence diagnostics:
+       * a bound on P(R | y) that is certified over **all** conditioning states y in the prior box
+         (e.g. by rigorous global optimisation of the conditional with validated numerics); or
+       * a proven global mixing or error bound for the kernel used.
 
-       Both use our likelihood, validated by G5-PTA. For CURN only that pulsar's term is needed.
-       The series pi_i is observed at every draw whether or not R was visited. Its mean estimates
-       p(R) and its batch-means MCSE is estimable.
-       * The bound p_hi = mean(pi) + 2 MCSE is **admissible only if all of these hold**:
-         * the pi series has ESS >= 400;
-         * no single draw contributes > 5 % of sum(pi) (the FS_PILOT f_3 failure mode, where one
-           draw carried 99.9 %);
-         * the split-half means agree within 3 combined MCSEs;
-         * the conditioning parameters pass items 1-2.
-       * The lower bound is max(0, mean(pi) - 2 MCSE) under the same conditions.
-       * Otherwise the region stays **UNRESOLVED**.
-       * Cost (projection): <= 2,000 draws x ~10^3 grid points of single-pulsar likelihoods per
-         block. That is CPU or < 0.2 GPU-h per PTA, and runs on the reference chains (all
-         parameters are stored) and on ours.
+       Neither is available or planned in M3b, so in practice **zero- and few-event regions stay
+       UNRESOLVED**.
+     * **Rao-Blackwellised conditional occupancy is a supporting diagnostic only** (revision 4's
+       escape hatch is withdrawn). At >= 2,000 retained draws compute
+       pi_i = P(x_R in R | all other parameters at x_i):
+       * 2-D quadrature over (log10 A, gamma) for amplitudes;
+       * an exact piecewise sum over inter-TOA intervals for t0.
+
+       Report mean(pi), its batch-means MCSE, ESS, maximum single-draw contribution and split-half
+       agreement. These estimate p(R) only over the conditioning states the chains visited. The
+       review's analytic counterexample shows the risk: two slowly communicating basins of mass
+       0.9 / 0.1 with conditional occupancies ~1e-5 / 0.99 give a true mass of 0.099, while chains
+       confined to the first basin pass every one of these checks with an estimate of ~1e-5. The
+       diagnostic is reported, never used to classify support.
+       * Cost (projection): CPU or < 0.2 GPU-h per PTA.
      * **Support classes** (from the resolved interval): **material** if p_lo >= 0.01; **absent**
        if p_hi < 0.01; **ambiguous** otherwise; **UNRESOLVED** as above.
-     * **Gate decision per (parameter, region pair)**, combining the reference and our run:
+     * **Gate decision per (parameter, region pair)**, combining the reference and our run, evaluated
+       **in this order**:
+       1. **Precedence rule.** If *any* occupancy interval entering the decision is UNRESOLVED
+          (reference or ours, for either region of an amplitude pair or any event interval), the
+          status is **INCONCLUSIVE**. The rows below are not evaluated, so an unresolved occupancy
+          can never produce FAIL or PASS.
+       2. Otherwise, with all intervals resolved:
 
-       | reference support | our run | transport status |
+       | reference support | our run (all intervals resolved) | transport status |
        |---|---|---|
        | both regions material | bidirectional transport (>= 10 entries and >= 10 exits pooled, >= 2 chains, longest sojourn <= 50 %, occupancy MCSE <= 0.01) and interval overlap with the reference | PASS |
-       | both material | transport missing, or intervals disjoint | FAIL |
-       | one region absent | our interval for that region resolved, overlaps the reference's, and p_hi,ours < 0.02 | PASS |
-       | one region absent | our interval resolved and disjoint from the reference's, or p_lo,ours >= 0.02 | FAIL |
-       | one region absent | our interval UNRESOLVED | INCONCLUSIVE |
-       | ambiguous | bidirectional transport in our run and interval overlap | PASS |
+       | both material | transport criteria not met, or intervals disjoint | FAIL |
+       | one region absent | our interval for that region overlaps the reference's and p_hi,ours < 0.02 | PASS |
+       | one region absent | our interval disjoint from the reference's, or p_lo,ours >= 0.02 | FAIL |
+       | ambiguous | bidirectional transport and interval overlap | PASS |
        | ambiguous | otherwise | INCONCLUSIVE |
-       | UNRESOLVED | our run shows bidirectional transport (so our interval is resolved) | convergence PASS for that parameter; agreement on that occupancy "reference-unresolved" (reported, not gating) |
-       | UNRESOLVED | our interval also UNRESOLVED | INCONCLUSIVE |
 
-       An UNRESOLVED status therefore never passes silently and never hard-fails. It makes the run
-       **INCONCLUSIVE** unless our own chain resolves the region by transport or by an admissible
-       conditional bound.
-     * **Gate aggregation:** the run's convergence gate is FAIL if any item is FAIL, INCONCLUSIVE
-       if any is INCONCLUSIVE (and none FAIL), and PASS only if all pass. An INCONCLUSIVE gate
-       makes the PTA verdict INCONCLUSIVE (Sec. 6.1). Remedies, in order: compute the conditional
-       bounds; run longer; then targeted jump proposals for the unresolved block. Tolerances are
-       not changed.
-     * Examples: 17 EPTA CURN-chain amplitudes have zero shelf visits after burn-in, so their
-       reference shelf support is UNRESOLVED until the conditional bounds are computed (M3b-0E).
-       PPTA's free-gamma common amplitude (reference minimum -16.27) is likewise UNRESOLVED,
-       not "absent", until bounded.
+       Because of the precedence rule, an UNRESOLVED occupancy never passes and never hard-fails.
+     * **Gate aggregation:**
+       * The run's convergence gate is FAIL if any item is FAIL; INCONCLUSIVE if any item is
+         INCONCLUSIVE and none FAIL; PASS only if all pass.
+       * **INCONCLUSIVE blocks acceptance exactly as FAIL does.** A PTA whose gate is INCONCLUSIVE
+         gets the verdict INCONCLUSIVE (Sec. 6.1), never REPRODUCED.
+       * Its agreement numbers are still computed and reported, labelled "not accepted: unresolved
+         regions <list>".
+       * Remedies: run longer, or add targeted jump proposals for the unresolved block. Tolerances
+         and classes are not changed.
+     * **Consequence (flagged for the user, D9).** Shelves the posterior genuinely does not visit
+       stay UNRESOLVED in both the reference and our chains, because no certified bound exists.
+       * 17 EPTA CURN-chain amplitudes have zero shelf visits after burn-in. PPTA's free-gamma
+         common amplitude has a reference minimum of -16.27.
+       * Under this rule EPTA (and PPTA-F) **cannot reach REPRODUCED** unless those shelves are
+         genuinely visited.
+       * The expected EPTA outcome is therefore INCONCLUSIVE with the unvisited regions listed,
+         even if every headline quantity is EQUIVALENT.
+       * Whether to define a separately labelled, reviewed claim class (e.g. "equivalent
+         conditional on negligible mass in the listed unvisited regions") is decision D9. It is
+         not adopted here.
    * **(b) Event epochs t0.** Intervals = the inter-TOA gaps that hold >= 1 % reference mass, plus
      one "rest of window" bin. Interval occupancies use exactly the construction and decision table
-     of (a): estimable from the interval indicator's own events, otherwise UNRESOLVED unless the
-     exact conditional bound over t0 is admissible; the all-visit case goes through the complement.
+     of (a), including the precedence rule: estimable from the interval indicator's own events,
+     otherwise UNRESOLVED (no certified bound is planned); the all-visit case goes through the
+     complement. The conditional t0 occupancy is a supporting diagnostic only.
      Every material interval must also be visited by >= 2 chains with occupancy MCSE <= 0.02. R-hat
      and ESS of t0 as in item 1.
    * **(c) Other parameters** (gamma, timescales, indices, n_earth, phases): items 1-2 only.
@@ -931,7 +954,7 @@ reviewers, same VERDICT rule). REQUEST_CHANGES blocks the dependent milestones o
 
 | sub-milestone | content | depends on | GPU (projection) | review | decisions |
 |---|---|---|---|---|---|
-| **M3b-0E** EPTA infrastructure (CPU + small benchmark) | fork audit + EPTA manifest; tempo2 export + T1 (complete EPTA roster, released vs canonical); prior-volume and fingerprint checks; N1 (EPTA), N3, N7, N8, N9, N11, N13; event-epoch kernel validation; Rao-Blackwellised conditional occupancy bounds on the reference chains (Sec. 5.3); G5-EPTA incl. cross-model; reference loaders; EPTA acceptance/relevance files; EPTA T2 (CPU grids); benchmark | - | <= 0.5 | R-M3b-0E | D1, D2, D3, D6 |
+| **M3b-0E** EPTA infrastructure (CPU + small benchmark) | fork audit + EPTA manifest; tempo2 export + T1 (complete EPTA roster, released vs canonical); prior-volume and fingerprint checks; N1 (EPTA), N3, N7, N8, N9, N11, N13; event-epoch kernel validation; conditional-occupancy diagnostics on the reference chains (supporting only, Sec. 5.3); G5-EPTA incl. cross-model; reference loaders; EPTA acceptance/relevance files; EPTA T2 (CPU grids); benchmark | - | <= 0.5 | R-M3b-0E | D1, D2, D3, D6 |
 | **M3b-EPTA** | E-C0 (CPU); pilot (<= 2 GPU-h, abort rules); proposals frozen; production CURN^gamma and CURN 13/3; HD^gamma and HD 13/3 by reweighting (HD run only if Sec. 5.4 fails); BF; E-7 optional | M3b-0E | 6-100 (2 pilot + two runs at 3-50 each, central ~12) | R-M3b-EPTA | D4, D8 |
 | **M3b-0P** PPTA infrastructure (CPU) | extensions version / image; grid resolution by fingerprint; PPTA manifest (resolve the -0.003872-nat residual; product-space logging convention); N1 (PPTA), N4, N5, N14; T1 (PPTA roster); P-C0 tooling; product-space reference bootstrap | M3b-0E tooling | <= 0.5 (grids + fingerprint) | R-M3b-0P | - |
 | **M3b-PPTA-C** | P-C0; band-overlap sensitivity | M3b-0P | < 0.5 | R-M3b-PPTA-C | D5 |
@@ -963,6 +986,7 @@ user.
 | D6 | Fetch and audit EPTA's modified enterprise + enterprise_extensions (EPTADR2-v1.1) | M3b-0E | **no full-reproduction claim for EPTA** (downgrade) | **[R]** mandatory for full reproduction; no inferred-prior fallback |
 | D7 | MPTA clock for the published-target comparison | M3b-0X | par BIPM2020 default, BIPM2022 variant | **[R]** prefer paper BIPM2022; keep native-par clocks as a sensitivity |
 | D8 | Any evidence ladder or HD run beyond the envelope | if Sec. 5.4 fails | INCONCLUSIVE | **[R]** keep the cap and the INCONCLUSIVE fallback; validate the evidence-path endpoints first |
+| D9 | Whether to define a separately labelled claim class for results that are EQUIVALENT on all headline quantities but INCONCLUSIVE only because of unvisited regions (Sec. 5.3); needs reviewer agreement | before EPTA results are reported | no such class: verdict INCONCLUSIVE | not reviewed (new in revision 5) |
 
 ---
 
@@ -1033,7 +1057,7 @@ The CURN amplitude reaches -17.97 and noise amplitudes reach -18.0.
 
 * HD-active fractions are 0.649 / 0.628, i.e. count ratios 1.85 / 1.69.
 * The free-gamma common amplitude's minimum is -16.27 (zero shelf visits), so its reference shelf
-  support is UNRESOLVED (Sec. 5.3) until a conditional bound is computed.
+  support is UNRESOLVED (Sec. 5.3).
 * **Prior-volume column:** freegam -467.6058, fixgam -465.1003. The difference is
   2.5055 = ln(49/4): gamma width 7 and amplitude width 7 vs amplitude width 4, which confirms the
   fixed-gamma U(-18, -14).
