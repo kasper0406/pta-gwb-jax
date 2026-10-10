@@ -158,6 +158,24 @@ diagnostic is supporting only; neither affects the exact-model checks (T1, manif
 G5-PTA) on which D3/D4 rest. Its cost (a one-pulsar 2-D quadrature per amplitude and draw) is
 CPU-only. If the reviewer rejects the deferral, both are completed in M3b-0E before D4 is released.
 
+**User decision, 2026-10-10: M3b closed; M3b-EPTA stops here.**
+* **Why.** The EPTA DR2new model is reproduced at the likelihood level:
+  * priors are identical (prior volume reproduced on every chain row, mean 1e-9 nats);
+  * T1 inputs are bit-identical;
+  * absolute lnL equals the EPTA fork's to 5e-10 nats at the released draws;
+  * the 9-mode grid fingerprint passes, and the alternatives are discriminated.
+
+  A sampling run would only re-derive the published numbers. Under the frozen rules, the best
+  attainable claim was CONDITIONALLY EQUIVALENT ON THE COMMON DOMAIN D; the unconditional verdict
+  would have stayed INCONCLUSIVE.
+* **Not run.**
+  * Production sampling.
+  * Pilot v2: prepared and technically approved. The reference-derived tuning aids (proposed
+    revision of Sec. 5.2) are **declined**, and the v2 config and tuning artifacts are not
+    committed. The generator code and tests are kept.
+  * Pilot v1 used 0.483 GPU-h and stopped in warmup (docs/M3B0_VALIDATION.md Sec. 9a).
+* **Not started.** PPTA, MPTA, InPTA (Stage 1) and M3c.
+
 Notation follows M3_PLAN: **leg** = one PTA's par + tim of one pulsar; **K_a** = sampled GP columns
 of pulsar a; **N_c** = number of common-process frequencies; **[UNCERTAIN]** = not pinned down from
 papers or released files. "Reference chain" = the PTA's released posterior samples.
@@ -692,13 +710,13 @@ epoch is smooth). **Validation** of the composed kernel:
 * Committed configs, recorded SHA and pre-set abort rules: stop at 1.5x the allocation.
 * Jump proposals: 20 % prior + 80 % equal-mass histogram, fitted from **our** pilot draws only,
   frozen with sha256 before production.
-* **PROPOSED revision (2026-10-09; pending the user's approval; review of pilot v1).**
+* **PROPOSED revision (2026-10-09; review of pilot v1): DECLINED by the user on 2026-10-10 (M3b closed).**
   * The EPTA pilot v2 would use a fixed dense metric and block proposals (20 % prior + 80 %
     equal-mass histogram) **fitted from the released CURN chain**.
   * These are disclosed efficiency aids: exact Hastings ratios, independent starts, and every
     production gate retained (docs/M3B0_VALIDATION.md Sec. 9b).
   * The computation would then no longer be reference-blind.
-  * Not in force until approved.
+  * Not in force.
 
 ### 5.3 Pre-registered convergence gate (fail-closed)
 

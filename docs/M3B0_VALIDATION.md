@@ -5,9 +5,8 @@ This document reports the EPTA part of milestone M3b-0 of [`M3B_PLAN.md`](M3B_PL
 2026-10-09 are recorded in it (4ab41dd). PPTA, MPTA and InPTA infrastructure is out of scope here
 and blocks nothing (plan Sec. 7).
 
-**Status.** CPU work plus the single D3 GPU benchmark only. **No EPTA production or pilot sampling
-has been run.** The pilot waits for the independent review of this revision and the
-coordinator's confirmation.
+**Status (final, 2026-10-10): M3b closed by the user's decision (Sec. 11).** No EPTA production
+sampling was run. Pilot v1 stopped in warmup (Sec. 9a). Pilot v2 was prepared but not run (Sec. 9b).
 
 **Revision 5 (after review round 4 of 2f55e24, both round-3 items verified fixed; two more MAJOR
 cap leaks; `review_m3b0_r4.out`).**
@@ -931,7 +930,7 @@ purpose.
 `epta_pilot_curn_g433_v1` (0.5 GPU-h, 150 warmup transitions) has the same structure and was
 **not started**. No config was changed.
 
-## 9b. EPTA pilot v2: prepared, NOT run (draft pending the user's approval)
+## 9b. EPTA pilot v2: prepared, not run (reference tuning declined by the user, 2026-10-10)
 
 Astra reviewed pilot v1 (`review_epta_pilot1.out`): the stop was correct. v1 sampled with an
 **identity inverse mass matrix**: NumPyro's first dense update comes after transition 100. The
@@ -1099,3 +1098,41 @@ Engineering notes:
 11. `.gitignore` ignores every `runs/` directory, so the run configs live in
     `configs/m3b/run_configs/`. The ledger is in `data/processed/m3b/epta/runs/`; the GPU lock is
     `~/.cache/ptagwb/gpu0.lock`.
+
+## 11. Final status (2026-10-10)
+
+**The user closed M3b.** The EPTA model is reproduced at the likelihood level, so a sampling run
+would only re-derive the published numbers (decision recorded in `M3B_PLAN.md`).
+
+**Validated** (all results bound to the code that produced them, strict suite green):
+* **Manifest and prior volume.** A version-pinned model manifest, with the prior volume reproduced
+  on every row of both released chains (mean 1e-9 nats). Sec. 3, 4.
+* **T1.** Every consumed array is bit-identical to the canonical exports across the complete
+  roster. Sec. 5.
+* **Fingerprint.** PASS (chi2/dof 0.074 / 0.063). The 9-mode common process is discriminated
+  against the alternatives. Absolute lnL equals the EPTA fork's to 5e-10 nats at the released
+  draws. Sec. 6.
+* **G5-PTA.** PASS on all 24 points, in the padded and bucketed production configurations. Sec. 6.
+* **Runtime-pin sensitivity.** Measured with paired MCSE: the reproduction holds under the pinned
+  chain runtime and is runtime-sensitive. Sec. 3, 7.
+* **T2.** Engine shifts ≤0.003 σ68 (immaterial). Sec. 7.
+* **Conditional-occupancy diagnostics.** Every region in U ≤3e-3. Supporting only. Sec. 7.
+* **Infrastructure** (built and tested, not used for production):
+  * the frozen acceptance and relevance files with the conditional path;
+  * the mechanical GPU-time cap, with supervisor kill, monotonic charging and checked
+    parent-death registration;
+  * the verified evidence binding.
+
+**Pilots.**
+* **v1:** 0.483 GPU-h; stopped in warmup. It ran with an identity metric (no dense update before
+  transition 100), at about 7 s per chain-transition.
+* **v2:** prepared and technically approved, with a fixed reference-derived metric and frozen
+  block proposals. Not run, by the user's decision. The reference-tuned aids are declined, so the
+  v2 config and tuning artifacts are not committed. The generator, driver plumbing and report code
+  are kept with their tests.
+
+**GPU used against the 12 GPU-h cap:** 0.21 (D3 benchmark) + 0.483 (pilot v1) = **0.693 GPU-h**.
+
+**Open gates:** E7 and E8 (M3a; `xfail(strict=True)`).
+
+**Not started:** EPTA production, PPTA / MPTA / InPTA (Stage 1), M3c.
