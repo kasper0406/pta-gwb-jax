@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Run the EPTA fork oracle env's python (scripts/setup_epta_fork_env.sh): EPTA's enterprise
+# (EPTADR2-v1.1) + enterprise_extensions (051173f) on tempo2 2026.04.1 / libstempo 2.5.1.
+#   EF_ENV=/other/prefix scripts/eptapy ...
+set -euo pipefail
+EF_ENV="${EF_ENV:-$HOME/.local/opt/epta-fork-env}"
+if [[ ! -x "$EF_ENV/bin/python" ]]; then
+  echo "eptapy: $EF_ENV/bin/python not found; run scripts/setup_epta_fork_env.sh first" >&2
+  exit 1
+fi
+export TEMPO2="${TEMPO2_OVERRIDE:-$EF_ENV/share/tempo2}"
+export PATH="$EF_ENV/bin:$PATH"
+unset PYTHONPATH PYTHONHOME VIRTUAL_ENV
+export PYTHONNOUSERSITE=1
+exec "$EF_ENV/bin/python" "$@"

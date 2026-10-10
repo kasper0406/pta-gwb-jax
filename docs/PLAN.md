@@ -130,6 +130,18 @@ likelihood agrees with both to below 4e-7 absolute (`docs/M1_VALIDATION.md`).
 
 ## 3. Milestones
 
+**Final status (2026-10-10): project closed.**
+* **M0, M1:** done.
+* **M2:** largely done. HD^free (Fig. 1a) is partially reproduced; the BF uncertainty is
+  provisional.
+* **M3a:** E1-E6 met; E7 and E8 open.
+* **M3b:** the EPTA DR2new model is reproduced at the likelihood level. M3b was closed by the user
+  without production sampling; GPU used 0.693 of the 12 GPU-h cap. PPTA, MPTA, InPTA and M3c are
+  not started.
+
+See README "Project status" and `docs/M3B0_VALIDATION.md` Sec. 11. Upstream contributions:
+google/XNNPACK#11596, jax-ml/jax#41414, nanograv/PINT#2046-2049.
+
 - **M0 (done)**: environment (JAX CUDA 13 on the RTX 5090, float64 OK), data fetched with
   checksums, PINT loads all 68 (+8 split) pulsars, plan.
 - **M1 (done, 2026-10-06; covers the original M1-M3 below)**: PINT ingestion and cache,

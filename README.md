@@ -14,7 +14,38 @@ with our own JAX analysis pipeline on a single GPU.
   `discovery` sit in an optional dependency group. Tests use them to cross-check
   likelihood values. They are never imported by `src/ptagwb`.
 
-Status: **M1 (deterministic pipeline and likelihood) done; M2 (sampling, Bayes factors,
+## Project status (final, 2026-10-10)
+
+The project is closed. Summary by milestone:
+
+- **M1 (done).** PINT ingestion into a hashed cache, fixed white noise, Fourier bases, ORFs, and
+  JAX float64 CURN / HD likelihoods with gradients. They match discovery and enterprise to below
+  4e-7 absolute, and the released chains ([`docs/M1_VALIDATION.md`](docs/M1_VALIDATION.md)).
+- **M2 (largely done).** NumPyro NUTS, Bayes-factor estimators and the optimal statistic.
+  - The power-law posteriors, the HD vs CURN Bayes factor (bridge ~180) and the OS match the paper
+    and the released products. The BF uncertainty is provisional.
+  - **HD free spectrum: Fig. 1a partially reproduced.** Principal peak locations agree; tail
+    occupancies and full convergence remain unestablished.
+  - No run is fully convergence-certified ([`docs/M2_RESULTS.md`](docs/M2_RESULTS.md),
+    [`docs/FS_PILOT.md`](docs/FS_PILOT.md)).
+- **M3a (five-PTA groundwork).** A multi-leg container, physics-preserving ingestion and a general
+  likelihood. E1-E6 are met; **E7 and E8 are open**, with root causes identified
+  ([`docs/M3A_VALIDATION.md`](docs/M3A_VALIDATION.md)).
+- **M3b (EPTA DR2new; closed by the user's decision).** The EPTA model is reproduced at the
+  likelihood level:
+  - identical priors (to 1e-9 nats) and bit-identical T1 inputs;
+  - absolute lnL equal to the EPTA fork's to 5e-10 nats at the released draws;
+  - the 9-mode grid fingerprint and G5-PTA pass; T2 is immaterial.
+
+  Production sampling was not run: it would only re-derive the published numbers, and the best
+  attainable claim under the frozen rules was CONDITIONALLY EQUIVALENT. One pilot stopped in
+  warmup. GPU used: 0.693 of the 12 GPU-h cap. PPTA, MPTA, InPTA and M3c are not started
+  ([`docs/M3B0_VALIDATION.md`](docs/M3B0_VALIDATION.md), [`docs/M3B_PLAN.md`](docs/M3B_PLAN.md)).
+
+**Upstream contributions:** google/XNNPACK#11596, jax-ml/jax#41414, nanograv/PINT#2046, #2047,
+#2048, #2049.
+
+Detailed M1/M2 status: **M1 (deterministic pipeline and likelihood) done; M2 (sampling, Bayes factors,
 optimal statistic) largely done; HD free spectrum: Fig. 1a partially reproduced: principal peak locations agree; tail occupancies and full posterior convergence remain unestablished** (campaign closed 2026-10-08 with
 unconverged chains; see [`docs/FS_PILOT.md`](docs/FS_PILOT.md) for the pilots, the fail-closed gate, the exact hybrid
 sampler and lessons for M3). M1 covers the PINT
